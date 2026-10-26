@@ -104,8 +104,14 @@ Needs Node 22.9 or newer. There are no dependencies to install.
 npm test          # the offline checks, no key and no network needed
 npm run prove:dry # show the exact request that would be sent; sends nothing
 npm run records   # read the record file back
-npm run status    # is the Meta Model API address reachable? needs no key
+npm run status    # every plug: wiring, and whether its address answers; no key needed
 ```
+
+`status` reports every plug — its address, where its model comes from, whether its
+key is present, and whether it can be called yet — then probes reachability
+**only** where the plug names a key-free health address. Meta does, at
+`/v1/status`. For a plug with none, it says so instead of guessing at a URL:
+those addresses are proven by a real call, not by this command.
 
 To make a real call, put a Meta Model API key in `MODEL_API_KEY`. Copy
 `.env.example` to `.env` and fill it in — the npm scripts read `.env`

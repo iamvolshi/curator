@@ -21,7 +21,9 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       Read what has been recorded.
 
   node bin/overseer.js status
-      Check the Meta Model API address is reachable. Needs no key.
+      Every plug: how it is wired, and whether its address answers. Needs no
+      key. Reachability is only probed where a plug names a key-free health
+      address; the rest say so rather than guessing at one.
 
   node bin/overseer.js help
       This text.
