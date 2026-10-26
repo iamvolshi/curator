@@ -1,0 +1,18 @@
+{
+  "name": "overseer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Overseer — the K-record accountability layer for agent calls. Outcome 1: wrapper, record store, Muse Spark call path.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.9.0"
+  },
+  "scripts": {
+    "prove": "node --env-file-if-exists=.env bin/overseer.js prove",
+    "prove:dry": "node --env-file-if-exists=.env bin/overseer.js prove --dry-run",
+    "records": "node --env-file-if-exists=.env bin/overseer.js records",
+    "status": "node --env-file-if-exists=.env bin/overseer.js status",
+    "test": "node --test"
+  }
+}

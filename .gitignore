@@ -1,0 +1,12 @@
+# The real key lives here and must never be committed. See .env.example.
+.env
+.env.local
+
+# Local tooling marker for this workspace.
+.freebuff/
+
+# Node
+node_modules/
+
+# Logs
+*.log

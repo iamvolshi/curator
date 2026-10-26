@@ -1,0 +1,116 @@
+# Overseer
+
+The K-record accountability layer for agent calls. This repository is the floor
+for the Overseer: the piece that sits between an agent and a model, sees every
+call, and writes down what happened.
+
+This is **Outcome 1** of the build plan. It delivers four things and no more:
+
+1. The repository itself.
+2. A scaffold that runs without hand-patching.
+3. One real Muse Spark call through the Meta Model API.
+4. One `fact` entry written to the record and read back with its label intact.
+
+Items 1 and 2 are done. Items 3 and 4 need a Meta Model API key — see
+[Running it](#running-it).
+
+## What is here
+
+Four small parts, one idea each.
+
+| Folder | What it is |
+| --- | --- |
+| `wrapper/` | The one path a worker call goes through. Because it is the only path, it sees every call and every result by construction, and it writes exactly one record entry per attempt. |
+| `record/` | The append-only record store. Entries are added, never edited or removed. Each entry carries what happened, when, and a label. |
+| `worker/` | The call path to the Meta Model API (Muse Spark). "Worker" here means this module: the thing that makes the model call. It uses only `fetch`, so it runs unchanged in Node or in a Worker runtime. |
+| `cli/`, `bin/` | The command line that ties the three together. |
+
+### The two labels
+
+Every entry is labelled, so a reader always knows what kind of statement they
+are looking at:
+
+- **`fact`** — something observed. A call went out and this is what came back.
+- **`judgment`** — an assessment someone made about an observation.
+
+This outcome builds and uses the **`fact`** path only. `judgment` is declared so
+the shape is fixed from the start, but nothing here writes one yet.
+
+### What a `fact` entry looks like
+
+One entry per line, in `records/k-record.jsonl`:
+
+```json
+{"seq":1,"when":"2026-10-26T17:04:11.482Z","label":"fact","what":{"kind":"worker-call","worker":"meta-model-api","endpoint":"POST https://api.meta.ai/v1/chat/completions","model":"muse-spark-1.3","prompt":"Reply with the single word: ready","ok":true,"response":"ready","finishReason":"stop","usage":{"prompt_tokens":12,"completion_tokens":3,"total_tokens":15},"durationMs":842,"error":null,"warnings":[],"noCallMade":false}}
+```
+
+A call that fails is recorded just as faithfully. A call that fails and is not
+written down is exactly the hole this layer exists to close.
+
+## Running it
+
+Needs Node 22.9 or newer. There are no dependencies to install.
+
+```bash
+npm test          # the offline checks, no key and no network needed
+npm run prove:dry # show the exact request that would be sent; sends nothing
+npm run records   # read the record file back
+npm run status    # is the Meta Model API address reachable? needs no key
+```
+
+To make a real call, put a Meta Model API key in `MODEL_API_KEY`. Copy
+`.env.example` to `.env` and fill it in — the npm scripts read `.env`
+automatically, and `.env` is ignored by git.
+
+```bash
+npm run prove
+```
+
+`prove` makes **one** call, then reads the entry back **from the file** and
+checks what is stored against what happened: one entry written, label `fact`,
+timestamp, prompt, model, reply. It exits non-zero if anything does not match,
+and it makes no call at all when there is no key. Add `--prompt "..."` to send
+your own prompt instead of the default short one.
+
+Exit codes: `0` everything held · `3` no key, so nothing was attempted ·
+`4` the call did not work · `5` the call worked but a stored item did not match.
+
+## The model
+
+`muse-spark-1.3`. Meta's own documentation uses that model in its examples, so
+it is the documented default, and it is set in one place:
+[`worker/config.js`](worker/config.js). No model choice is settled in this
+outcome — whichever model actually runs is written into every entry, taken from
+what the API reports back, so the choice stays visible instead of assumed.
+Override it with `MODEL_ID`.
+
+## Telling failures apart
+
+The three kinds of failure that get confused with each other have different
+fixes, so they are named separately rather than lumped into "it didn't work":
+the key was rejected (`auth`), the account cannot be charged (`billing`), or the
+address or connection is wrong (`endpoint`). Only rate limits and server
+failures are marked worth retrying unchanged — a non-streaming gateway timeout
+is explicitly **not**, because the same request will usually time out again.
+Anything not recognised stays `unknown` rather than being filed under a guess.
+
+The mapping follows Meta's published error reference, listed below.
+
+## Known limits
+
+- The record store computes an entry's position (`seq`) by counting the lines
+  already there. Fine at this scale — one line per call — and worth replacing
+  with an index when records get long.
+- Stored text is not truncated. A model reply is kept whole, and deliberately
+  not printed in full by the read-back.
+- One process at a time. There is no lock on the record file.
+- Nothing here talks to a network except `worker/` and the `status` command.
+
+## Where the API facts came from
+
+Read on 26 October 2026, so the next person does not have to re-derive them:
+
+- API reference, base URL and auth — <https://dev.meta.ai/docs/api-reference>
+- Chat Completions request and parameters — <https://dev.meta.ai/docs/protocols/chat-completions>
+- Models and the `muse-spark-1.3` default — <https://dev.meta.ai/docs/models>
+- Error types, status codes and retry guidance — <https://dev.meta.ai/docs/error-handling>
