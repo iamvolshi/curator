@@ -11,12 +11,15 @@ This is **Outcome 1** of the build plan. It delivers four things and no more:
 3. One real Muse Spark call through the Meta Model API.
 4. One `fact` entry written to the record and read back with its label intact.
 
-Items 1 and 2 are done. Items 3 and 4 need a Meta Model API key — see
-[Running it](#running-it).
+All four are done. The live call was made on 26 October 2026 — see
+[Which plugs are proven](#which-plugs-are-proven).
 
 **Outcome 2** adds the provider seam: one function every model call goes through,
 three plugs behind it, and a fixed routing table. See
 [Where model calls go](#where-model-calls-go).
+
+**Outcome 3** makes the first live run: the `meta` plug is called for real, and
+the `fact` entry it produced is read back from the file.
 
 ## What is here
 
@@ -46,7 +49,7 @@ the shape is fixed from the start, but nothing here writes one yet.
 One entry per line, in `records/k-record.jsonl`:
 
 ```json
-{"seq":1,"when":"2026-10-26T17:04:11.482Z","label":"fact","what":{"kind":"worker-call","worker":"meta-model-api","endpoint":"POST https://api.meta.ai/v1/chat/completions","model":"muse-spark-1.3","prompt":"Reply with the single word: ready","ok":true,"response":"ready","finishReason":"stop","usage":{"prompt_tokens":12,"completion_tokens":3,"total_tokens":15},"durationMs":842,"error":null,"warnings":[],"noCallMade":false}}
+{"seq":1,"when":"2026-10-26T23:12:32.281Z","label":"fact","what":{"kind":"worker-call","worker":"meta-model-api","endpoint":"POST https://api.meta.ai/v1/chat/completions","model":"muse-spark-1.3","prompt":"Reply with the single word: ready","ok":true,"response":"ready","finishReason":"stop","usage":{"completion_tokens":171,"prompt_tokens":15,"total_tokens":186,"completion_tokens_details":{"reasoning_tokens":161},"prompt_tokens_details":{"cached_tokens":0}},"durationMs":1443,"error":null,"warnings":[],"noCallMade":false}}
 ```
 
 A call that fails is recorded just as faithfully. A call that fails and is not
@@ -83,11 +86,12 @@ in `provider/plugs/picture.js` rather than papered over.
 
 ### Which plugs are proven
 
-None of the calls have been made yet, and the repo does not claim otherwise:
+`meta` has been called for real. The other three have not, and the repo does not
+claim otherwise:
 
 | Plug | Wired | Live call |
 | --- | --- | --- |
-| `meta` | yes | **blocked** on `MODEL_API_KEY` |
+| `meta` | yes | **proven** — `muse-spark-1.3` answered `"ready"` in 1443 ms (186 tokens), one `fact` entry at `seq` 1 |
 | `baseten` | yes | **blocked** on `BASETEN_API_KEY` and `BASETEN_MODEL` |
 | `openrouter` | yes | **blocked** on `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` |
 | `picture` | slot only | **blocked** on the provider and model pick, and on an image reply reader |
@@ -150,6 +154,11 @@ The mapping follows Meta's published error reference, listed below.
   not printed in full by the read-back.
 - One process at a time. There is no lock on the record file.
 - Nothing here talks to a network except `provider/transport.js`.
+- Only the `meta` plug has a prove command. `baseten` and `openrouter` have no
+  way to be live-proven yet, so one has to be built before either can be called
+  for real.
+- The record file is tracked in git, so a live call leaves one uncommitted line
+  in the working tree.
 - The picture slot has no reader for an image reply. Every plug here reads the
   chat-completions shape; an image answer (bytes or a URL) needs its own reader
   before that slot can run.
