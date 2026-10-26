@@ -7,6 +7,7 @@
 
 export const KINDS = [
   'missing-key',
+  'missing-config',
   'auth',
   'billing',
   'permission',
@@ -22,6 +23,7 @@ export const KINDS = [
 
 const FIXES = {
   'missing-key': `put a Meta Model API key in MODEL_API_KEY — there is one in the Model API dashboard`,
+  'missing-config': 'the plug is not ready to call yet: set the environment values named in the message, then try again',
   auth: 'the key was rejected: check it in the Model API dashboard, and check that MODEL_API_KEY holds the current value',
   billing: 'the account cannot be charged: check the balance and payment method in the Model API dashboard',
   permission: 'the key is real but not allowed to use this model or endpoint: check its access in the Model API dashboard',

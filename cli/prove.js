@@ -13,12 +13,12 @@ import { wrapCall } from '../wrapper/wrap.js';
 import {
   buildChatRequest,
   describeFailure,
-  describeKeyPresence,
   describeRequest,
   preflight,
   resolveModel,
   runWorkerCall,
 } from '../worker/index.js';
+import { describeKeyPresence, resolvePlug } from '../provider/index.js';
 import { heading, line, note, check } from './output.js';
 
 /** Short and ordinary on purpose: this proves the path, it is not a benchmark. */
@@ -32,7 +32,7 @@ export async function proveCommand({ args = [], env = process.env, fetchImpl = f
   heading('Overseer — one call through the wrapper');
   line('record file:', store.path);
   line('model:', resolveModel(null, env));
-  line('key:', describeKeyPresence(env));
+  line('key:', describeKeyPresence(resolvePlug('meta', env), env));
   line('prompt:', JSON.stringify(prompt));
 
   // A dry run shows the request that would go out. It makes no call and writes

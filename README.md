@@ -14,6 +14,10 @@ This is **Outcome 1** of the build plan. It delivers four things and no more:
 Items 1 and 2 are done. Items 3 and 4 need a Meta Model API key — see
 [Running it](#running-it).
 
+**Outcome 2** adds the provider seam: one function every model call goes through,
+three plugs behind it, and a fixed routing table. See
+[Where model calls go](#where-model-calls-go).
+
 ## What is here
 
 Four small parts, one idea each.
@@ -22,7 +26,8 @@ Four small parts, one idea each.
 | --- | --- |
 | `wrapper/` | The one path a worker call goes through. Because it is the only path, it sees every call and every result by construction, and it writes exactly one record entry per attempt. |
 | `record/` | The append-only record store. Entries are added, never edited or removed. Each entry carries what happened, when, and a label. |
-| `worker/` | The call path to the Meta Model API (Muse Spark). "Worker" here means this module: the thing that makes the model call. It uses only `fetch`, so it runs unchanged in Node or in a Worker runtime. |
+| `provider/` | The provider seam. Every model call goes through `provider.call(plug, …)`, and the only file that touches the network is `provider/transport.js`. Plugs describe one provider each: address, key variable, where the model comes from. |
+| `worker/` | The Worker agent's call path. It builds the Meta-shaped request and hands it to the seam — it is not a second way out. "Worker" here means this module: the thing that makes the model call. |
 | `cli/`, `bin/` | The command line that ties the three together. |
 
 ### The two labels
@@ -46,6 +51,46 @@ One entry per line, in `records/k-record.jsonl`:
 
 A call that fails is recorded just as faithfully. A call that fails and is not
 written down is exactly the hole this layer exists to close.
+
+## Where model calls go
+
+Every model call in this repo goes through one function,
+`provider.call(plug, { messages, model, … })`. There is no second way out: the
+only file that touches the network is `provider/transport.js`, and an offline
+check fails if any other file calls `fetch` or reaches for a plug directly.
+
+A **plug** is one provider, described the same way every time: a base URL, the
+name of the environment variable holding its key, where its model comes from, and
+a plain statement of where each of those values came from.
+
+| Plug | Serves | Address | Key variable | Model |
+| --- | --- | --- | --- | --- |
+| `meta` | the Worker agent | `https://api.meta.ai/v1` | `MODEL_API_KEY` | `muse-spark-1.3`, Meta's documented default |
+| `baseten` | the Overseer agent | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` | unset on purpose: `BASETEN_MODEL` is Darren's pick |
+| `openrouter` | interim development path, in no routing slot | `OPENROUTER_BASE_URL` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL`, none assumed |
+| `picture` | the picture kid | — | — | — |
+
+Routing is fixed in `provider/routing.js`: Worker → `meta`, Overseer → `baseten`,
+picture kid → `picture`. A slot names a plug, never a URL or a model, so nothing
+routes around the seam. `openrouter` is wired as a plug but sits in no slot.
+
+The `picture` slot is wired but **empty on purpose**. The open-weights image
+provider and its model are Darren's decision, so no address and no model are
+filled in, and the slot refuses to call rather than sending a request to a model
+nobody chose. It also has no reader for an image reply yet — the text plugs all
+answer in the chat-completions shape, which carries no image. Both gaps are named
+in `provider/plugs/picture.js` rather than papered over.
+
+### Which plugs are proven
+
+None of the calls have been made yet, and the repo does not claim otherwise:
+
+| Plug | Wired | Live call |
+| --- | --- | --- |
+| `meta` | yes | **blocked** on `MODEL_API_KEY` |
+| `baseten` | yes | **blocked** on `BASETEN_API_KEY` and `BASETEN_MODEL` |
+| `openrouter` | yes | **blocked** on `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` |
+| `picture` | slot only | **blocked** on the provider and model pick, and on an image reply reader |
 
 ## Running it
 
@@ -104,7 +149,10 @@ The mapping follows Meta's published error reference, listed below.
 - Stored text is not truncated. A model reply is kept whole, and deliberately
   not printed in full by the read-back.
 - One process at a time. There is no lock on the record file.
-- Nothing here talks to a network except `worker/` and the `status` command.
+- Nothing here talks to a network except `provider/transport.js`.
+- The picture slot has no reader for an image reply. Every plug here reads the
+  chat-completions shape; an image answer (bytes or a URL) needs its own reader
+  before that slot can run.
 
 ## Where the API facts came from
 

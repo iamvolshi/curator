@@ -1,20 +1,28 @@
-// One call to the Meta Model API.
+// One call to the Meta Model API — now a thin adapter over the provider seam.
 //
-// This function never throws. A failed call comes back as a result that says so,
-// because the wrapper has to be able to record a failure too — a call that blew
-// up is still something that happened, and losing it would be the exact hole
-// this project exists to close.
+// This module no longer talks to the network itself. It builds the Meta-shaped
+// request, hands it to provider.call('meta', ...), and maps the result back to
+// the shape the wrapper and the command line already expect. That is deliberate:
+// the worker keeps its own vocabulary (a prompt in, a reply out) while there is
+// exactly one way out of the process.
+//
+// Nothing about the Meta call changed in the move: same base URL, same key
+// variable, same model, same request body, same failure taxonomy, and a call
+// still never throws — a failure comes back as a result, because the wrapper has
+// to be able to record it.
 
 import {
   CHAT_COMPLETIONS_URL,
-  KEY_ENV_VAR,
   REQUEST_TIMEOUT_MS,
   WORKER_NAME,
   resolveModel,
 } from './config.js';
-import { classifyFailure, fixedFailure } from './errors.js';
-import { readKey } from './key.js';
+import { fixedFailure } from './errors.js';
 import { buildChatRequest } from './request.js';
+import { call as providerCall, preflight as plugPreflight } from '../provider/index.js';
+
+/** The plug the Worker agent routes to. */
+const WORKER_PLUG = 'meta';
 
 /**
  * Call Muse Spark once with a short prompt.
@@ -29,9 +37,12 @@ export async function runWorkerCall({
 } = {}) {
   const chosenModel = resolveModel(model, env);
   const warnings = [];
-  const { key, problem, warning } = readKey(env);
-  if (warning) warnings.push(warning);
-  if (problem) warnings.push(problem);
+
+  // Checked before the prompt is built, so a setup problem is reported as a setup
+  // problem rather than as a bad request.
+  const ready = plugPreflight(WORKER_PLUG, env);
+  if (ready.warning) warnings.push(ready.warning);
+  if (ready.problem) warnings.push(ready.problem);
 
   const base = {
     worker: WORKER_NAME,
@@ -46,11 +57,11 @@ export async function runWorkerCall({
 
   // Nothing was sent, so this is not a call failure — it is a setup problem,
   // and it is reported as one.
-  if (!key) {
+  if (!ready.ready) {
     return {
       ...base,
       ok: false,
-      error: fixedFailure('missing-key', problem),
+      error: fixedFailure('missing-key', ready.problem),
       noCallMade: true,
     };
   }
@@ -67,93 +78,32 @@ export async function runWorkerCall({
     };
   }
 
-  const startedAt = Date.now();
-  let response;
-  try {
-    response = await fetchImpl(CHAT_COMPLETIONS_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (err) {
-    const timedOut = err?.name === 'AbortError' || err?.code === 'ABORT_ERR';
-    return {
-      ...base,
-      durationMs: Date.now() - startedAt,
-      ok: false,
-      error: classifyFailure({
-        timedOut,
-        networkCode: timedOut ? null : err?.code ?? err?.name,
-        message: timedOut
-          ? `no answer within ${timeoutMs} ms`
-          : err?.message ?? String(err),
-      }),
-    };
-  }
-
-  const durationMs = Date.now() - startedAt;
-  const rawText = await response.text();
-
-  // Errors come back as an OpenAI-shaped envelope, but two documented cases do
-  // not: an unknown path returns 404 with an empty body, and a few 400s on the
-  // Files endpoints are plain text. So parsing is allowed to fail quietly.
-  let parsed = null;
-  try {
-    parsed = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    parsed = null;
-  }
-
-  if (!response.ok) {
-    const apiError = parsed?.error ?? null;
-    return {
-      ...base,
-      durationMs,
-      ok: false,
-      error: classifyFailure({
-        httpStatus: response.status,
-        apiType: apiError?.type,
-        apiCode: apiError?.code,
-        message: apiError?.message ?? (rawText || `HTTP ${response.status} with no body`),
-      }),
-    };
-  }
-
-  const choice = parsed?.choices?.[0] ?? null;
-  const text = choice?.message?.content ?? null;
-
-  if (typeof text !== 'string' || text.trim() === '') {
-    return {
-      ...base,
-      durationMs,
-      ok: false,
-      error: fixedFailure(
-        'bad-response',
-        'the call was answered, but there was no reply text in the response',
-        { httpStatus: response.status },
-      ),
-    };
-  }
+  const result = await providerCall(WORKER_PLUG, {
+    messages: body.messages,
+    model: body.model,
+    env,
+    fetchImpl,
+    timeoutMs,
+  });
 
   return {
     ...base,
-    durationMs,
-    // The model the API says it used, not the one that was asked for.
-    model: parsed?.model ?? chosenModel,
-    ok: true,
-    text,
-    finishReason: choice?.finish_reason ?? null,
-    usage: parsed?.usage ?? null,
-    error: null,
+    ok: result.ok === true,
+    model: result.model ?? chosenModel,
+    text: result.text ?? null,
+    finishReason: result.finishReason ?? null,
+    usage: result.usage ?? null,
+    durationMs: result.durationMs ?? 0,
+    error: result.error ?? null,
+    warnings: [...warnings, ...(result.warnings ?? [])],
+    // Kept absent on a call that was tried, exactly as before, so a reader is
+    // never told nothing was sent when something was.
+    ...(result.noCallMade ? { noCallMade: true } : {}),
   };
 }
 
 /** The setup problems worth catching before spending a call. */
 export function preflight(env = process.env) {
-  const { key, problem, warning } = readKey(env);
-  return { ready: Boolean(key), problem, warning, envVar: KEY_ENV_VAR };
+  const ready = plugPreflight(WORKER_PLUG, env);
+  return { ready: ready.ready, problem: ready.problem, warning: ready.warning, envVar: ready.envVar };
 }

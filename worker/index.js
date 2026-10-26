@@ -7,7 +7,6 @@
 export { runWorkerCall, preflight } from './client.js';
 export { classifyFailure, describeFailure, fixedFailure, KINDS } from './errors.js';
 export { buildChatRequest, describeRequest } from './request.js';
-export { describeKeyPresence, readKey } from './key.js';
 export {
   DEFAULT_MODEL,
   CHAT_COMPLETIONS_URL,
