@@ -157,6 +157,18 @@ function show(line) {
  * line is what turns that into a reason.
  */
 function firstDifference(name, blessed, rendered) {
+  // A checkout that rewrote the file's line endings is not a change to the page.
+  // Saying so is the difference between a one-line fix and an afternoon spent
+  // reading a diff where every line moved.
+  if (blessed.includes('\r\n') && !rendered.includes('\r\n')) {
+    return [
+      `the page for "${name}" was checked out with Windows line endings, so nothing can match it:`,
+      '  these files are compared byte for byte, so git has to check them out as stored.',
+      '  .gitattributes keeps that true (test/fixtures/*.html -text); get the file again with:',
+      '    rm test/fixtures/*.html && git checkout -- test/fixtures',
+    ].join('\n');
+  }
+
   const before = blessed.split('\n');
   const after = rendered.split('\n');
   const at = before.findIndex((line, i) => line !== after[i]);

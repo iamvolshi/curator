@@ -1,0 +1,5 @@
+# The blessed pages are compared byte for byte, so git must not rewrite their line
+# endings to suit the machine that checks them out. Without this, the same commit
+# is green on one machine and red on the next, and the failure looks like a
+# renderer change when nothing about the page moved.
+test/fixtures/*.html -text
