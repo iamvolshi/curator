@@ -41,15 +41,32 @@ async function appFiles() {
 // layer carry a testable fetch without being a call path.
 const FETCH_CALL = /(?:\bfetch|\bfetchImpl)\s*\(/;
 
-test('the transport is the only place that can reach the network', async () => {
+// The one file here that runs in a browser rather than in this process. It is text
+// that gets put into the page, so a fetch in it is not a second way out of the
+// app. That exemption is only safe while the file is inert, so the check after
+// this one holds it to exactly that.
+const CLIENT_FILE = 'record/browser.js';
+
+test('the transport is the only place in this process that can reach the network', async () => {
   const offenders = [];
 
   for (const file of await appFiles()) {
+    if (file === CLIENT_FILE) continue;
     const source = await readFile(join(ROOT, file), 'utf8');
     if (FETCH_CALL.test(source)) offenders.push(file);
   }
 
   assert.deepEqual(offenders, ['provider/transport.js']);
+});
+
+test('the browser file is inert: no imports, no node, no environment', async () => {
+  const source = await readFile(join(ROOT, CLIENT_FILE), 'utf8');
+
+  assert.equal(/^\s*import\s/m.test(source), false, 'it imports nothing, so it cannot pull in app code');
+  assert.equal(/\brequire\s*\(/.test(source), false, 'and requires nothing');
+  assert.equal(source.includes('node:'), false, 'and touches no node built-in');
+  assert.equal(source.includes('process.'), false, 'and reads no environment');
+  assert.equal(source.includes('<script'), true, 'it is the page script, which is the point');
 });
 
 test('no file outside provider/ reaches into a plug directly', async () => {

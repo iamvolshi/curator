@@ -7,7 +7,11 @@
 // exists to prevent — so it is a view, and it says so.
 //
 // No external font, image or script is referenced: the file opens anywhere, and
-// nothing on the page can quietly change after it was made.
+// nothing on the page can quietly change after it was made. The one piece of
+// browser code this page can carry — the live badge and its poller — lives in
+// ./browser.js, so it is clear that it runs in the page and not in this process.
+
+import { liveBadge, liveScript } from './browser.js';
 
 const ESCAPES = {
   '&': '&amp;',
@@ -239,6 +243,14 @@ const STYLE = `
   }
   .chip--fact { background: var(--fact); }
   .chip--judgment { background: var(--judgment); }
+  .live {
+    display: inline-flex; align-items: center; gap: .5rem;
+    margin: 0 0 1.3rem; padding: .26rem .62rem;
+    border: 1px solid var(--rule); border-radius: 999px;
+    font-size: .72rem; letter-spacing: .04em; color: var(--muted);
+  }
+  .live__dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--fact); }
+  .live--stopped .live__dot { background: var(--judgment); }
   .index { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; margin: 0 0 1.9rem; }
   .index__label {
     margin-right: .3rem;
@@ -335,7 +347,7 @@ const STYLE = `
  * @param {{source?: string, generatedAt?: string}} meta  where it came from, and when
  * @returns {string} a complete, self-contained HTML document
  */
-export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [] } = {}) {
+export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null } = {}) {
   const stats = measure(entries);
   const deck = [
     count(stats.total, 'call'),
@@ -362,7 +374,7 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
   <p class="eyebrow">The Overseer</p>
   <h1>A record of what actually happened</h1>
   <p class="deck"><strong>${esc(deck)}</strong> — ${esc(models)}</p>
-  <hr class="rule">
+${live ? liveBadge() : ''}  <hr class="rule">
 ${renderIndex(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
     <li><span class="chip chip--judgment">judgment</span> an assessment someone made about an observation</li>
@@ -379,7 +391,7 @@ ${body}
     This page is a view of the record, not a copy of it — regenerate it after every call.
   </p>
 </div>
-</body>
+${live ? liveScript(live.sig ?? '') : ''}</body>
 </html>
 `;
 }
