@@ -6,7 +6,14 @@
 //
 // Reading a folder back prints its entries in record order, each with its label
 // visible, because a fact, a judgment and a question must never read alike.
+//
+// Parked moves are shown here too. A move whose replies keep failing has no entry
+// of its own — a park is not a judgment — so without this the folders would read
+// as a complete picture of a subject while one of its moves had quietly stopped
+// being attempted. It is shown as waiting, never as judged.
 
+import { createLedger } from '../judge/attempts.js';
+import { parkedMoves } from '../judge/judge.js';
 import { folderNamed, foldersFrom, unfiledQuestions } from '../record/folders.js';
 import { renderEntry } from '../record/render.js';
 import { MAX_SHADE, describeShade, shadeFor } from '../record/shades.js';
@@ -41,9 +48,28 @@ function printUnfiled(unfiled) {
   note(`Unfiled questions: ${unfiled.length}. They belong to no folder by design: nothing was invented to hold them.`);
 }
 
-export async function foldersCommand({ args = [], store = createStore() } = {}) {
+/**
+ * The moves the judge has stopped attempting, printed so a reader meets them
+ * where they already look. Nothing is filed under a subject here: the entry that
+ * would hold it does not exist, and this view does not invent one.
+ */
+function printParked(parked) {
+  heading('Parked \u2014 still unjudged, not attempted');
+  for (const move of parked) {
+    const about = clip(move.prompt, 56);
+    note(`seq ${move.seq}${about ? ` \u2014 ${about}` : ''}`);
+    note(`  ${move.fails} failed attempts, the last one: ${move.reason}`);
+  }
+  note('');
+  note(
+    `Parked moves: ${parked.length}. They are still unjudged: nothing was written off, and --retry-parked tries them again.`,
+  );
+}
+
+export async function foldersCommand({ args = [], store = createStore(), ledger = createLedger() } = {}) {
   const entries = await store.readAll();
   const wanted = readOption(args, '--subject');
+  const parked = parkedMoves(entries, await ledger.readAll());
 
   if (wanted !== undefined) {
     const folder = folderNamed(entries, wanted);
@@ -63,6 +89,16 @@ export async function foldersCommand({ args = [], store = createStore() } = {}) 
     line('shade:', describeShade(shadeFor(entries, folder.name)));
     note('');
     note(folder.entries.map(renderEntry).join('\n\n'));
+
+    // Said inside the folder it belongs to, because this is where a reader looks
+    // for that subject: an entry that never landed is exactly what is missing.
+    const parkedHere = parked.filter((move) => move.subjects.includes(folder.name));
+    if (parkedHere.length > 0) note('');
+    for (const move of parkedHere) {
+      note(
+        `parked: seq ${move.seq} \u2014 ${move.fails} failed attempts, the last one: ${move.reason}; still unjudged, not judged.`,
+      );
+    }
     return 0;
   }
 
@@ -96,6 +132,13 @@ export async function foldersCommand({ args = [], store = createStore() } = {}) 
   // stop before showing them.
   if (unfiled.length > 0) {
     printUnfiled(unfiled);
+  }
+
+  // Same reasoning: a parked move whose reply kept failing can sit beside a
+  // record that names no subject, and it is still the thing a reader most needs
+  // to know about the queue.
+  if (parked.length > 0) {
+    printParked(parked);
   }
   return 0;
 }

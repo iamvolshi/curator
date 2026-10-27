@@ -17,7 +17,8 @@ import { join } from 'node:path';
 
 import { judgeCommand } from '../cli/judge.js';
 import { PARK_AFTER, createLedger, parkedFrom } from '../judge/attempts.js';
-import { judgeMoves, movesToJudge } from '../judge/judge.js';
+import { judgeMoves, movesToJudge, parkedMoves } from '../judge/judge.js';
+import { makeEntry } from '../record/entry.js';
 import { createStore } from '../record/store.js';
 import { wrapCall } from '../wrapper/wrap.js';
 
@@ -153,6 +154,41 @@ test('a missing or damaged ledger reads as no attempts, and never stops a run', 
 
     const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(SHOWN), attempts: ledger });
     assert.equal(result.written.judgments, 1, 'the run went ahead');
+  });
+});
+
+test('a parked move can be described for a reader, with the subject and the reason', async () => {
+  await withStores(async (store, ledger) => {
+    await observed(store, 'a move about Ada');
+    await ledger.noteFailure(1, 'unreadable');
+    await ledger.noteFailure(1, 'unreadable');
+    await ledger.noteFailure(1, 'unreadable');
+
+    const parked = parkedMoves(await store.readAll(), await ledger.readAll());
+
+    assert.deepEqual(parked.map((move) => move.seq), [1]);
+    assert.equal(parked[0].fails, PARK_AFTER);
+    assert.deepEqual(parked[0].subjects, ['Ada Okafor'], 'the reader is told which thread the move belongs to');
+    assert.equal(parked[0].prompt, 'a move about Ada', 'and which move it was');
+    assert.equal(parked[0].reason, 'the reply could not be read', 'the last failure is said in words');
+  });
+});
+
+test('a stale count never reports a move the record has since answered', async () => {
+  await withStores(async (store, ledger) => {
+    await observed(store, 'a move about Ada');
+    for (let run = 0; run < PARK_AFTER; run += 1) await ledger.noteFailure(1, 'call-failed');
+
+    // Judged by hand, as a run with --move could do, leaving the count behind.
+    await store.append(
+      makeEntry({ when: '2026-10-27T00:00:00.000Z', label: 'judgment', what: { kind: 'judgment', move: 1, subjects: ['Ada Okafor'], observation: 'observed' } }),
+    );
+
+    assert.deepEqual(
+      parkedMoves(await store.readAll(), await ledger.readAll()),
+      [],
+      'the record says the move is answered, so no view may say it is waiting',
+    );
   });
 });
 

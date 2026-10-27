@@ -109,6 +109,44 @@ export function moveBySeq(entries, seq) {
   return { move, problem: null };
 }
 
+/** How a failed attempt is said, in words, wherever a park is shown. */
+const FAIL_WORDS = {
+  'call-failed': 'the call did not work',
+  unreadable: 'the reply could not be read',
+};
+
+/**
+ * The moves the judge is currently skipping, with why — for views other than the
+ * judge's own output, which already reports them.
+ *
+ * A parked move is one whose replies have failed `parkAfter` times running. It is
+ * not judged, not written about, and still unjudged: parking is a cost bound, so
+ * every view has to say "not attempted" rather than leave it looking answered.
+ *
+ * The record decides what is still waiting, so the ledger is intersected with it:
+ * a seq that has since been judged is never reported as parked here, however stale
+ * the file is on disk. The record is the truth; the ledger only says what a run
+ * will skip.
+ */
+export function parkedMoves(entries, counts, parkAfter = PARK_AFTER) {
+  const waiting = new Set(movesToJudge(entries).map((entry) => entry.seq));
+
+  return parkedFrom(counts, parkAfter)
+    .filter((held) => waiting.has(held.seq))
+    .map((held) => {
+      const held0 = counts?.[held.seq] ?? {};
+      const move = entries.find((entry) => entry.seq === held.seq);
+      return {
+        seq: held.seq,
+        fails: held.fails,
+        prompt: move?.what?.prompt ?? '',
+        subjects: normalizeSubjectList(move?.what?.subjects),
+        reason: FAIL_WORDS[held0.lastState] ?? 'the last attempt produced no reply',
+        lastAt: held0.lastAt ?? null,
+      };
+    });
+}
+
 /**
  * Judge every move that has not been judged yet.
  *

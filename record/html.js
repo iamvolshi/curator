@@ -144,6 +144,39 @@ ${rows
 }
 
 /**
+ * The moves the judge has stopped attempting.
+ *
+ * A parked move has no entry of its own — a park is not a judgment — so a page
+ * built only from the record would show a subject as finished while one of its
+ * moves had quietly stopped being tried. It is shown as waiting, and the note
+ * says where the fact comes from: a count in a file beside the record, not an
+ * entry in it.
+ */
+function renderParked(parked) {
+  const rows = parked
+    .map(
+      (move) => `      <li class="parked__row">
+        <span class="parked__seq">${esc(move.seq)}</span>
+        <span class="parked__state">${esc(count(move.fails, 'failed attempt'))}</span>
+        <span class="parked__about">${esc(clip(move.prompt || 'a move with no prompt recorded'))}</span>
+        <span class="parked__subject">${esc(move.subjects?.length ? move.subjects.join(', ') : 'no subject')} \u00b7 ${esc(move.reason)}</span>
+      </li>`,
+    )
+    .join('\n');
+
+  return `  <section class="parked">
+    <h2>Parked \u2014 still unjudged, not attempted</h2>
+    <p class="parked__note">The judge's replies for these moves kept failing, so it stopped
+    spending calls on them. Nothing is decided about a move here: it is still unjudged, it is
+    not in the record as judged, and <code>--retry-parked</code> offers it again.</p>
+    <ul class="parked__list">
+${rows}
+    </ul>
+  </section>
+`;
+}
+
+/**
  * The kind of call, in a word.
  *
  * A proof that a plug answers and a piece of real work through that same plug
@@ -330,6 +363,26 @@ const STYLE = `
     font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--muted);
   }
+  .parked { margin: 0 0 2.2rem; }
+  .parked h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .parked__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .parked__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .parked__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .5rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .parked__seq {
+    min-width: 1.6rem;
+    font: 600 .95rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .parked__state { color: var(--judgment); font-weight: 600; }
+  .parked__about { color: var(--muted); }
+  .parked__subject { margin-left: auto; font-size: .78rem; color: var(--muted); }
   .entry {
     padding: 1.35rem 0 1.5rem;
     border-top: 1px solid var(--rule);
@@ -384,10 +437,10 @@ const STYLE = `
 /**
  * Render the whole page.
  * @param {Array} entries   the record as read from the file, oldest first
- * @param {{source?: string, generatedAt?: string}} meta  where it came from, and when
+ * @param {{source?: string, generatedAt?: string, parked?: Array}} meta  where it came from, when, and what is parked
  * @returns {string} a complete, self-contained HTML document
  */
-export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null } = {}) {
+export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [] } = {}) {
   const stats = measure(entries);
   // A question is a third kind of entry, so it gets its own count: a page that
   // folded questions into judgments would misreport what the record holds.
@@ -418,7 +471,7 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
   <h1>A record of what actually happened</h1>
   <p class="deck"><strong>${esc(deck)}</strong> — ${esc(models)}</p>
 ${live ? liveBadge() : ''}  <hr class="rule">
-${renderIndex(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}  <ul class="legend">
+${renderIndex(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}${parked.length ? renderParked(parked) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
     <li><span class="chip chip--judgment">judgment</span> the Overseer's assessment of an observed move, labelled as one</li>
     <li><span class="chip chip--question">question</span> an open question on a subject, sitting in its thread until the record answers it</li>

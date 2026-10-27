@@ -6,6 +6,8 @@
 
 import { isAbsolute, relative } from 'node:path';
 
+import { createLedger, resolveLedgerPath } from '../judge/attempts.js';
+import { parkedMoves } from '../judge/judge.js';
 import { resolveAll } from '../provider/index.js';
 import { renderPage } from '../record/html.js';
 
@@ -31,6 +33,23 @@ export function plugSummaries(env = process.env) {
   }));
 }
 
+/** Where the parked counts live, beside the record unless the environment moves it. */
+export function ledgerPathFor(env = process.env) {
+  return resolveLedgerPath(null, env);
+}
+
+/**
+ * The moves the judge has stopped attempting, read from the ledger beside the
+ * record. Both ways of looking at the page call this, so the static file and the
+ * live viewer cannot disagree about what is parked.
+ *
+ * A missing ledger is not an error: it means nothing has been parked.
+ */
+export async function parkedFor(entries, env = process.env) {
+  const ledger = createLedger(ledgerPathFor(env));
+  return parkedMoves(entries, await ledger.readAll());
+}
+
 /**
  * The whole page, from the entries handed in.
  * @param {Array} entries                 the record, oldest first
@@ -39,12 +58,14 @@ export function plugSummaries(env = process.env) {
  * @param {string} options.generatedAt    when they were read
  * @param {object} [options.env]          environment the plugs are resolved against
  * @param {{sig: string}} [options.live]  when set, the page watches the record and reloads itself
+ * @param {Array} [options.parked]        moves the judge is skipping, still unjudged
  */
-export function buildPage(entries, { source, generatedAt, env = process.env, live = null } = {}) {
+export function buildPage(entries, { source, generatedAt, env = process.env, live = null, parked = [] } = {}) {
   return renderPage(entries, {
     source: showablePath(source),
     generatedAt,
     plugs: plugSummaries(env),
     live,
+    parked,
   });
 }

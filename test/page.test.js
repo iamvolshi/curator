@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { pageCommand } from '../cli/page.js';
+import { PARK_AFTER, createLedger } from '../judge/attempts.js';
 import { renderPage } from '../record/html.js';
 import { createStore } from '../record/store.js';
 
@@ -252,6 +253,72 @@ test('with no plug information the page simply has no such section', () => {
   const html = renderPage([call(1)]);
 
   assert.equal(html.includes('Who has actually answered'), false);
+});
+
+// A parked move is not an entry, so a page built from the record alone would show
+// a move as still being tried when the judge had stopped spending calls on it.
+test('the page shows parked moves as waiting, and writes none of them into the record', () => {
+  const html = renderPage([call(1)], {
+    parked: [
+      {
+        seq: 1,
+        fails: 3,
+        prompt: '<b>say ready</b>',
+        subjects: ['Ada Okafor'],
+        reason: 'the call did not work',
+        lastAt: when,
+      },
+    ],
+  });
+
+  assert.match(html, /Parked \u2014 still unjudged, not attempted/);
+  assert.match(html, /3 failed attempts/);
+  assert.match(html, /the call did not work/);
+  assert.match(html, /Ada Okafor/, 'the reader is told which thread it belongs to');
+  assert.equal(html.includes('<b>say ready</b>'), false, 'a recorded prompt is still escaped here');
+  assert.match(html, /&lt;b&gt;say ready/);
+  assert.match(html, /1 call · 1 fact · 0 judgments · 0 questions/, 'a park is not counted as an entry');
+  // Scoped to the section: the legend at the foot legitimately names a judgment.
+  const section = html.split('<section class="parked">')[1].split('</section>')[0];
+  assert.doesNotMatch(section, /chip--judgment/, 'and is never dressed as a judgment');
+});
+
+test('with nothing parked the page has no parked section', () => {
+  assert.equal(renderPage([call(1)]).includes('Parked'), false);
+  assert.equal(renderPage([call(1)], { parked: [] }).includes('Parked'), false);
+});
+
+test('the command writes parked moves onto the page, and says it did', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-page-parked-'));
+  try {
+    const store = createStore(join(dir, 'records.jsonl'));
+    const out = join(dir, 'page.html');
+    const ledgerPath = join(dir, 'attempts.json');
+
+    await store.append(call(1));
+    const ledger = createLedger(ledgerPath);
+    for (let run = 0; run < PARK_AFTER; run += 1) await ledger.noteFailure(1, 'call-failed');
+
+    const printed = [];
+    const original = console.log;
+    console.log = (...args) => printed.push(args.map(String).join(' '));
+    let code;
+    try {
+      code = await pageCommand({ store, args: ['--out', out], now: () => new Date(when), env: { OVERSEER_LEDGER: ledgerPath } });
+    } finally {
+      console.log = original;
+    }
+
+    assert.equal(code, 0);
+    assert.match(printed.join('\n'), /parked:\s+1 move the judge is skipping/);
+
+    const html = await readFile(out, 'utf8');
+    assert.match(html, /Parked \u2014 still unjudged, not attempted/);
+    assert.match(html, /3 failed attempts/);
+    assert.equal((await store.readAll()).length, 1, 'writing the page does not add an entry');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('the command writes the page from the file, and the page names the file', async () => {

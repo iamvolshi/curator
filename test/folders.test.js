@@ -9,9 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { foldersCommand } from '../cli/folders.js';
+import { PARK_AFTER, createLedger } from '../judge/attempts.js';
 import { makeEntry } from '../record/entry.js';
 import { folderNamed, foldersFrom, normalizeSubjectList, subjectsOf, unfiledQuestions } from '../record/folders.js';
 import { createStore } from '../record/store.js';
@@ -200,6 +201,73 @@ test('with nothing unfiled there is no shelf, so an empty section is never print
       out.restore();
     }
     assert.doesNotMatch(out.text(), /Unfiled/);
+  });
+});
+
+// A parked move has no entry — a park is not a judgment — so the folders view is
+// the one place a reader would otherwise think a subject was fully accounted for.
+test('a parked move is shown in the listing as waiting, and adds nothing to the record', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+    const ledger = createLedger(join(dirname(store.path), 'attempts.json'));
+    for (let run = 0; run < PARK_AFTER; run += 1) await ledger.noteFailure(1, 'call-failed');
+
+    const out = capture();
+    let code;
+    try {
+      code = await foldersCommand({ args: [], store, ledger });
+    } finally {
+      out.restore();
+    }
+
+    const text = out.text();
+    assert.equal(code, 0);
+    assert.match(text, /Parked \u2014 still unjudged, not attempted/);
+    assert.match(text, /seq 1 \u2014 a move about Ada/);
+    assert.match(text, /3 failed attempts, the last one: the call did not work/);
+    assert.match(text, /still unjudged: nothing was written off/);
+    assert.match(text, /--retry-parked/);
+    assert.equal((await store.readAll()).length, 1, 'showing a park writes no entry');
+  });
+});
+
+test('a parked move is said inside the folder it is missing from', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+    await observed(store, 'a move about Lagos', ['Lagos']);
+    const ledger = createLedger(join(dirname(store.path), 'attempts.json'));
+    for (let run = 0; run < PARK_AFTER; run += 1) await ledger.noteFailure(1, 'unreadable');
+
+    const ada = capture();
+    try {
+      await foldersCommand({ args: ['--subject', 'Ada Okafor'], store, ledger });
+    } finally {
+      ada.restore();
+    }
+    assert.match(ada.text(), /parked: seq 1 \u2014 3 failed attempts, the last one: the reply could not be read; still unjudged, not judged/);
+
+    // A folder with nothing parked says nothing: the line is a fact, not a footer.
+    const lagos = capture();
+    try {
+      await foldersCommand({ args: ['--subject', 'Lagos'], store, ledger });
+    } finally {
+      lagos.restore();
+    }
+    assert.doesNotMatch(lagos.text(), /parked:/);
+  });
+});
+
+test('with nothing parked there is no parked section, so an empty one is never printed', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    const out = capture();
+    try {
+      await foldersCommand({ args: [], store, ledger: createLedger(join(dirname(store.path), 'attempts.json')) });
+    } finally {
+      out.restore();
+    }
+    assert.doesNotMatch(out.text(), /Parked/);
   });
 });
 
