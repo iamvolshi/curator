@@ -153,13 +153,71 @@ test('every fixed set of entries renders to exactly the page that was blessed', 
     const blessed = await goldenText({ dir: GOLDENS, extension: 'html', name: fixture.name, text: html, write: WRITE, script: SCRIPT });
 
     if (blessed !== null) {
-      assert.equal(html, blessed, firstDifference({ name: fixture.name, blessed, printed: html, noun: 'page', script: SCRIPT, glob: 'test/fixtures/*.html' }));
+      assert.equal(html, blessed, firstDifference({ name: fixture.name, blessed, printed: html, noun: 'page', script: SCRIPT, dir: GOLDENS, extension: 'html' }));
     }
     seen.push(fixture.name);
   }
 
   assert.equal(seen.length, FIXTURES.length, 'every fixture was rendered');
   if (WRITE) console.log(`blessed ${seen.length} pages: ${seen.join(', ')}`);
+});
+
+/**
+ * The numbers the page states about itself, read back off the page it printed.
+ *
+ * Read by pattern rather than by position, and every pattern has to match: a page
+ * that stops stating one of these numbers as a failure here, not as a quietly
+ * green check that compared nothing.
+ */
+function statedNumbers(name, html) {
+  const read = (pattern, what) => {
+    const found = html.match(pattern);
+    assert.ok(found, `"${name}" no longer states ${what} in the words this check reads`);
+    return found.slice(1).map(Number);
+  };
+
+  const [title] = read(/<title>[^<]*of (\d+) entr(?:y|ies)<\/title>/, 'the entry count in its title');
+  const [total, facts, judgments, questions] = read(
+    /<p class="deck"><strong>(\d+) entr(?:y|ies) \u00b7 (\d+) facts? \u00b7 (\d+) judgments? \u00b7 (\d+) questions?<\/strong>/,
+    'its entry counts',
+  );
+  // The foot wraps across lines in the document, so the separators are whitespace,
+  // not single spaces.
+  const [worked, notSent, withBody, tokens] = read(
+    /(\d+) calls? worked\s*\u00b7\s*(\d+) calls? never sent\s*\u00b7\s*(\d+) entr(?:y|ies) kept the request body\s*\u00b7\s*(\d+) tokens in total/,
+    'its call totals',
+  );
+
+  return { title, total, facts, judgments, questions, worked, notSent, withBody, tokens };
+}
+
+/** The same numbers, counted here from the entries the page was built from. */
+function counted(entries) {
+  const by = (predicate) => entries.filter(predicate).length;
+
+  return {
+    title: entries.length,
+    total: entries.length,
+    facts: by((entry) => entry.label === 'fact'),
+    judgments: by((entry) => entry.label === 'judgment'),
+    questions: by((entry) => entry.label === 'question'),
+    worked: by((entry) => entry.what?.ok === true),
+    notSent: by((entry) => entry.what?.noCallMade === true),
+    withBody: by((entry) => Boolean(entry.what?.request?.body)),
+    tokens: entries.reduce((sum, entry) => sum + (Number(entry.what?.usage?.total_tokens) || 0), 0),
+  };
+}
+
+test('every number a page states is the number the record holds', () => {
+  // The page states its own counts, and a count that disagrees with the entries it
+  // was built from is the page misreporting the record — the one thing this whole
+  // view exists not to do. Counted again here, apart from the renderer, because a
+  // blessed page only pins what it said; it cannot tell whether that was true.
+  // This is what found the headline calling a judgment a call.
+  for (const fixture of FIXTURES) {
+    const stated = statedNumbers(fixture.name, renderPage(fixture.entries, fixture.options));
+    assert.deepEqual(stated, counted(fixture.entries), `"${fixture.name}" states numbers its own record does not hold`);
+  }
 });
 
 test('the pinned pages are exactly the fixtures, with none left behind', async () => {

@@ -2,8 +2,9 @@
 //
 // This file decides only the order a run happens in: read the options, clear the
 // parking ledger when asked, read the record, resolve the plug, judge, report.
-// Every word it prints and every exit code it ends on belongs to ./judge-report.js,
-// so a change to how a park or a refusal reads lands in one place.
+// What the command line was asked for belongs to ./judge-options.js and every word
+// the run prints belongs to ./judge-report.js, so a change to how a park or a
+// refusal reads lands in one place.
 //
 // The judge writes entries, so a run reports what was written and, just as
 // importantly, what was not and why. Three things stop an entry being written for
@@ -21,12 +22,22 @@
 //
 // `--retry-parked` puts every parked move back in the running. It is also the
 // honest answer to a ledger that got out of step: the counts are disposable.
+//
+// Exit codes: 0 the run finished cleanly (including "nothing attempted: the rest is
+//               parked", because that is a bound doing its job, not a failure)
+//             2 the limit or the move number was not usable, or the named move is
+//               not one this record can judge
+//             3 the Overseer's plug is not ready, so nothing was attempted
+//             4 a model call did not work
+//             5 a reply was refused for its wording, or could not be read; nothing
+//               was written for that move, or a question was written in its place
 
 import { PARK_AFTER, createLedger } from '../judge/attempts.js';
 import { JUDGE_PLUG, judgeMoves } from '../judge/judge.js';
 import { createStore } from '../record/store.js';
 import { resolvePlug } from '../provider/index.js';
-import { readJudgeOptions, reportOptionProblem, reportRun, reportSetup } from './judge-report.js';
+import { readJudgeOptions, reportOptionProblem } from './judge-options.js';
+import { reportRun, reportSetup } from './judge-report.js';
 
 export async function judgeCommand({ args = [], env = process.env, fetchImpl = fetch, store = createStore(), ledger = createLedger(undefined, env) } = {}) {
   // Refused before anything is read or sent: a limit nobody can honour is a usage

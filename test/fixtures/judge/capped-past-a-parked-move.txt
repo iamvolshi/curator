@@ -1,0 +1,27 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 4
+model:       darrens-pick
+key:         set
+
+The moves
+---------
+capped:      judging 2 of 3 unjudged moves (--limit 2)
+The other 1 are still waiting, in record order.
+seq 1        judgment written  (the reply supports its claim)
+seq 2        judgment written  (the reply supports its claim)
+
+Parked — still unjudged, not attempted
+--------------------------------------
+seq 4        3 failed attempts, last one not recorded
+They are still in the record as unjudged, and nothing was written about them. --retry-parked tries them again.
+
+What the record gained
+----------------------
+judgments:   2
+questions:   0
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+result: clean

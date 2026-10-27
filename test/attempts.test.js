@@ -15,12 +15,12 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { observed as recordedCall, provider } from '../checks/fixtures.js';
 import { judgeCommand } from '../cli/judge.js';
 import { PARK_AFTER, createLedger, parkedFrom } from '../judge/attempts.js';
 import { judgeMoves, movesToJudge, parkedMoves } from '../judge/judge.js';
 import { makeEntry } from '../record/entry.js';
 import { createStore } from '../record/store.js';
-import { wrapCall } from '../wrapper/wrap.js';
 
 const BASETEN_ENV = { BASETEN_API_KEY: 'baseten-secret', BASETEN_MODEL: 'darrens-pick' };
 const SHOWN = JSON.stringify({ basis: 'shown', observation: 'the reply supports the claim about Ada', question: '' });
@@ -46,21 +46,8 @@ function capture() {
   };
 }
 
-function observed(store, prompt) {
-  return wrapCall({
-    call: async () => ({ ok: true, kind: 'worker-call', worker: 'meta-model-api', model: 'muse-spark-1.3', text: 'an answer' }),
-    prompt,
-    store,
-    subjects: ['Ada Okafor'],
-  });
-}
-
-function provider(content, seen = []) {
-  return async () => {
-    seen.push(1);
-    return { ok: true, status: 200, text: async () => JSON.stringify({ model: 'darrens-pick', choices: [{ message: { content } }] }) };
-  };
-}
+/** The moves in these checks are about Ada, so the subject is fixed here. */
+const observed = (store, prompt) => recordedCall(store, prompt, ['Ada Okafor']);
 
 function failing(seen = []) {
   return async () => {

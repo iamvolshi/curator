@@ -16,10 +16,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { observed, provider } from '../checks/fixtures.js';
 import { judgeCommand } from '../cli/judge.js';
 import { judgeMoves, movesToJudge } from '../judge/judge.js';
 import { createStore } from '../record/store.js';
-import { wrapCall } from '../wrapper/wrap.js';
 
 const BASETEN_ENV = { BASETEN_API_KEY: 'baseten-secret', BASETEN_MODEL: 'darrens-pick' };
 
@@ -44,28 +44,6 @@ function capture() {
   };
 }
 
-/** One observed move, recorded by the wrapper as always. */
-function observed(store, prompt, subjects = [], response = 'an answer') {
-  return wrapCall({
-    call: async () => ({ ok: true, kind: 'worker-call', worker: 'meta-model-api', model: 'muse-spark-1.3', text: response }),
-    prompt,
-    store,
-    subjects,
-  });
-}
-
-/** A provider that answers the judge with a fixed reply, and records every URL. */
-function provider(content, seen = []) {
-  return async (url, options) => {
-    seen.push({ url, auth: options?.headers?.Authorization });
-    return {
-      ok: true,
-      status: 200,
-      text: async () =>
-        JSON.stringify({ model: 'darrens-pick', choices: [{ message: { content } }] }),
-    };
-  };
-}
 
 const SHOWN = JSON.stringify({ basis: 'shown', observation: 'the reply supports the claim about Ada', question: '' });
 const NOT_SHOWN = JSON.stringify({ basis: 'not-shown', observation: '', question: 'what in the record supports this claim?' });

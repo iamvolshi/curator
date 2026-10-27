@@ -6,7 +6,7 @@
 // document that arranges them for one reason — a page grows sections, and the file
 // that assembles the page should not also have to hold every one of them.
 
-import { clip, count, esc } from './markup.js';
+import { callOutcome, clip, count, esc } from './markup.js';
 
 /**
  * A row of entry numbers, each one a link to its own entry.
@@ -18,9 +18,11 @@ export function renderIndex(entries) {
   const links = entries
     .map((entry) => {
       const what = entry.what ?? {};
-      const said = what.ok === false ? 'did not work' : 'worked';
+      // The word comes from the shared one, so the tooltip cannot call an entry that
+      // recorded no call "worked" — or a judgment anything about a call at all.
+      const said = callOutcome(what);
       const about = clip(what.prompt ?? what.kind ?? 'an entry');
-      const title = `entry ${entry.seq} \u2014 ${entry.label}, ${said}: ${about}`;
+      const title = `entry ${entry.seq} \u2014 ${entry.label}${said ? `, ${said}` : ''}: ${about}`;
       return `<a class="index__link" href="#entry-${esc(entry.seq)}" title="${esc(title)}">${esc(entry.seq)}</a>`;
     })
     .join('\n    ');
@@ -50,18 +52,31 @@ const WAITING = {
 /**
  * One line per plug: what the record shows for it, or that it is silent.
  * "Never called" is reported as silence, never as a failure — the two are
- * different facts and only one of them is bad news.
+ * different facts and only one of them is bad news. The same rule applies inside
+ * a row that has entries: one that recorded no call at all is counted as never
+ * sent rather than folded in with the ones that went out and failed.
  */
 export function renderSocket(entries, plugs) {
   const rows = plugs.map((plug) => {
     const mine = entries.filter((entry) => belongsTo(entry, plug));
     const worked = mine.filter((entry) => entry.what?.ok === true).length;
+    const neverSent = mine.filter((entry) => entry.what?.noCallMade === true).length;
+    const didNot = mine.filter((entry) => callOutcome(entry.what) === 'did not work').length;
     const last = mine.length ? mine[mine.length - 1].when : null;
 
     let state;
     if (mine.length > 0) {
-      const failed = mine.length - worked;
-      state = `${count(mine.length, 'call')} \u00b7 ${worked} worked${failed ? ` \u00b7 ${failed} did not` : ''}`;
+      // Entries, not calls: this plug's entries can include one where nothing was
+      // sent, and counting those as calls would put a count on the row that the
+      // record does not hold.
+      state = [
+        count(mine.length, 'entry', 'entries'),
+        `${worked} worked`,
+        neverSent ? `${neverSent} never sent` : '',
+        didNot ? `${didNot} did not work` : '',
+      ]
+        .filter((part) => part !== '')
+        .join(' \u00b7 ');
     } else if (plug.status === 'ready') {
       state = 'ready, not called yet';
     } else {

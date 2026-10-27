@@ -108,7 +108,10 @@ run, the judge keeps a count of failed attempts per move in
 by git. At three failed attempts a move is **parked**: not attempted, nothing
 written about it, still unjudged in the record, and listed by the run that
 skipped it. `--retry-parked` clears the counts and offers everything again, and
-deleting the file does the same. A success clears the count on its own. The judge runs on the
+deleting the file does the same. A success clears the count on its own. A count is
+only ever read against the queue: a move that has since been judged, or asked
+about, is not parked whatever the ledger still says about it, so no run lists a
+move as skipped that the record already answers. The judge runs on the
 `baseten` plug and never touches a fact entry; without Baseten credentials it
 refuses before any call, writing nothing.
 
@@ -211,12 +214,16 @@ npm run status          # every plug: wiring, and whether its address answers; n
 `page` builds a single self-contained HTML file from the record as it is at that
 moment — no external font, image or script, so it opens anywhere and can be
 printed to PDF. Every number on it is counted from the entries, and every line of
-model output is escaped rather than trusted as markup. A compact index of entry
+model output is escaped rather than trusted as markup. The headline counts
+**entries**, not calls, because a judgment and a question are entries and no call
+was made for either; the calls are counted where that is known, at the foot, which
+keeps "worked" and "never sent" apart because only one of those is bad news. A compact index of entry
 numbers links straight to each entry, and each entry carries the matching anchor.
 At the top it lists every
-plug with what the record shows for it: the calls each one answered, counted from
-the file, and the plugs that have never been called — reported as silence, which
-is not the same as failure. Each entry also says what kind of call it was — a
+plug with what the record shows for it: its entries and how many worked, counted
+from the file, with an entry that recorded no call counted as never sent rather
+than folded in with the ones that went out and failed — and the plugs that have
+never been called, reported as silence, which is not the same as failure. Each entry also says what kind of call it was — a
 worker call, a prove, or a task — so a check that a plug answers is not mistaken
 for a piece of real work through the same plug. A move the judge has parked gets
 a section of its own there, saying it is still unjudged and giving the count and
@@ -241,8 +248,9 @@ visible at all — a parked move writes nothing to the record by design.
 `test/fixtures/judge/` holds a blessed run for a fixed record and fixed replies:
 a judgment, a question with and without a subject, a refused wording with and
 without one, an unreadable reply, a call that never arrived, an empty queue, a
-park alone and beside work, a `--limit` cap, a `--move` pick, and the ways a run
-stops before it judges anything. Each is pinned with the exit code it ends on, and
+park alone and beside work, a `--limit` cap and a `--move` pick — each also beside a
+park, where the counts stop agreeing if a number is taken from the wrong set — and
+the ways a run stops before it judges anything. Each is pinned with the exit code it ends on, and
 a change to the wording or the code fails on the line that moved:
 `node test/judge-golden.test.js --write`. One of those runs is also checked through
 `node bin/overseer.js`, so the command line has to print what the command prints and

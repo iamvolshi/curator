@@ -179,7 +179,7 @@ test('every fixed record reads back as exactly the output that was blessed', asy
     const blessed = await goldenText({ dir: GOLDENS, extension: 'txt', name: fixture.name, text, write: WRITE, script: SCRIPT });
 
     if (blessed !== null) {
-      assert.equal(text, blessed, firstDifference({ name: fixture.name, blessed, printed: text, noun: 'read-back', script: SCRIPT, glob: 'test/fixtures/records/*.txt' }));
+      assert.equal(text, blessed, firstDifference({ name: fixture.name, blessed, printed: text, noun: 'read-back', script: SCRIPT, dir: GOLDENS, extension: 'txt' }));
     }
     seen.push(fixture.name);
   }

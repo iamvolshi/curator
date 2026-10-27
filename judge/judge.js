@@ -51,6 +51,24 @@ export const JUDGMENT_KIND = 'judgment';
 export const QUESTION_KIND = 'question';
 
 /**
+ * The states a judged move's outcome can carry.
+ *
+ * Every one of them is a sentence in the run's report, and the report builds its
+ * vocabulary from these values rather than from copies of the strings — so adding
+ * a state here leaves the report unable to say it, which a check catches. Nothing
+ * else may invent a state: an outcome with a bare identifier prints as one.
+ */
+export const OUTCOME_STATES = Object.freeze({
+  judged: 'judged',
+  asked: 'asked',
+  askedUnfiled: 'asked-unfiled',
+  askedInstead: 'asked-instead',
+  askedInsteadUnfiled: 'asked-instead-unfiled',
+  unreadable: 'unreadable',
+  callFailed: 'call-failed',
+});
+
+/**
  * What is written when the model's wording is refused.
  *
  * The gap is recorded, the directive is not: this asks for the basis for the
@@ -176,17 +194,32 @@ export function parkedMoves(entries, counts, parkAfter = PARK_AFTER) {
  *   written: {judgments: number, questions: number},
  *   candidates: number,   how many moves this run attempted
  *   waiting: number,      how many were unjudged when it started
- *   parked: Array<{seq: number, fails: number}>,  unjudged moves it did not attempt
+ *   offerable: number,    how many of those this run could attempt (parked ones aside)
+ *   parked: Array<{seq: number, fails: number}>,  unjudged moves this run did not attempt
  * }>}
  */
 export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date(), limit = null, move = null, attempts = null, parkAfter = PARK_AFTER }) {
   const waiting = movesToJudge(entries);
   const chosen = Number.isInteger(move) ? moveBySeq(entries, move) : null;
-  const parked = attempts ? parkedFrom(await attempts.readAll(), parkAfter) : [];
+  // Through `parkedMoves`, not `parkedFrom`: the ledger is only a count file, and a
+  // seq it still counts can since have been judged or asked about. Reporting that
+  // one as parked would say "still unjudged, not attempted" about a move the record
+  // shows an answer for — and, when the queue is empty for any other reason, it
+  // would say the whole queue is parked while nothing is unjudged at all. Only the
+  // seq and the count are handed on: that is what this result promises a caller.
+  const parked = attempts
+    ? parkedMoves(entries, await attempts.readAll(), parkAfter).map((held) => ({ seq: held.seq, fails: held.fails }))
+    : [];
   // A named move is attempted even when parked: the caller asked for this one.
   const parkedSeqs = new Set(parked.map((held) => held.seq));
   const offerable = waiting.filter((entry) => !parkedSeqs.has(entry.seq));
-  const nothing = { outcomes: [], written: { judgments: 0, questions: 0 }, waiting: waiting.length, parked };
+  const nothing = {
+    outcomes: [],
+    written: { judgments: 0, questions: 0 },
+    waiting: waiting.length,
+    offerable: offerable.length,
+    parked,
+  };
 
   if (chosen?.problem) {
     return { refused: null, problem: chosen.problem, candidates: 0, ...nothing };
@@ -204,6 +237,7 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       written: { judgments: 0, questions: 0 },
       candidates: 0,
       waiting: waiting.length,
+      offerable: offerable.length,
       parked,
     };
   }
@@ -225,7 +259,7 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       // Counted, not recorded: the count parks the move after a few attempts so a
       // broken provider stops costing a call on every run.
       if (attempts) await attempts.noteFailure(move.seq, 'call-failed', now().toISOString());
-      outcomes.push({ seq: move.seq, state: 'call-failed', detail: sent.error?.message ?? 'the call did not work' });
+      outcomes.push({ seq: move.seq, state: OUTCOME_STATES.callFailed, detail: sent.error?.message ?? 'the call did not work' });
       continue;
     }
 
@@ -235,7 +269,7 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       // this code's opinion wearing the model's name, and naming the move would
       // stop the retry that a malformed reply deserves.
       if (attempts) await attempts.noteFailure(move.seq, 'unreadable', now().toISOString());
-      outcomes.push({ seq: move.seq, state: 'unreadable', detail: read.error });
+      outcomes.push({ seq: move.seq, state: OUTCOME_STATES.unreadable, detail: read.error });
       continue;
     }
 
@@ -253,7 +287,7 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       written.questions += 1;
       outcomes.push({
         seq: move.seq,
-        state: subjects.length === 0 ? 'asked-instead-unfiled' : 'asked-instead',
+        state: subjects.length === 0 ? OUTCOME_STATES.askedInsteadUnfiled : OUTCOME_STATES.askedInstead,
         detail: `the wording directed: ${direction}`,
       });
       continue;
@@ -269,8 +303,8 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       written.questions += 1;
       outcomes.push(
         subjects.length === 0
-          ? { seq: move.seq, state: 'asked-unfiled', detail: read.question }
-          : { seq: move.seq, state: 'asked', detail: read.question },
+          ? { seq: move.seq, state: OUTCOME_STATES.askedUnfiled, detail: read.question }
+          : { seq: move.seq, state: OUTCOME_STATES.asked, detail: read.question },
       );
       continue;
     }
@@ -279,16 +313,33 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       makeEntry({ when, label: 'judgment', what: { kind: JUDGMENT_KIND, move: move.seq, subjects, observation: read.observation } }),
     );
     written.judgments += 1;
-    outcomes.push({ seq: move.seq, state: 'judged', detail: read.observation });
+    outcomes.push({ seq: move.seq, state: OUTCOME_STATES.judged, detail: read.observation });
   }
 
   // One place decides what a resolved move is: anything that left something in the
   // record is no longer failing, and its count goes back to nothing.
   if (attempts) {
     for (const outcome of outcomes) {
-      if (outcome.state !== 'call-failed' && outcome.state !== 'unreadable') await attempts.clear(outcome.seq);
+      if (outcome.state !== OUTCOME_STATES.callFailed && outcome.state !== OUTCOME_STATES.unreadable) {
+        await attempts.clear(outcome.seq);
+      }
     }
   }
 
-  return { refused: null, problem: null, outcomes, written, candidates: candidates.length, waiting: waiting.length, parked };
+  // A parked move this run attempted is no longer "not attempted": naming one with
+  // `move` outranks the bound. So the report of what is parked is the pre-run set
+  // minus what this run touched, or the run would say in one line that it judged a
+  // move and in another that the same move was skipped.
+  const attempted = new Set(outcomes.map((outcome) => outcome.seq));
+
+  return {
+    refused: null,
+    problem: null,
+    outcomes,
+    written,
+    candidates: candidates.length,
+    waiting: waiting.length,
+    offerable: offerable.length,
+    parked: parked.filter((held) => !attempted.has(held.seq)),
+  };
 }

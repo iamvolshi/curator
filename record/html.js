@@ -223,10 +223,16 @@ const STYLE = `
  */
 export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [] } = {}) {
   const stats = measure(entries);
+  // The total is entries, not calls. A judgment and a question are entries and no
+  // call was made for either, so "N calls" over a record that holds them said
+  // something about the file that was not true of it: one call with a judgment on
+  // it read as two calls. What was called is counted where that is known — the
+  // foot counts the calls that worked and the calls that were never sent.
+  //
   // A question is a third kind of entry, so it gets its own count: a page that
   // folded questions into judgments would misreport what the record holds.
   const deck = [
-    count(stats.total, 'call'),
+    count(stats.total, 'entry', 'entries'),
     count(stats.facts, 'fact'),
     count(stats.judgments, 'judgment'),
     count(stats.questions, 'question'),
@@ -243,7 +249,7 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Overseer — a K-record of ${esc(count(stats.total, 'call'))}</title>
+<title>The Overseer — a K-record of ${esc(count(stats.total, 'entry', 'entries'))}</title>
 <style>${STYLE}</style>
 </head>
 <body>

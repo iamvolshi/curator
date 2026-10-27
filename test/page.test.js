@@ -53,9 +53,12 @@ test('the page shows every entry with its number and its label', () => {
   assert.match(html, /chip--fact/);
   assert.match(html, /chip--judgment/);
   assert.match(html, /on task/, 'an entry shape the renderer does not know still shows what it holds');
-  assert.match(html, /3 calls/);
+  // The total is entries, not calls: this record holds three entries and made two
+  // calls, so "3 calls" would be the page misreporting the file it came from.
+  assert.match(html, /3 entries/);
   assert.match(html, /2 facts/);
   assert.match(html, /1 judgment/);
+  assert.match(html, /2 calls worked/);
 });
 
 function judgment(seq, move, subject) {
@@ -88,7 +91,7 @@ test('a judgment and a question read as themselves, and are counted apart from f
   assert.match(html, /the move at seq 1/);
   assert.match(html, /Observed/);
   assert.match(html, /Asks/, 'a question says what it asks');
-  assert.match(html, /3 calls · 1 fact · 1 judgment · 1 question/, 'the counts do not fold questions into judgments');
+  assert.match(html, /3 entries · 1 fact · 1 judgment · 1 question/, 'the counts do not fold questions into judgments');
   assert.doesNotMatch(html, /No judgments or questions yet/);
 });
 
@@ -119,7 +122,9 @@ test('the numbers on the page are counted from the entries', () => {
     }),
   ]);
 
-  assert.match(html, /3 calls/);
+  // Entries, not calls: three entries, and the one where nothing was sent is not a
+  // call the page may count.
+  assert.match(html, /3 entries/);
   assert.match(html, /2 calls worked/);
   assert.match(html, /1 call never sent/);
   assert.match(html, /833 tokens in total/, '186 + 647, counted, not guessed');
@@ -157,7 +162,7 @@ test('an empty record produces a page that says so', () => {
   const html = renderPage([], { source: 'records/k-record.jsonl', generatedAt: when });
 
   assert.match(html, /Nothing has been recorded yet/);
-  assert.match(html, /0 calls/);
+  assert.match(html, /0 entries/);
   assert.equal(html.includes('class="entry'), false, 'no entry markup is invented');
   assert.match(html, /records\/k-record\.jsonl/);
 });
@@ -200,7 +205,7 @@ test('a proof and a piece of work through the same plug are told apart', () => {
 
   assert.match(html, /chip--kind[^>]*>prove · baseten/, 'a proof says it is a proof');
   assert.match(html, /chip--kind[^>]*>task · baseten/, 'work says it is work');
-  assert.match(html, /2 calls · 2 worked/, 'both are still calls on that plug, counted from the record');
+  assert.match(html, /2 entries · 2 worked/, 'both are still entries for that plug, counted from the record');
 });
 
 test('each plug gets a line, and the counts come from the record', () => {
@@ -208,7 +213,7 @@ test('each plug gets a line, and the counts come from the record', () => {
 
   assert.match(html, /Who has actually answered/);
   assert.match(html, /Meta Model API/);
-  assert.match(html, /2 calls · 2 worked/, 'two worker entries matched to meta by the address they reached');
+  assert.match(html, /2 entries · 2 worked/, 'two worker entries matched to meta by the address they reached');
   assert.match(html, /Baseten/);
   assert.match(html, /not called — not configured yet/);
   assert.match(html, /waiting on the provider and model pick/, 'the empty slot says why it is silent');
@@ -234,7 +239,7 @@ test('a plug that was called and failed shows both numbers', () => {
     { plugs: [META, BASETEN] },
   );
 
-  assert.match(html, /2 calls · 1 worked · 1 did not/);
+  assert.match(html, /2 entries · 1 worked · 1 did not work/);
   assert.match(html, /the call did not work/, 'the failed entry itself is still shown');
 });
 
@@ -247,6 +252,40 @@ test('a plug that is ready but has not been called says exactly that', () => {
   assert.ok(row, 'the meta row is on the page');
   assert.match(row, /ready, not called yet/);
   assert.equal(row.includes('0 calls'), false, 'an uncalled plug is not given a call count');
+});
+
+test('an entry that recorded no call is never reported as one that worked or one that failed', () => {
+  const html = renderPage(
+    [
+      call(1),
+      call(2, {
+        ok: false,
+        response: null,
+        usage: null,
+        noCallMade: true,
+        request: null,
+        error: { kind: 'missing-key', message: 'no key', fix: 'put it in .env' },
+      }),
+    ],
+    { plugs: [META] },
+  );
+
+  // Three places describe this entry: its index tooltip, its plug's row, and the
+  // foot. The foot counts it as never sent, so the other two cannot say a call was
+  // made and failed — or nothing at all — about the same entry.
+  const titles = [...html.matchAll(/title="([^"]*)"/g)].map((match) => match[1]);
+  assert.equal(titles.some((title) => /entry 2 \u2014 fact, never sent/.test(title)), true, 'the tooltip says nothing was sent');
+  assert.match(html, /1 never sent/, 'the plug row says so too');
+  assert.equal(html.includes('1 did not work'), false, 'no call went out for that entry, so none failed');
+  assert.equal(titles.some((title) => /entry 1 \u2014 fact, worked/.test(title)), true, 'the call that did work still says so');
+});
+
+test('a judgment is not described as a call that worked', () => {
+  const html = renderPage([call(1), judgment(2, 1, 'Ada Okafor')]);
+
+  const titles = [...html.matchAll(/title="([^"]*)"/g)].map((match) => match[1]);
+  assert.equal(titles.some((title) => /entry 2 \u2014 judgment: /.test(title)), true, 'a judgment is named as one, with no call word');
+  assert.equal(titles.some((title) => /judgment, worked/.test(title)), false, 'no call was made for a judgment');
 });
 
 test('with no plug information the page simply has no such section', () => {
@@ -277,7 +316,7 @@ test('the page shows parked moves as waiting, and writes none of them into the r
   assert.match(html, /Ada Okafor/, 'the reader is told which thread it belongs to');
   assert.equal(html.includes('<b>say ready</b>'), false, 'a recorded prompt is still escaped here');
   assert.match(html, /&lt;b&gt;say ready/);
-  assert.match(html, /1 call · 1 fact · 0 judgments · 0 questions/, 'a park is not counted as an entry');
+  assert.match(html, /1 entry · 1 fact · 0 judgments · 0 questions/, 'a park is not counted as an entry');
   // Scoped to the section: the legend at the foot legitimately names a judgment.
   const section = html.split('<section class="parked">')[1].split('</section>')[0];
   assert.doesNotMatch(section, /chip--judgment/, 'and is never dressed as a judgment');

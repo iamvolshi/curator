@@ -21,14 +21,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { assertInventory, firstDifference, goldenText, writeRequested } from '../checks/golden.js';
 import { judgeCommand } from '../cli/judge.js';
+import { STATE_WORDS } from '../cli/judge-report.js';
 import { createLedger } from '../judge/attempts.js';
+import { OUTCOME_STATES } from '../judge/judge.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -74,8 +76,21 @@ function judgment(seq, move) {
   };
 }
 
+/** One question, already in the record: the move it names is answered, without a judgment. */
+function question(seq, move) {
+  return {
+    seq,
+    when: WHEN,
+    label: 'question',
+    what: { kind: 'question', move, subjects: ['Ada Okafor'], question: 'what in the record shows the basis for this claim?' },
+  };
+}
+
 /** Three moves in record order: enough for a cap, a pick, and a park to differ. */
 const THREE = [fact(1, 'say ready', ['Ada Okafor']), fact(2, 'name three colours', ['Ada Okafor']), fact(3, 'third move')];
+
+/** Four, so a cap can defer one while another is parked — the counts differ then. */
+const FOUR = [...THREE, fact(4, 'fourth move')];
 
 /** A store over the fixed entries; `written` is what the run appended. */
 function storeOver(entries) {
@@ -150,6 +165,9 @@ async function printed(fixture) {
  * work, a retry of parked moves, a cap, a pick, and the ways a run stops before it
  * judges anything. `parked` is how many failed attempts each seq has had.
  */
+/** Runs that only the entry point can produce, blessed beside the command's. */
+const CLI_GOLDENS = ['without-credentials'];
+
 const FIXTURES = [
   { name: 'judgment-written', entries: [fact(1, 'say ready', ['Ada Okafor']), fact(2, 'name three colours', ['Ada Okafor'])], replies: [SHOWN, SHOWN], code: 0 },
   { name: 'question-for-a-missing-basis', entries: [fact(1, 'say ready', ['Ada Okafor'])], replies: [NOT_SHOWN], code: 0 },
@@ -161,9 +179,18 @@ const FIXTURES = [
   { name: 'nothing-to-judge', entries: [fact(1, 'say ready', ['Ada Okafor']), judgment(2, 1)], replies: [], code: 0 },
   { name: 'every-move-parked', entries: [fact(1, 'say ready', ['Ada Okafor']), fact(2, 'name three colours')], parked: { 1: 3, 2: 3 }, replies: [], code: 0 },
   { name: 'parked-beside-work', entries: THREE, parked: { 3: 4 }, replies: [SHOWN, SHOWN], code: 0 },
+  // Both of these hold a stale count for a move the record already answers: the
+  // ledger is not cleared by a judgment or a question written about another run's
+  // failure, so these are the two lies the report used to tell about that count.
+  { name: 'parked-move-already-answered', entries: [fact(1, 'say ready', ['Ada Okafor']), fact(2, 'name three colours'), question(3, 2)], parked: { 2: 3 }, replies: [SHOWN], code: 0 },
+  { name: 'stale-park-with-nothing-to-judge', entries: [fact(1, 'say ready', ['Ada Okafor']), judgment(2, 1)], parked: { 1: 3 }, replies: [], code: 0 },
   { name: 'retrying-parked-moves', entries: THREE, parked: { 1: 3, 2: 3 }, args: ['--retry-parked'], replies: [SHOWN, NOT_SHOWN, SHOWN], code: 0 },
   { name: 'capped', entries: THREE, args: ['--limit', '1'], replies: [SHOWN], code: 0 },
+  { name: 'capped-beside-parked', entries: THREE, parked: { 3: 4 }, args: ['--limit', '2'], replies: [SHOWN, SHOWN], code: 0 },
+  { name: 'capped-past-a-parked-move', entries: FOUR, parked: { 4: 3 }, args: ['--limit', '2'], replies: [SHOWN, SHOWN], code: 0 },
   { name: 'one-named-move', entries: THREE, args: ['--move', '2'], replies: [SHOWN], code: 0 },
+  { name: 'one-named-move-beside-parked', entries: THREE, parked: { 3: 4 }, args: ['--move', '2'], replies: [SHOWN], code: 0 },
+  { name: 'one-named-move-that-was-parked', entries: THREE, parked: { 2: 3 }, args: ['--move', '2'], replies: [SHOWN], code: 0 },
   { name: 'no-such-move', entries: [fact(1, 'say ready', ['Ada Okafor'])], args: ['--move', '9'], replies: [], code: 2 },
   { name: 'move-already-answered', entries: [fact(1, 'say ready', ['Ada Okafor']), judgment(2, 1)], args: ['--move', '1'], replies: [], code: 2 },
   { name: 'plug-not-ready', entries: [fact(1, 'say ready', ['Ada Okafor'])], env: {}, replies: [], code: 3 },
@@ -181,7 +208,7 @@ test('every fixed run prints exactly the report that was blessed, and exits the 
     const blessed = await goldenText({ dir: GOLDENS, extension: 'txt', name: fixture.name, text, write: WRITE, script: SCRIPT });
 
     if (blessed !== null) {
-      assert.equal(text, blessed, firstDifference({ name: fixture.name, blessed, printed: text, noun: 'run', script: SCRIPT, glob: 'test/fixtures/judge/*.txt' }));
+      assert.equal(text, blessed, firstDifference({ name: fixture.name, blessed, printed: text, noun: 'run', script: SCRIPT, dir: GOLDENS, extension: 'txt' }));
       assert.equal(
         code,
         fixture.code,
@@ -193,18 +220,6 @@ test('every fixed run prints exactly the report that was blessed, and exits the 
 
   assert.equal(seen.length, FIXTURES.length, 'every fixture was run');
   if (WRITE) console.log(`blessed ${seen.length} runs: ${seen.join(', ')}`);
-});
-
-test('the blessed runs are exactly the fixtures, with none left behind', async () => {
-  await assertInventory({
-    dir: GOLDENS,
-    extension: 'txt',
-    names: FIXTURES.map((fixture) => fixture.name),
-    validate: (file, text) => {
-      assert.equal(text.endsWith('\n'), true, `${file} ends with a newline, as the terminal saw it`);
-      assert.match(text, /^\n[^\n]+\n-+\n/, `${file} is a whole run, from a heading`);
-    },
-  });
 });
 
 test('what a run says it wrote is what it wrote, filing included', async () => {
@@ -255,6 +270,38 @@ test('what a run says it wrote is what it wrote, filing included', async () => {
   }
 });
 
+test('every state the judge can emit has words in the report', () => {
+  // The report's table is keyed by the judge's own states, so a state added to one
+  // side without the other would print as a bare identifier instead of a sentence.
+  for (const state of Object.values(OUTCOME_STATES)) {
+    assert.equal(typeof STATE_WORDS[state], 'string', `the report has no words for the state "${state}"`);
+    assert.notEqual(STATE_WORDS[state].trim(), '', `the words for "${state}" are empty`);
+  }
+
+  assert.deepEqual(
+    Object.keys(STATE_WORDS).sort(),
+    Object.values(OUTCOME_STATES).sort(),
+    'the report speaks for exactly the states the judge can emit',
+  );
+});
+
+test('a run never reports one move both written and parked', async () => {
+  for (const fixture of FIXTURES) {
+    const { text, written } = await printed(fixture);
+    const parkedSeqs = text
+      .split('\n')
+      .map((line) => line.match(/^seq (\d+)\s+\d+ failed attempts/))
+      .filter(Boolean)
+      .map((found) => Number(found[1]));
+    const writtenSeqs = written.map((entry) => entry.what?.move).filter(Number.isInteger);
+
+    // Naming a parked move outranks the bound and attempts it, so the two sections
+    // can disagree about one seq unless the park list drops what this run touched.
+    const both = writtenSeqs.filter((seq) => parkedSeqs.includes(seq));
+    assert.deepEqual(both, [], `"${fixture.name}" says seq ${both.join(', ')} was written and also not attempted`);
+  }
+});
+
 test('a run only claims the options it was given', async () => {
   for (const fixture of FIXTURES) {
     const { text } = await printed(fixture);
@@ -272,20 +319,46 @@ test('a run only claims the options it was given', async () => {
   }
 });
 
+/** The entry point, with a scrubbed environment, so no key on this machine is reached. */
+function runCli(args, env = {}) {
+  return spawnSync(process.execPath, [join(ROOT, 'bin', 'overseer.js'), ...args], { cwd: ROOT, env, encoding: 'utf8' });
+}
+
 test('the command line prints the same report as the command, and passes its exit code through', async () => {
   // One byte-level check of the entry point, using the report the command already
   // pins: a dispatch that swallowed an argument or an exit code would print
-  // something else here. The empty environment keeps it away from any key on this
-  // machine, and this branch reads no record, so nothing is touched either way.
-  const run = spawnSync(process.execPath, [join(ROOT, 'bin', 'overseer.js'), 'judge', '--limit'], {
-    cwd: ROOT,
-    env: {},
-    encoding: 'utf8',
-  });
-
+  // something else here. This branch reads no record, so nothing is touched either way.
+  const run = runCli(['judge', '--limit']);
   const blessed = await readFile(join(GOLDENS, 'limit-given-nothing.txt'), 'utf8');
+
   assert.equal(run.status, 2, 'the entry point passes the command\u2019s exit code through');
   assert.equal(run.stdout, blessed, 'the entry point prints the report the command prints');
+});
+
+test('the entry point reads a record and refuses without credentials, saying where it looked', async () => {
+  // The refusal the command pins, produced the way a person gets it: through the
+  // entry point, from a real file on disk, with no key in the environment. The path
+  // it read is this machine's temporary directory, so that one detail is normalised;
+  // everything else is compared as printed.
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-cli-'));
+  const records = join(dir, 'records.jsonl');
+  const path = join(GOLDENS, 'without-credentials.txt');
+  try {
+    await writeFile(records, `${JSON.stringify(fact(1, 'say ready'))}\n`, 'utf8');
+    const run = runCli(['judge'], { OVERSEER_RECORDS: records });
+    const text = run.stdout.split(records).join('<the record>');
+
+    if (WRITE) {
+      await writeFile(path, text, 'utf8');
+      return;
+    }
+
+    const blessed = await readFile(path, 'utf8');
+    assert.equal(run.status, 3, 'a run with no key is refused, not attempted');
+    assert.equal(text, blessed, firstDifference({ name: 'without-credentials', blessed, printed: text, noun: 'run', script: SCRIPT, dir: GOLDENS, extension: 'txt' }));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('nothing but the report decides these runs', async () => {
@@ -300,4 +373,19 @@ test('nothing but the report decides these runs', async () => {
   for (const fixture of FIXTURES) {
     assert.equal((await printed(fixture)).text.includes('baseten-secret'), false, `the key value stays out of "${fixture.name}"`);
   }
+});
+
+// Last, because it is the check on the whole set: a blessing writes files as it
+// goes, and asking the set what it should contain before the last writer has run
+// would report a fixture as missing in the very run that is about to create it.
+test('the blessed runs are exactly the fixtures, with none left behind', async () => {
+  await assertInventory({
+    dir: GOLDENS,
+    extension: 'txt',
+    names: [...FIXTURES.map((fixture) => fixture.name), ...CLI_GOLDENS],
+    validate: (file, text) => {
+      assert.equal(text.endsWith('\n'), true, `${file} ends with a newline, as the terminal saw it`);
+      assert.match(text, /^\n[^\n]+\n-+\n/, `${file} is a whole run, from a heading`);
+    },
+  });
 });

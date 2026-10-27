@@ -43,17 +43,18 @@ function show(line) {
  * one sends a reader to the wrong file.
  *
  * @param {object} options
- * @param {string} options.noun    what is pinned: 'page', 'read-back', 'run'
- * @param {string} options.script  the command that re-blesses it
- * @param {string} options.glob    the blessed files, for the checkout hint
+ * @param {string} options.noun       what is pinned: 'page', 'read-back', 'run'
+ * @param {string} options.script     the command that re-blesses it
+ * @param {string} options.dir        the fixture directory, for the checkout hint
+ * @param {string} options.extension  the fixture's extension
  */
-export function firstDifference({ name, blessed, printed, noun, script, glob }) {
+export function firstDifference({ name, blessed, printed, noun, script, dir, extension }) {
   if (blessed.includes('\r\n') && !printed.includes('\r\n')) {
     return [
       `the blessed ${noun} for "${name}" was checked out with Windows line endings, so nothing can match it:`,
       '  these files are compared byte for byte, so git has to check them out as stored.',
       '  .gitattributes keeps that true; get the file again with:',
-      `    rm ${glob} && git checkout -- ${glob.split('/').slice(0, 2).join('/')}`,
+      `    rm ${dir}/*.${extension} && git checkout -- ${dir}`,
     ].join('\n');
   }
 
