@@ -1,0 +1,20 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+model:       darrens-pick
+key:         set
+
+The moves
+---------
+seq 1        nothing written — the call did not work, so the move stays unjudged  (the network was down)
+
+What the record gained
+----------------------
+judgments:   0
+questions:   0
+A move whose call failed or whose reply could not be read keeps its place in the queue: nothing was learned about it, so nothing is written in its place, and the next run offers it again.
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+result: a model call did not work

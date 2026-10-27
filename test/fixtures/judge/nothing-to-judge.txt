@@ -1,0 +1,19 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 2
+model:       darrens-pick
+key:         set
+
+The moves
+---------
+Nothing to judge: every observed move already has a judgment or a question.
+
+What the record gained
+----------------------
+judgments:   0
+questions:   0
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+result: clean

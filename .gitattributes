@@ -4,3 +4,4 @@
 # what the record shows when nothing about it moved.
 test/fixtures/*.html -text
 test/fixtures/records/*.txt -text
+test/fixtures/judge/*.txt -text

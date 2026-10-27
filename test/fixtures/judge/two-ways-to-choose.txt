@@ -1,0 +1,5 @@
+
+Two ways to choose a move
+-------------------------
+--move judges one named move; --limit caps how many are judged. Give one or the other.
+Nothing was sent and nothing was written.

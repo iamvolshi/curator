@@ -1,0 +1,12 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 2
+model:       darrens-pick
+key:         set
+
+No such move to judge
+---------------------
+seq 1 already has a judgment or question naming it, so judging it again would double the record
+Nothing was sent and nothing was written.

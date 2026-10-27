@@ -1,0 +1,15 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+model:       none — set BASETEN_MODEL
+key:         not set (BASETEN_API_KEY is empty or missing)
+
+Stopped before the call
+-----------------------
+The baseten plug is not callable, so no call was made and nothing was written.
+status:      needs-config
+missing:     the baseten plug has no model yet: set BASETEN_MODEL to the model Darren picks
+also:        no BASETEN_API_KEY was found in the environment
+handy:       put what it needs in a file named .env next to this repo; the npm scripts read it, and it stays out of git

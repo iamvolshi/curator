@@ -1,0 +1,19 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+model:       darrens-pick
+key:         set
+
+The moves
+---------
+seq 1        question written instead — the wording directed  (the wording directed: you should)
+
+What the record gained
+----------------------
+judgments:   0
+questions:   1
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+result: a reply was refused for its wording, and the gap it left was recorded as a question

@@ -1,0 +1,20 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+model:       darrens-pick
+key:         set
+
+The moves
+---------
+seq 1        question written — no subject, so it sits in no folder  (what in the record supports this claim?)
+
+What the record gained
+----------------------
+judgments:   0
+questions:   1
+A question about a move that names no subject belongs to no folder. It is still in the record, and that move is not judged again.
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+result: clean

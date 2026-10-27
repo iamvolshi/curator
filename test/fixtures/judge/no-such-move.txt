@@ -1,0 +1,12 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+model:       darrens-pick
+key:         set
+
+No such move to judge
+---------------------
+the record has no entry with seq 9
+Nothing was sent and nothing was written.
