@@ -34,6 +34,7 @@ function measure(entries) {
     total: entries.length,
     facts: by((e) => e.label === 'fact'),
     judgments: by((e) => e.label === 'judgment'),
+    questions: by((e) => e.label === 'question'),
     worked: by((e) => e.what?.ok === true),
     notSent: by((e) => e.what?.noCallMade === true),
     withBody: by((e) => Boolean(e.what?.request?.body)),
@@ -169,6 +170,17 @@ function entryCard(entry) {
 
   const rows = [];
 
+  // A judgment and a question hold no call: they read as what they are, not as a
+  // JSON blob that a reader has to parse to find the point.
+  if (what.kind === 'judgment') {
+    if (Number.isInteger(what.move)) rows.push(['Judges', `the move at seq ${what.move}`]);
+    if (what.observation !== undefined) rows.push(['Observed', what.observation]);
+  }
+  if (what.kind === 'question') {
+    if (Number.isInteger(what.move)) rows.push(['About', `the move at seq ${what.move}`]);
+    if (what.question !== undefined) rows.push(['Asks', what.question]);
+  }
+
   if (what.prompt !== undefined) rows.push(['Asked', what.prompt]);
   if (what.ok === true && what.response !== undefined) rows.push(['Answered', what.response]);
   if (what.endpoint) rows.push(['Sent to', what.endpoint]);
@@ -263,6 +275,7 @@ const STYLE = `
   }
   .chip--fact { background: var(--fact); }
   .chip--judgment { background: var(--judgment); }
+  .chip--question { background: none; color: var(--judgment); border: 1px dashed var(--judgment); }
   .chip--kind {
     background: none; color: var(--muted);
     border: 1px solid var(--rule); font-weight: 600; letter-spacing: .08em;
@@ -373,10 +386,13 @@ const STYLE = `
  */
 export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null } = {}) {
   const stats = measure(entries);
+  // A question is a third kind of entry, so it gets its own count: a page that
+  // folded questions into judgments would misreport what the record holds.
   const deck = [
     count(stats.total, 'call'),
     count(stats.facts, 'fact'),
     count(stats.judgments, 'judgment'),
+    count(stats.questions, 'question'),
   ].join(' · ');
 
   const models = stats.models.length ? stats.models.join(', ') : 'no model recorded yet';
@@ -401,7 +417,8 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
 ${live ? liveBadge() : ''}  <hr class="rule">
 ${renderIndex(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
-    <li><span class="chip chip--judgment">judgment</span> an assessment someone made about an observation</li>
+    <li><span class="chip chip--judgment">judgment</span> the Overseer's assessment of an observed move, labelled as one</li>
+    <li><span class="chip chip--question">question</span> an open question on a subject, sitting in its thread until the record answers it</li>
   </ul>
 ${body}
   <p class="foot">
@@ -411,7 +428,7 @@ ${body}
     ${esc(count(stats.worked, 'call'))} worked · ${esc(count(stats.notSent, 'call'))} never sent ·
     ${esc(count(stats.withBody, 'entry', 'entries'))} kept the request body ·
     ${esc(stats.tokens)} tokens in total.
-    ${stats.judgments === 0 ? 'No judgments yet: the agent that writes them is not built.' : ''}
+    ${stats.judgments === 0 && stats.questions === 0 ? 'No judgments or questions yet: the judge has not written one.' : ''}
     This page is a view of the record, not a copy of it — regenerate it after every call.
   </p>
 </div>

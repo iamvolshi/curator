@@ -1,0 +1,80 @@
+// Running the judge from the command line.
+//
+// The judge writes entries, so this command reports what was written and, just as
+// importantly, what was not and why. Three things stop an entry: the plug is not
+// callable (no call is made at all), the reply could not be read, or the wording
+// directed the Worker instead of observing it.
+//
+// Exit codes: 0 the run finished cleanly | 1 unexpected problem
+//             3 the Overseer's plug is not ready, so nothing was attempted
+//             4 a model call did not work
+//             5 the run wrote nothing for a move because its wording directed
+
+import { judgeMoves, JUDGE_PLUG } from '../judge/judge.js';
+import { createStore } from '../record/store.js';
+import { describeKeyPresence, resolvePlug } from '../provider/index.js';
+import { heading, line, note } from './output.js';
+
+const STATE_WORDS = {
+  judged: 'judgment written',
+  asked: 'question written',
+  directed: 'nothing written \u2014 the wording directed',
+  unreadable: 'nothing written \u2014 the reply could not be read',
+  'call-failed': 'nothing written \u2014 the call did not work',
+  'nowhere-to-ask': 'nothing written \u2014 the move names no subject to ask in',
+};
+
+export async function judgeCommand({ env = process.env, fetchImpl = fetch, store = createStore() } = {}) {
+  const entries = await store.readAll();
+  const plug = resolvePlug(JUDGE_PLUG, env);
+
+  heading(`Overseer \u2014 the judge (${JUDGE_PLUG})`);
+  line('record file:', store.path);
+  line('entries read:', String(entries.length));
+  line('model:', plug.model ?? `none \u2014 set ${plug.modelEnvVar}`);
+  line('key:', describeKeyPresence(plug, env));
+
+  const result = await judgeMoves({ entries, env, fetchImpl, store });
+
+  if (result.refused) {
+    heading('Stopped before the call');
+    note(`The ${JUDGE_PLUG} plug is not callable, so no call was made and nothing was written.`);
+    line('status:', result.refused.status);
+    line('missing:', result.refused.missing);
+    if (result.refused.keyProblem) line('also:', result.refused.keyProblem);
+    line('handy:', 'put what it needs in a file named .env next to this repo; the npm scripts read it, and it stays out of git');
+    return 3;
+  }
+
+  heading('The moves');
+  if (result.candidates === 0) {
+    note('Nothing to judge: every observed move already has a judgment or a question.');
+  } else {
+    for (const outcome of result.outcomes) {
+      const words = STATE_WORDS[outcome.state] ?? outcome.state;
+      line(`seq ${outcome.seq}`, `${words}${outcome.detail ? `  (${outcome.detail})` : ''}`);
+    }
+  }
+
+  heading('What the record gained');
+  line('judgments:', String(result.written.judgments));
+  line('questions:', String(result.written.questions));
+  // A judgment is appended, never substituted: the facts it judges are unchanged.
+  note('');
+  note('Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.');
+
+  const failed = result.outcomes.some((o) => o.state === 'call-failed');
+  const unreadable = result.outcomes.some((o) => o.state === 'unreadable');
+  const directed = result.outcomes.some((o) => o.state === 'directed');
+
+  if (failed) {
+    note('result: a model call did not work');
+    return 4;
+  }
+  if (unreadable || directed) {
+    note('result: something was left unwritten rather than written badly');
+    return 5;
+  }
+  note('result: clean');
+  return 0;
+}

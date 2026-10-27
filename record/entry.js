@@ -4,15 +4,18 @@
 //   when it happened -> `when`
 //   what kind of statement it is -> `label`
 //
-// The two labels:
+// The three labels, and the difference is the label:
 //   fact     — something observed. A call went out and this is what came back.
-//   judgment — an assessment someone made about an observation.
+//   judgment — the Overseer's assessment of an observed move. Labelled, in the
+//              entry itself, so no reader can mistake it for a fact.
+//   question — an open follow-up question on a subject. It sits in the subject's
+//              thread. It is not a fact and not a judgment, and it darkens
+//              nothing.
 //
-// This outcome builds and uses the `fact` path only. `judgment` is declared
-// here so the shape is fixed from the start, but nothing in this scaffold
-// writes one yet — that belongs to a later outcome.
+// Only facts are observations. A judgment never changes a fact, and a question
+// never darkens a shade — the labels are what keep those three apart.
 
-export const LABELS = ['fact', 'judgment'];
+export const LABELS = ['fact', 'judgment', 'question'];
 
 /**
  * Build an entry, refusing to hand back one that is malformed.

@@ -39,10 +39,41 @@ Every entry is labelled, so a reader always knows what kind of statement they
 are looking at:
 
 - **`fact`** — something observed. A call went out and this is what came back.
-- **`judgment`** — an assessment someone made about an observation.
+- **`judgment`** — the Overseer's assessment of an observed move. Labelled, in
+the entry itself, so no reader can mistake it for an observed fact.
+- **`question`** — an open follow-up question on a subject, sitting in that
+subject's thread. It is not a fact and not a judgment, and it darkens nothing.
 
-This outcome builds and uses the **`fact`** path only. `judgment` is declared so
-the shape is fixed from the start, but nothing here writes one yet.
+A judgment never changes a fact, and a question never darkens a shade. The
+labels are what keep the three apart.
+
+### Folders, the judge, and shade
+
+A **folder** is a view of the record, one per subject: the entries that name
+that subject, in record order, with their labels visible. It is rebuilt from the
+record on every read, so it cannot lose an entry or disagree with it, and nothing
+seeds one. A subject is **declared**, never guessed — `task --subject "..."`
+says what the work is about. Guessing from prose was available and it was wrong:
+this record's own text would have produced a folder called "Company Logs Every
+AI Agent Call Permanently", because a Title Case headline looks exactly like a
+proper noun.
+
+The **judge** reads the observed moves (facts) and appends what it observes. For
+each move it asks the Overseer's model one question — does the record show the
+basis? If it does, a `judgment` is written naming that move by sequence. If it
+does not, no judgment is written and a `question` is written instead, because a
+judgment needing something the record does not show is not one this record can
+support. Wording that directs the Worker ("you should…") stops the entry being
+written and the run names the phrase that did it. The judge runs on the
+`baseten` plug and never touches a fact entry; without Baseten credentials it
+refuses before any call, writing nothing.
+
+**Shade** runs 0 (white) to 9 (black), and 8–9 is the black band. It is counted,
+not judged: each independent supporting fact about a subject darkens it by one,
+the same move repeated does not stack, and a judgment or a question darkens
+nothing. Past nine the shade stops moving while the support count keeps being
+true. There is no stored shade — it is recomputed from the facts on every read,
+and where an old number disagrees with the count, the count wins.
 
 ### What a `fact` entry looks like
 
@@ -122,6 +153,8 @@ npm run prove           # one real call on the Worker's plug (meta), recorded, r
 npm run prove:baseten   # the same, on the Overseer's plug
 npm run prove:openrouter
 npm run task -- --prompt "..."   # one real piece of work, recorded
+npm run folders         # one folder per subject the record names
+npm run judge           # the Overseer observes the moves (needs Baseten)
 npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date

@@ -3,11 +3,15 @@
 //
 //   prove [--dry-run] [--prompt "..."]   one real call, recorded, read back
 //   task --prompt "..."                  one real piece of work, recorded
+//   folders [--subject "..."]            a subject's entries, rebuilt from the record
+//   judge                                observe the moves and write judgments
 //   records [--last] [--json]            read the record file back
 //   status                               is the API address reachable?
 //
 // Each command returns an exit code; 0 means it held.
 
+import { foldersCommand } from '../cli/folders.js';
+import { judgeCommand } from '../cli/judge.js';
 import { liveCommand } from '../cli/live.js';
 import { pageCommand } from '../cli/page.js';
 import { proveCommand, DEFAULT_PROMPT } from '../cli/prove.js';
@@ -23,12 +27,25 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       (baseten, openrouter) to prove that one on its own. --dry-run shows the
       request that would be sent and sends nothing.
 
-  node bin/overseer.js task --prompt "..." [--plug NAME]
+  node bin/overseer.js task --prompt "..." [--plug NAME] [--subject "..."]
       Do one piece of real work through a plug and record it. This is not a
       prove: nothing is checked, and the entry is marked 'plug-task' so a reader
       can tell work apart from a proof that a plug works. With no --plug it goes
       to the Worker's plug (meta). A plug that is not ready sends nothing and
-      records nothing.
+      records nothing. --subject says what the work is about and may be repeated;
+      that is what puts the entry in a folder.
+
+  node bin/overseer.js judge
+      The Overseer observes the record's observed moves and appends judgments,
+      and questions where the record does not show the basis. It runs on the
+      Overseer's plug (baseten) and never touches a fact entry. Without Baseten
+      credentials it refuses: no call, no entry.
+
+  node bin/overseer.js folders [--subject "..."]
+      One folder per subject the record names. With --subject, read that folder
+      back: its entries in record order, each with its label visible. A folder is
+      a view of the record, not a store, so nothing here can create one or lose
+      an entry — a subject nobody named has no folder, on purpose.
 
   node bin/overseer.js records [--last] [--json]
       Read what has been recorded.
@@ -65,6 +82,8 @@ const name = command ?? 'help';
 const commands = {
   prove: () => proveCommand({ args }),
   task: () => taskCommand({ args }),
+  folders: () => foldersCommand({ args }),
+  judge: () => judgeCommand({}),
   records: () => recordsCommand({ args }),
   page: () => pageCommand({ args }),
   live: () => liveCommand({ args }),

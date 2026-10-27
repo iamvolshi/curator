@@ -22,7 +22,7 @@ import { renderEntry } from '../record/render.js';
 // The seam's preflight, not the worker's: the worker's always answers for the
 // Worker's plug, which would name the wrong environment variable for any other.
 import { describeKeyPresence, preflight } from '../provider/index.js';
-import { readOption } from './args.js';
+import { readAll, readOption } from './args.js';
 import { WORKER_PLUG, callOnce, notReadyReport, resolveRoute } from './call-once.js';
 import { TASK_KIND } from './plug-call.js';
 import { heading, line, note } from './output.js';
@@ -38,6 +38,9 @@ export async function taskCommand({
   const prompt = readOption(args, '--prompt');
   // Real work goes to the Worker agent's plug unless another one is named.
   const wanted = readOption(args, '--plug') ?? WORKER_PLUG;
+  // What the work is about. Declared, not guessed: a subject nobody names puts
+  // the entry in no folder, which is the honest outcome.
+  const subjects = readAll(args, '--subject');
 
   let route;
   try {
@@ -64,6 +67,7 @@ export async function taskCommand({
     return 2;
   }
   line('prompt:', JSON.stringify(prompt));
+  if (subjects.length) line('about:', subjects.join(', '));
 
   const ready = preflight(plug.name, env);
 
@@ -88,6 +92,7 @@ export async function taskCommand({
     fetchImpl,
     store,
     kind: TASK_KIND,
+    subjects,
   });
 
   for (const warning of outcome?.warnings ?? []) {

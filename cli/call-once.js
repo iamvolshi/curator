@@ -9,7 +9,7 @@
 //
 // Neither command calls the other. They are siblings over this.
 
-import { resolvePlug } from '../provider/index.js';
+import { notReadyReport, resolvePlug } from '../provider/index.js';
 import { plugForSlot } from '../provider/routing.js';
 import { wrapCall } from '../wrapper/wrap.js';
 import { runWorkerCall } from '../worker/index.js';
@@ -38,10 +38,11 @@ export function resolveRoute(name, env = process.env) {
  * @param {{plug: object, throughWorker: boolean}} options.route
  * @param {string} options.prompt            what is being asked
  * @param {string} options.kind              the kind most other plugs record as
+ * @param {string[]} [options.subjects]      what the call is about, as declared
  * @param {{append: Function}} options.store the record store
  * @returns {Promise<{ok: boolean, entry: object, outcome: object|null, threw: Error|null}>}
  */
-export async function callOnce({ route, prompt, env = process.env, fetchImpl = fetch, kind, store }) {
+export async function callOnce({ route, prompt, env = process.env, fetchImpl = fetch, kind, store, subjects = [] }) {
   const { plug, throughWorker } = route;
 
   return wrapCall({
@@ -53,19 +54,10 @@ export async function callOnce({ route, prompt, env = process.env, fetchImpl = f
     // A call that throws has no result to read a kind from, so the caller's kind
     // is the one written in that case.
     kind: throughWorker ? 'worker-call' : kind,
+    subjects,
   });
 }
 
-/**
- * Why a plug cannot be called, in the plug's own words.
- *
- * A slot waiting on a provider decision is blocked by the decision, not by its
- * key, so what the plug says it needs comes first; the key problem is reported
- * separately, and only when it is a second, different thing.
- */
-export function notReadyReport(plug, ready) {
-  const says = plug.status === 'ready' ? null : plug.blockedReason;
-  const primary = says ?? ready.problem ?? `the ${plug.name} plug is not ready`;
-  const keyProblem = ready.problem && ready.problem !== primary ? ready.problem : null;
-  return { status: plug.status, primary, keyProblem };
-}
+// Shared with the judge and every other command that refuses an unready plug, so
+// the refusal reads the same wherever it is made.
+export { notReadyReport };

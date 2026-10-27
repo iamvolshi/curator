@@ -46,6 +46,22 @@ export function preflight(name, env = process.env) {
 }
 
 /**
+ * Why a plug cannot be called, in the plug's own words.
+ *
+ * A slot waiting on a decision is blocked by the decision, not by its key, so
+ * what the plug says it needs comes first; the key problem is reported
+ * separately, and only when it is a second, different thing. This lives next to
+ * preflight because it is a reading of preflight, and every command that refuses
+ * a call has to refuse it for the same reason.
+ */
+export function notReadyReport(plug, ready) {
+  const says = plug.status === 'ready' ? null : plug.blockedReason;
+  const primary = says ?? ready.problem ?? `the ${plug.name} plug is not ready`;
+  const keyProblem = ready.problem && ready.problem !== primary ? ready.problem : null;
+  return { status: plug.status, primary, keyProblem };
+}
+
+/**
  * Make one call through one plug.
  *
  * @param {string} name                    plug name, e.g. 'meta'

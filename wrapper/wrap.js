@@ -10,6 +10,7 @@
 // caller that ignores the result still cannot make the record disappear.
 
 import { makeEntry } from '../record/entry.js';
+import { normalizeSubjectList } from '../record/folders.js';
 
 /**
  * Run one worker call and record it.
@@ -24,6 +25,9 @@ import { makeEntry } from '../record/entry.js';
  *   call itself throws. A call that returns states its own kind, because the
  *   kind describes what actually happened; a throw is the one case where there
  *   is no result to read it from.
+ * @param {string[]} [options.subjects]  what the call was about, as declared by
+ *   whoever made it. Recorded as declared; nothing here guesses a subject from
+ *   the prompt, and nothing here invents one for an unrelated call.
  * @returns {Promise<{ok: boolean, entry: object, outcome: object|null, threw: Error|null}>}
  */
 export async function wrapCall({
@@ -33,6 +37,7 @@ export async function wrapCall({
   now = () => new Date(),
   clock = Date.now,
   kind = 'worker-call',
+  subjects = [],
 } = {}) {
   if (typeof call !== 'function') {
     throw new Error('wrapCall needs a call function to wrap');
@@ -55,9 +60,12 @@ export async function wrapCall({
   }
 
   const durationMs = clock() - startedAt;
+  // Declared subjects only. A call about nothing stays out of every folder, and
+  // an entry written before this field existed keeps its old shape on read.
+  const about = normalizeSubjectList(subjects);
   const what = threw
-    ? entryForThrow(threw, prompt, durationMs, kind)
-    : entryForOutcome(outcome, prompt, durationMs);
+    ? entryForThrow(threw, prompt, durationMs, kind, about)
+    : entryForOutcome(outcome, prompt, durationMs, about);
 
   const entry = makeEntry({ when, label: 'fact', what });
   const stored = await store.append(entry);
@@ -65,7 +73,7 @@ export async function wrapCall({
   return { ok: what.ok === true, entry: stored, outcome, threw };
 }
 
-function entryForOutcome(outcome, prompt, durationMs) {
+function entryForOutcome(outcome, prompt, durationMs, subjects = []) {
   const result = outcome ?? {};
   return {
     // Read from the result, not from the caller's intention: the entry says what
@@ -92,10 +100,13 @@ function entryForOutcome(outcome, prompt, durationMs) {
     // Only a call that names the plug it went through gets these. A worker call
     // leaves them out, so the entry it writes is the same one it always wrote.
     ...(result.plug ? { plug: result.plug, role: result.role ?? null } : {}),
+    // Absent rather than empty when nothing was declared, so an entry about
+    // nothing looks exactly like the entries written before subjects existed.
+    ...(subjects.length ? { subjects } : {}),
   };
 }
 
-function entryForThrow(err, prompt, durationMs, kind = 'worker-call') {
+function entryForThrow(err, prompt, durationMs, kind = 'worker-call', subjects = []) {
   return {
     kind,
     worker: null,
@@ -119,5 +130,7 @@ function entryForThrow(err, prompt, durationMs, kind = 'worker-call') {
     },
     warnings: [],
     noCallMade: true,
+    // A throw is still about whatever the caller said it was about.
+    ...(subjects.length ? { subjects } : {}),
   };
 }

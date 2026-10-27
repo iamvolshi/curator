@@ -57,6 +57,37 @@ test('the page shows every entry with its number and its label', () => {
   assert.match(html, /1 judgment/);
 });
 
+function judgment(seq, move, subject) {
+  return {
+    seq,
+    when,
+    label: 'judgment',
+    what: { kind: 'judgment', move, subjects: [subject], observation: 'the result supports the claim about the subject' },
+  };
+}
+
+function question(seq, move, subject) {
+  return {
+    seq,
+    when,
+    label: 'question',
+    what: { kind: 'question', move, subjects: [subject], question: 'what else supports this?' },
+  };
+}
+
+test('a judgment and a question read as themselves, and are counted apart from facts', () => {
+  const html = renderPage([call(1), judgment(2, 1, 'Ada Okafor'), question(3, 1, 'Ada Okafor')]);
+
+  assert.match(html, /chip--judgment/);
+  assert.match(html, /chip--question/);
+  assert.match(html, /Judges/, 'a judgment says which move it judges');
+  assert.match(html, /the move at seq 1/);
+  assert.match(html, /Observed/);
+  assert.match(html, /Asks/, 'a question says what it asks');
+  assert.match(html, /3 calls · 1 fact · 1 judgment · 1 question/, 'the counts do not fold questions into judgments');
+  assert.doesNotMatch(html, /No judgments or questions yet/);
+});
+
 test('model output is escaped, never trusted as markup', () => {
   const html = renderPage([
     call(1, {
@@ -89,7 +120,11 @@ test('the numbers on the page are counted from the entries', () => {
   assert.match(html, /1 call never sent/);
   assert.match(html, /833 tokens in total/, '186 + 647, counted, not guessed');
   assert.match(html, /2 entries kept the request body/);
-  assert.match(html, /No judgments yet/, 'the page must not imply a judge exists');
+  // The judge exists now, so the sentence changed with it. The property it guards
+  // is unchanged: with nothing judged, the page must not imply that anything has
+  // been judged or asked.
+  assert.match(html, /No judgments or questions yet: the judge has not written one/);
+  assert.doesNotMatch(html, /chip--judgment">judgment<\/span>\s*<\/div>/, 'no entry is dressed as a judgment');
 });
 
 test('the index links to every entry by its number, and nothing else', () => {
