@@ -43,6 +43,35 @@ function count(n, singular, plural = `${singular}s`) {
   return `${n} ${n === 1 ? singular : plural}`;
 }
 
+/** Shorten text for a tooltip, where a long value would be unusable. */
+function clip(value, max = 90) {
+  const flat = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}\u2026` : flat;
+}
+
+/**
+ * A row of entry numbers, each one a link to its own entry.
+ * Built from the entries, so the index cannot list a number that is not there.
+ */
+function renderIndex(entries) {
+  if (entries.length === 0) return '';
+
+  const links = entries
+    .map((entry) => {
+      const what = entry.what ?? {};
+      const said = what.ok === false ? 'did not work' : 'worked';
+      const about = clip(what.prompt ?? what.kind ?? 'an entry');
+      const title = `entry ${entry.seq} \u2014 ${entry.label}, ${said}: ${about}`;
+      return `<a class="index__link" href="#entry-${esc(entry.seq)}" title="${esc(title)}">${esc(entry.seq)}</a>`;
+    })
+    .join('\n    ');
+
+  return `  <nav class="index" aria-label="Entries">
+    <span class="index__label">Entries</span>
+    ${links}
+  </nav>\n`;
+}
+
 /** Which plug an entry belongs to, by what the entry itself says it did. */
 function belongsTo(entry, plug) {
   const what = entry.what ?? {};
@@ -139,7 +168,7 @@ function entryCard(entry) {
   if (what.durationMs !== undefined) facts.push(`${what.durationMs} ms`);
 
   return `
-    <article class="entry ${bad ? 'entry--bad' : ''}">
+    <article class="entry ${bad ? 'entry--bad' : ''}" id="entry-${esc(entry.seq)}">
       <div class="entry__head">
         <span class="entry__seq">${esc(entry.seq)}</span>
         <span class="chip chip--${label}">${esc(label)}</span>
@@ -210,6 +239,22 @@ const STYLE = `
   }
   .chip--fact { background: var(--fact); }
   .chip--judgment { background: var(--judgment); }
+  .index { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; margin: 0 0 1.9rem; }
+  .index__label {
+    margin-right: .3rem;
+    font-size: .64rem; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .index__link {
+    min-width: 1.65rem; padding: .05rem .4rem;
+    font: 600 .82rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink); text-align: center; text-decoration: none;
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
+  .index__link:hover, .index__link:focus-visible {
+    background: var(--ink); border-color: var(--ink); color: var(--paper);
+  }
+  .entry:target { background: rgba(26, 23, 16, .045); }
   .socket { margin: 0 0 2.2rem; }
   .socket h2 {
     margin: 0 0 .5rem;
@@ -318,7 +363,7 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
   <h1>A record of what actually happened</h1>
   <p class="deck"><strong>${esc(deck)}</strong> — ${esc(models)}</p>
   <hr class="rule">
-${plugs.length ? renderSocket(entries, plugs) : ''}  <ul class="legend">
+${renderIndex(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
     <li><span class="chip chip--judgment">judgment</span> an assessment someone made about an observation</li>
   </ul>

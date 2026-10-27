@@ -92,6 +92,28 @@ test('the numbers on the page are counted from the entries', () => {
   assert.match(html, /No judgments yet/, 'the page must not imply a judge exists');
 });
 
+test('the index links to every entry by its number, and nothing else', () => {
+  const html = renderPage([call(1), call(2), call(3)]);
+
+  const links = [...html.matchAll(/<a class="index__link" href="#entry-(\d+)"/g)].map((m) => m[1]);
+  const anchors = [...html.matchAll(/<article class="entry[^"]*" id="entry-(\d+)"/g)].map((m) => m[1]);
+
+  assert.deepEqual(links, ['1', '2', '3'], 'one link per entry, in record order');
+  assert.deepEqual(anchors, links, 'every link has somewhere to land');
+  assert.ok(html.indexOf('class="index"') < html.indexOf('class="entry'), 'the index comes before the entries');
+});
+
+test('an entry that did not work says so in its index tooltip', () => {
+  const html = renderPage([
+    call(1),
+    call(2, { ok: false, response: null, error: { kind: 'auth', message: 'no', fix: 'fix it' } }),
+  ]);
+
+  const titles = [...html.matchAll(/title="([^"]*)"/g)].map((m) => m[1]);
+  assert.equal(titles.some((t) => /entry 1 — fact, worked/.test(t)), true);
+  assert.equal(titles.some((t) => /entry 2 — fact, did not work/.test(t)), true);
+});
+
 test('an empty record produces a page that says so', () => {
   const html = renderPage([], { source: 'records/k-record.jsonl', generatedAt: when });
 

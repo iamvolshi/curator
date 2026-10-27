@@ -128,7 +128,9 @@ npm run status          # every plug: wiring, and whether its address answers; n
 `page` builds a single self-contained HTML file from the record as it is at that
 moment — no external font, image or script, so it opens anywhere and can be
 printed to PDF. Every number on it is counted from the entries, and every line of
-model output is escaped rather than trusted as markup. At the top it lists every
+model output is escaped rather than trusted as markup. A compact index of entry
+numbers links straight to each entry, and each entry carries the matching anchor.
+At the top it lists every
 plug with what the record shows for it: the calls each one answered, counted from
 the file, and the plugs that have never been called — reported as silence, which
 is not the same as failure. The file is generated and
