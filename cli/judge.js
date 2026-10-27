@@ -6,10 +6,13 @@
 // directed the Worker instead of observing it.
 //
 // `--limit N` judges at most N moves, so a first live run against a paid
-// endpoint can cost one call instead of one per move in the record.
+// endpoint can cost one call instead of one per move in the record. `--move N`
+// judges the one move with that seq, so a run can read a single judgment rather
+// than the oldest one the queue happens to hold.
 //
 // Exit codes: 0 the run finished cleanly | 1 unexpected problem
-//             2 the limit was not a number of moves
+//             2 the limit or the move number was not usable, or the named move
+//               is not one this record can judge
 //             3 the Overseer's plug is not ready, so nothing was attempted
 //             4 a model call did not work
 //             5 the run wrote nothing for a move because its wording directed
@@ -44,6 +47,27 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
     limit = Number(rawLimit);
   }
 
+  // `--move` names one move; `--limit` caps a queue. Together they would leave it
+  // unclear which one decides what is judged, so neither is honoured.
+  const moveAsked = args.includes('--move');
+  const rawMove = readOption(args, '--move');
+  let move = null;
+  if (moveAsked) {
+    if (rawMove === undefined || !/^\d+$/.test(rawMove) || Number(rawMove) < 1) {
+      heading('Not a good move');
+      note(`--move takes the seq of one recorded move, 1 or more; it was given ${rawMove === undefined ? 'nothing' : JSON.stringify(rawMove)}.`);
+      note('Nothing was sent and nothing was written.');
+      return 2;
+    }
+    if (rawLimit !== undefined) {
+      heading('Two ways to choose a move');
+      note('--move judges one named move; --limit caps how many are judged. Give one or the other.');
+      note('Nothing was sent and nothing was written.');
+      return 2;
+    }
+    move = Number(rawMove);
+  }
+
   const entries = await store.readAll();
   const plug = resolvePlug(JUDGE_PLUG, env);
 
@@ -53,7 +77,7 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
   line('model:', plug.model ?? `none \u2014 set ${plug.modelEnvVar}`);
   line('key:', describeKeyPresence(plug, env));
 
-  const result = await judgeMoves({ entries, env, fetchImpl, store, limit });
+  const result = await judgeMoves({ entries, env, fetchImpl, store, limit, move });
 
   if (result.refused) {
     heading('Stopped before the call');
@@ -65,12 +89,26 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
     return 3;
   }
 
+  // The named move is checked against the record before the plug is, so this is a
+  // fact about what the record holds, not a call that failed.
+  if (result.problem) {
+    heading('No such move to judge');
+    note(result.problem);
+    note('Nothing was sent and nothing was written.');
+    return 2;
+  }
+
   heading('The moves');
   if (result.candidates === 0) {
     note('Nothing to judge: every observed move already has a judgment or a question.');
   } else {
-    // Said out loud, so a capped run is never mistaken for a complete one.
-    if (result.waiting > result.candidates) {
+    // Said out loud, so a capped or picked run is never mistaken for a complete one.
+    if (move !== null) {
+      line('chosen:', `seq ${move}, picked with --move`);
+      if (result.waiting > 1) {
+        note(`The other ${result.waiting - 1} unjudged moves were left alone.`);
+      }
+    } else if (result.waiting > result.candidates) {
       line('capped:', `judging ${result.candidates} of ${result.waiting} unjudged moves (--limit ${limit})`);
       note(`The other ${result.waiting - result.candidates} are still waiting, in record order.`);
     }

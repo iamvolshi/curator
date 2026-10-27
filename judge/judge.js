@@ -49,6 +49,32 @@ export function movesToJudge(entries) {
 }
 
 /**
+ * The one move a caller named, resolved against the record.
+ *
+ * Only an observed fact can be judged, and only once: a judgment or a question
+ * already naming it means this move has been answered, and judging it again would
+ * add a line without adding anything known. Every refusal here is a fact about
+ * the record, so it is reported rather than worked around.
+ *
+ * @returns {{move: object|null, problem: string|null}}
+ */
+export function moveBySeq(entries, seq) {
+  const move = entries.find((entry) => entry.seq === seq) ?? null;
+
+  if (!move) {
+    return { move: null, problem: `the record has no entry with seq ${seq}` };
+  }
+  if (move.label !== 'fact') {
+    return { move: null, problem: `seq ${seq} is a ${move.label}, not an observed move; only facts are judged` };
+  }
+  if (alreadyNamed(entries).has(seq)) {
+    return { move: null, problem: `seq ${seq} already has a judgment or question naming it, so judging it again would double the record` };
+  }
+
+  return { move, problem: null };
+}
+
+/**
  * Judge every move that has not been judged yet.
  *
  * Refuses before anything is sent when the Overseer's plug is not callable, so a
@@ -60,15 +86,29 @@ export function movesToJudge(entries) {
  * them. The moves it does not reach are left unjudged, not skipped: the next run
  * offers them again, in record order.
  *
+ * `move` names exactly one move by its seq, for reading a single judgment before
+ * spending on the rest. It is resolved against the record before the plug is
+ * checked, so a sequence that cannot be judged is reported as a fact about the
+ * record rather than hidden behind a missing key.
+ *
  * @returns {Promise<{
  *   refused: null|{status: string, missing: string, keyProblem: string|null},
+ *   problem: string|null,  why the named move could not be judged
  *   outcomes: Array<{seq: number, state: string, detail?: string}>,
  *   written: {judgments: number, questions: number},
  *   candidates: number,   how many moves this run attempted
  *   waiting: number,      how many were unjudged when it started
  * }>}
  */
-export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date(), limit = null }) {
+export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date(), limit = null, move = null }) {
+  const waiting = movesToJudge(entries);
+  const chosen = Number.isInteger(move) ? moveBySeq(entries, move) : null;
+  const nothing = { outcomes: [], written: { judgments: 0, questions: 0 }, waiting: waiting.length };
+
+  if (chosen?.problem) {
+    return { refused: null, problem: chosen.problem, candidates: 0, ...nothing };
+  }
+
   const ready = preflight(JUDGE_PLUG, env);
 
   if (!ready.ready) {
@@ -76,15 +116,19 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     const report = notReadyReport(resolvePlug(JUDGE_PLUG, env), ready);
     return {
       refused: { status: report.status, missing: report.primary, keyProblem: report.keyProblem },
+      problem: null,
       outcomes: [],
       written: { judgments: 0, questions: 0 },
       candidates: 0,
-      waiting: 0,
+      waiting: waiting.length,
     };
   }
 
-  const waiting = movesToJudge(entries);
-  const candidates = Number.isInteger(limit) && limit > 0 ? waiting.slice(0, limit) : waiting;
+  const candidates = chosen
+    ? [chosen.move]
+    : Number.isInteger(limit) && limit > 0
+      ? waiting.slice(0, limit)
+      : waiting;
   const outcomes = [];
   const written = { judgments: 0, questions: 0 };
 
@@ -134,5 +178,5 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     outcomes.push({ seq: move.seq, state: 'judged', detail: read.observation });
   }
 
-  return { refused: null, outcomes, written, candidates: candidates.length, waiting: waiting.length };
+  return { refused: null, problem: null, outcomes, written, candidates: candidates.length, waiting: waiting.length };
 }

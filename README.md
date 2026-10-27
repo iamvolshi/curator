@@ -62,6 +62,13 @@ proper noun.
 unjudged, not skipped — the next run offers it again, in record order — and the
 run says so rather than looking complete.
 
+`judge --move N` judges the one move with that seq, for reading a single judgment
+before spending on the rest. `--limit` takes the front of the queue, which is not
+always the move worth reading first; `--move` names it. Only an unjudged fact can
+be named: a seq that is not in the record, that is already a judgment or a
+question, or that already has one naming it is refused with exit 2, before any
+call. The two options are alternatives, so giving both is also refused.
+
 The **judge** reads the observed moves (facts) and appends what it observes. For
 each move it asks the Overseer's model one question — does the record show the
 basis? If it does, a `judgment` is written naming that move by sequence. If it
@@ -160,6 +167,7 @@ npm run task -- --prompt "..."   # one real piece of work, recorded
 npm run folders         # one folder per subject the record names
 npm run judge           # the Overseer observes the moves (needs Baseten)
 npm run judge -- --limit 1   # ...and a first run can cost one call, not one per move
+npm run judge -- --move 5    # ...or judge the one move with seq 5, whichever it is
 npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date

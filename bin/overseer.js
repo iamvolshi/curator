@@ -35,12 +35,14 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       records nothing. --subject says what the work is about and may be repeated;
       that is what puts the entry in a folder.
 
-  node bin/overseer.js judge [--limit N]
+  node bin/overseer.js judge [--move N | --limit N]
       The Overseer observes the record's observed moves and appends judgments,
       and questions where the record does not show the basis. It runs on the
       Overseer's plug (baseten) and never touches a fact entry. Without Baseten
-      credentials it refuses: no call, no entry. --limit N judges at most N
-      moves, so a first run costs one call instead of one per move.
+      credentials it refuses: no call, no entry. --move N judges the one move
+      with that seq; --limit N judges at most N moves from the front of the
+      queue. Either way a first run costs one call instead of one per move, and
+      what it does not judge is offered again next time.
 
   node bin/overseer.js folders [--subject "..."]
       One folder per subject the record names. With --subject, read that folder

@@ -299,6 +299,110 @@ test('the moves a limit left out are offered again, in record order', async () =
   });
 });
 
+test('--move judges the move it names, not the oldest one in the queue', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'first move', ['Ada Okafor']);
+    const { entry: second } = await observed(store, 'second move', ['Ada Okafor']);
+    await observed(store, 'third move', ['Ada Okafor']);
+
+    const seen = [];
+    const out = capture();
+    let code;
+    try {
+      code = await judgeCommand({ args: ['--move', String(second.seq)], env: BASETEN_ENV, store, fetchImpl: provider(SHOWN, seen) });
+    } finally {
+      out.restore();
+    }
+
+    assert.equal(code, 0);
+    assert.equal(seen.length, 1, 'one call, for the one move named');
+
+    const judgments = (await store.readAll()).filter((e) => e.label === 'judgment');
+    assert.equal(judgments.length, 1);
+    assert.equal(judgments[0].what.move, second.seq, 'the named move, not seq 1');
+
+    // The moves it did not name are untouched and still offered next time.
+    assert.deepEqual(movesToJudge(await store.readAll()).map((e) => e.seq), [1, 3]);
+    assert.match(out.text(), /seq 2, picked with --move/);
+    assert.match(out.text(), /The other 2 unjudged moves were left alone/);
+  });
+});
+
+test('--move refuses a sequence the record cannot judge, before any call', async () => {
+  await withStore(async (store) => {
+    const { entry: fact } = await observed(store, 'a move about Ada', ['Ada Okafor']);
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(SHOWN) });
+    const judgmentSeq = (await store.readAll()).at(-1).seq;
+
+    const cases = [
+      ['99', /no entry with seq 99/],
+      [String(judgmentSeq), /is a judgment, not an observed move/],
+      [String(fact.seq), /already has a judgment or question naming it/],
+    ];
+
+    for (const [seq, expected] of cases) {
+      const out = capture();
+      let code;
+      try {
+        code = await judgeCommand({ args: ['--move', seq], env: BASETEN_ENV, store, fetchImpl: async () => assert.fail('no call expected') });
+      } finally {
+        out.restore();
+      }
+      assert.equal(code, 2, `refused --move ${seq}`);
+      assert.match(out.text(), /No such move to judge/);
+      assert.match(out.text(), expected);
+    }
+
+    assert.equal((await store.readAll()).length, 2, 'nothing was written');
+  });
+});
+
+test('--move without a usable seq, or alongside --limit, is refused unread', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    const refused = [
+      [['--move'], /Not a good move/],
+      [['--move', 'abc'], /Not a good move/],
+      [['--move', '0'], /Not a good move/],
+      [['--move', '1', '--limit', '1'], /Give one or the other/],
+    ];
+
+    for (const [args, expected] of refused) {
+      const out = capture();
+      let code;
+      try {
+        code = await judgeCommand({ args, env: BASETEN_ENV, store, fetchImpl: async () => assert.fail('no call expected') });
+      } finally {
+        out.restore();
+      }
+      assert.equal(code, 2, `refused ${args.join(' ')}`);
+      assert.match(out.text(), expected);
+      assert.match(out.text(), /Nothing was sent and nothing was written/);
+    }
+
+    assert.equal((await store.readAll()).length, 1, 'nothing was written');
+  });
+});
+
+test('--move does not open a door around the credentials gate', async () => {
+  await withStore(async (store) => {
+    const { entry: fact } = await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    const out = capture();
+    let code;
+    try {
+      code = await judgeCommand({ args: ['--move', String(fact.seq)], env: {}, store, fetchImpl: async () => assert.fail('no call expected') });
+    } finally {
+      out.restore();
+    }
+
+    assert.equal(code, 3, 'still the plug refusal, not a call');
+    assert.match(out.text(), /Stopped before the call/);
+    assert.equal((await store.readAll()).length, 1);
+  });
+});
+
 test('a limit that is not a number of moves is refused before anything is read', async () => {
   await withStore(async (store) => {
     await observed(store, 'a move about Ada', ['Ada Okafor']);
