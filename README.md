@@ -84,7 +84,9 @@ each move it asks the Overseer's model one question — does the record show the
 basis? If it does, a `judgment` is written naming that move by sequence. If it
 does not, no judgment is written and a `question` is written instead, because a
 judgment needing something the record does not show is not one this record can
-support. A question about a move that names no subject is written too — unfiled,
+support. The question asks what in the record shows the basis for that move, and
+the prompt forbids naming a mechanism, technique, tool or fix — a question asks
+for evidence, not for a change, so "what hash chain anchors this?" is not one. A question about a move that names no subject is written too — unfiled,
 but recorded and visible, and naming the move — because the older behaviour, not
 writing it, let a move the judge declined leave no trace at all, and left it in
 the queue to cost another call every later run. Wording that directs the Worker

@@ -17,8 +17,12 @@ const SYSTEM = [
   'Answer with JSON only, no prose around it, in exactly this shape:',
   '{"basis": "shown" | "not-shown", "observation": "<one sentence>", "question": "<one sentence, or empty>"}',
   'Use "shown" when the move as recorded carries the basis for what it claims, and write `observation` as one sentence that says what it supports, what it contradicts, or what it bears on.',
-  'Use "not-shown" when the basis is not in the record. Then leave `observation` empty and write `question` as one sentence asking for the missing basis.',
-  'Never address the other agent directly. Never use the words you, should, must, next, or recommend. No scores, no grades.',
+  'Use "not-shown" when the basis for what this move claims is not in the record. Then leave `observation` empty and write `question` as one sentence asking what in the record shows that basis.',
+  // A question that names a mechanism is a design suggestion wearing a question
+  // mark: "what hash chain anchors this?" presumes a hash chain is the answer.
+  // The judge's job here is to ask for evidence, not to propose a fix.
+  'A question asks for evidence, not for a change. Do not name a mechanism, technique, tool, or fix, do not propose what the record or the agent should contain, and do not ask for anything to be built, added, or rerun. Ask what shows or supports this move’s claim; never whether something should exist.',
+  'Never address the other agent directly. Never use the words you, should, must, next, or recommend, in the observation or the question. No scores, no grades.',
 ].join('\n');
 
 /** One move, as the judge sees it. */

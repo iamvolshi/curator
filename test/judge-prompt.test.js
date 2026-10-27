@@ -67,3 +67,17 @@ test('the judge is told to observe, and asked only for the two-way choice', () =
   assert.match(messages[1].content, /move: seq 7/);
   assert.match(messages[1].content, /about: Ada Okafor/);
 });
+
+// A question that names a mechanism is a design suggestion wearing a question
+// mark. The live run produced one — "what tamper-evident hash chain or digital
+// signature anchors this entry?" — and the prompt as written allowed it, so the
+// fix is in the prompt. This pins the constraint, because nothing else in the
+// code can tell a request for evidence from a proposal.
+test('the question is told to ask for evidence, not to propose a mechanism', () => {
+  const system = judgeMessages({ seq: 1, what: {} })[0].content;
+
+  assert.match(system, /A question asks for evidence, not for a change/, 'the question is scoped to evidence');
+  assert.match(system, /Do not name a mechanism, technique, tool, or fix/, 'naming a mechanism is refused in so many words');
+  assert.match(system, /asking what in the record shows that basis/, 'it asks what the record shows, not what should exist');
+  assert.match(system, /in the observation or the question/, 'the banned words cover both fields, not just observations');
+});
