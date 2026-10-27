@@ -56,9 +56,10 @@ A call that fails is recorded just as faithfully. A call that fails and is not
 written down is exactly the hole this layer exists to close.
 
 A prove call through any other plug writes the same entry with
-`kind: "plug-prove"`, plus `plug` and `role` naming which plug was called. The
-kind is read from the result rather than assumed, so the entry says what
-happened and not what the caller intended.
+`kind: "plug-prove"`, plus `plug` and `role` naming which plug was called. Real
+work through any other plug writes it with `kind: "plug-task"`. The kind is read
+from the result rather than assumed, so the entry says what happened and not what
+the caller intended.
 
 Entries also carry `request`: the method, the URL, and the exact body that was
 sent. That is the same object the transport serialised, so re-serialising the
@@ -120,6 +121,7 @@ npm run prove:dry       # show the exact request that would be sent; sends nothi
 npm run prove           # one real call on the Worker's plug (meta), recorded, read back
 npm run prove:baseten   # the same, on the Overseer's plug
 npm run prove:openrouter
+npm run task -- --prompt "..."   # one real piece of work, recorded
 npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date
@@ -134,7 +136,9 @@ numbers links straight to each entry, and each entry carries the matching anchor
 At the top it lists every
 plug with what the record shows for it: the calls each one answered, counted from
 the file, and the plugs that have never been called — reported as silence, which
-is not the same as failure. The file is generated and
+is not the same as failure. Each entry also says what kind of call it was — a
+worker call, a prove, or a task — so a check that a plug answers is not mistaken
+for a piece of real work through the same plug. The file is generated and
 ignored by git: a committed copy would be a stale second version of the record.
 Regenerate it after every call with `--out PATH` if you want it somewhere else.
 
@@ -175,6 +179,24 @@ the default short one.
 Exit codes: `0` everything held · `2` unknown plug name · `3` the plug is not
 ready, so nothing was attempted · `4` the call did not work · `5` the call worked
 but a stored item did not match.
+
+`task` is the other way to make a real call, and it is not a prove: it runs one
+piece of work through a plug and records it. A prove answers "is this plug wired,
+and does it answer?"; work is the thing the record exists to hold, so the two get
+different kinds (`plug-prove` and `plug-task`) and a reader can tell them apart.
+
+```bash
+npm run task -- --prompt "Name the three colours of a traffic light."
+npm run task -- --plug baseten --prompt "..."
+```
+
+It prints the reply and the entry read back out of the file — no pass, no fail,
+because it is not checking anything. With no `--plug` the work goes to the
+Worker's plug (`meta`) through the worker's own call path, so its entry is a
+`worker-call` like every other worker call. It has **no default prompt**: a task
+with nothing to do is refused before anything is sent, rather than this command
+inventing work. A plug that is not ready sends nothing and records nothing, and a
+call that fails is recorded as faithfully as one that worked.
 
 ## The model
 

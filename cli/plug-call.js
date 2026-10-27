@@ -11,9 +11,11 @@
 // variable, its model. Nothing is written out again here, so there is no second
 // copy to drift from the first.
 //
-// The entry this produces is marked 'plug-prove' rather than 'worker-call', so a
-// reader of the record can tell a plug being checked apart from the Worker agent
-// doing a task. They are different things and the record says which happened.
+// The caller names the kind, because two different things come through here: a
+// plug being checked ('plug-prove') and a plug doing real work ('plug-task').
+// Either way it is not 'worker-call', so a reader of the record can tell a call
+// on another plug apart from the Worker agent working. They are different things
+// and the record says which happened.
 
 import { call, resolvePlug } from '../provider/index.js';
 import { fixedFailure } from '../worker/errors.js';
@@ -21,17 +23,20 @@ import { fixedFailure } from '../worker/errors.js';
 /** The record kind a plug prove writes. Never used for the Worker's own calls. */
 export const PROVE_KIND = 'plug-prove';
 
+/** The record kind real work through a plug writes. Not a proof of anything. */
+export const TASK_KIND = 'plug-task';
+
 /**
  * Make one short call through one named plug.
  * Returns the shape the wrapper records: { kind, plug, role, ok, text, error, … }.
  * Never throws for a call that was tried — the seam reports failures as results.
  */
-export async function runPlugCall(name, { prompt, env = process.env, fetchImpl = fetch } = {}) {
+export async function runPlugCall(name, { prompt, env = process.env, fetchImpl = fetch, kind = PROVE_KIND } = {}) {
   const plug = resolvePlug(name, env);
   const text = String(prompt ?? '').trim();
 
   const base = {
-    kind: PROVE_KIND,
+    kind,
     plug: plug.name,
     role: plug.role,
     endpoint: plug.chatUrl ? `POST ${plug.chatUrl}` : null,

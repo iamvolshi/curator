@@ -15,21 +15,17 @@
 
 import { createStore } from '../record/store.js';
 import { renderEntry } from '../record/render.js';
-import { wrapCall } from '../wrapper/wrap.js';
-import { buildChatRequest, describeFailure, describeRequest, runWorkerCall } from '../worker/index.js';
+import { buildChatRequest, describeFailure, describeRequest } from '../worker/index.js';
 // The seam's preflight, not the worker's: the worker's always answers for the
 // Worker's plug, which would name the wrong environment variable for any other.
-import { describeKeyPresence, preflight, resolvePlug } from '../provider/index.js';
-import { plugForSlot } from '../provider/routing.js';
+import { describeKeyPresence, preflight } from '../provider/index.js';
 import { readOption } from './args.js';
-import { PROVE_KIND, describePlugRequest, runPlugCall } from './plug-call.js';
+import { WORKER_PLUG, callOnce, notReadyReport, resolveRoute } from './call-once.js';
+import { PROVE_KIND, describePlugRequest } from './plug-call.js';
 import { heading, line, note, check } from './output.js';
 
 /** Short and ordinary on purpose: this proves the path, it is not a benchmark. */
 export const DEFAULT_PROMPT = 'Reply with the single word: ready';
-
-/** The plug the Worker agent routes to, which keeps its own call path. */
-const WORKER_PLUG = plugForSlot('worker');
 
 export async function proveCommand({
   args = [],
@@ -41,9 +37,9 @@ export async function proveCommand({
   const prompt = readOption(args, '--prompt') ?? DEFAULT_PROMPT;
   const wanted = readOption(args, '--plug') ?? WORKER_PLUG;
 
-  let plug;
+  let route;
   try {
-    plug = resolvePlug(wanted, env);
+    route = resolveRoute(wanted, env);
   } catch (err) {
     heading('No such plug');
     note(`${err.message}.`);
@@ -52,7 +48,7 @@ export async function proveCommand({
 
   // The Worker's plug is proven the way it has always been proven. Proving it by
   // another route would write a different entry for the same call.
-  const throughWorker = plug.name === WORKER_PLUG;
+  const { plug, throughWorker } = route;
   const ready = preflight(plug.name, env);
 
   heading(`Overseer — one call through the wrapper (${plug.name})`);
@@ -80,9 +76,7 @@ export async function proveCommand({
     // What the plug itself says it needs comes first, because a slot waiting on a
     // decision is blocked by the decision, not by its key. Both are the plug's own
     // words: composing a list of variables here would be a second copy to drift.
-    const notReady = plug.status === 'ready' ? null : plug.blockedReason;
-    const primary = notReady ?? ready.problem ?? `the ${plug.name} plug is not ready`;
-    const keyProblem = ready.problem && ready.problem !== primary ? ready.problem : null;
+    const { primary, keyProblem } = notReadyReport(plug, ready);
 
     line('status:', plug.status);
     line('missing:', primary);
@@ -94,14 +88,7 @@ export async function proveCommand({
   const before = await store.readAll();
 
   heading('The call');
-  const { ok, entry, outcome } = await wrapCall({
-    call: throughWorker
-      ? (request) => runWorkerCall({ ...request, env, fetchImpl })
-      : (request) => runPlugCall(plug.name, { ...request, env, fetchImpl }),
-    prompt,
-    store,
-    kind: throughWorker ? 'worker-call' : PROVE_KIND,
-  });
+  const { ok, entry, outcome } = await callOnce({ route, prompt, env, fetchImpl, store, kind: PROVE_KIND });
 
   for (const warning of outcome?.warnings ?? []) {
     line('warning:', warning);

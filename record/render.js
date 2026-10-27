@@ -10,9 +10,10 @@ export function renderEntry(entry) {
   ];
 
   const what = entry.what ?? {};
-  // Two kinds of observed call so far: the Worker agent doing a task, and a plug
-  // being checked. They read the same way apart from the line that says which.
-  if (what.kind === 'worker-call' || what.kind === 'plug-prove') {
+  // Three kinds of observed call so far: the Worker agent doing a task, a plug
+  // doing real work, and a plug being checked. They read the same way apart from
+  // the line that says which — a proof and a task must not read alike.
+  if (what.kind === 'worker-call' || what.kind === 'plug-prove' || what.kind === 'plug-task') {
     lines.push(describeCall(what));
     if (what.endpoint) lines.push(`sent to: ${what.endpoint}`);
     // Entries written before the body was kept do not have one; saying nothing is
@@ -45,6 +46,10 @@ function describeCall(what) {
 
   if (what.kind === 'plug-prove') {
     return `what:   a prove call to the ${what.plug} plug (${what.role ?? 'no role'}) using ${model}`;
+  }
+
+  if (what.kind === 'plug-task') {
+    return `what:   a task run on the ${what.plug} plug (${what.role ?? 'no role'}) using ${model}`;
   }
 
   return `what:   a call to ${what.worker ?? 'a worker'} using ${model}`;

@@ -154,6 +154,16 @@ function basetenCall(seq, overrides = {}) {
   };
 }
 
+test('a proof and a piece of work through the same plug are told apart', () => {
+  const html = renderPage([basetenCall(1), basetenCall(2, { kind: 'plug-task', prompt: 'name three colours' })], {
+    plugs: [BASETEN],
+  });
+
+  assert.match(html, /chip--kind[^>]*>prove · baseten/, 'a proof says it is a proof');
+  assert.match(html, /chip--kind[^>]*>task · baseten/, 'work says it is work');
+  assert.match(html, /2 calls · 2 worked/, 'both are still calls on that plug, counted from the record');
+});
+
 test('each plug gets a line, and the counts come from the record', () => {
   const html = renderPage([call(1), call(2)], { plugs: [META, BASETEN, PICTURE] });
 

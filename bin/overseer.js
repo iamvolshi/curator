@@ -2,6 +2,7 @@
 // The command line for this scaffold.
 //
 //   prove [--dry-run] [--prompt "..."]   one real call, recorded, read back
+//   task --prompt "..."                  one real piece of work, recorded
 //   records [--last] [--json]            read the record file back
 //   status                               is the API address reachable?
 //
@@ -12,6 +13,7 @@ import { pageCommand } from '../cli/page.js';
 import { proveCommand, DEFAULT_PROMPT } from '../cli/prove.js';
 import { recordsCommand } from '../cli/records.js';
 import { statusCommand } from '../cli/status.js';
+import { taskCommand } from '../cli/task.js';
 
 const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffold)
 
@@ -20,6 +22,13 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       file. With no --plug it proves the Worker's own plug (meta); name another
       (baseten, openrouter) to prove that one on its own. --dry-run shows the
       request that would be sent and sends nothing.
+
+  node bin/overseer.js task --prompt "..." [--plug NAME]
+      Do one piece of real work through a plug and record it. This is not a
+      prove: nothing is checked, and the entry is marked 'plug-task' so a reader
+      can tell work apart from a proof that a plug works. With no --plug it goes
+      to the Worker's plug (meta). A plug that is not ready sends nothing and
+      records nothing.
 
   node bin/overseer.js records [--last] [--json]
       Read what has been recorded.
@@ -41,11 +50,12 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
   node bin/overseer.js help
       This text.
 
-A key is needed for "prove", and which key depends on the plug. Put it in a .env
-file next to this repo. Default prompt: ${JSON.stringify(DEFAULT_PROMPT)}
+A key is needed for "prove" and "task", and which key depends on the plug. Put
+it in a .env file next to this repo. Default prove prompt: ${JSON.stringify(DEFAULT_PROMPT)}
+"task" has no default prompt: it will not invent work nobody asked for.
 
-Exit codes: 0 held | 1 unexpected problem | 2 unknown command or plug name
-            3 the plug is not ready, so nothing was attempted
+Exit codes: 0 held | 1 unexpected problem | 2 unknown command, plug name, or
+            nothing to do | 3 the plug is not ready, so nothing was attempted
             4 the call did not work | 5 the call worked but the record did not match
 `;
 
@@ -54,6 +64,7 @@ const name = command ?? 'help';
 
 const commands = {
   prove: () => proveCommand({ args }),
+  task: () => taskCommand({ args }),
   records: () => recordsCommand({ args }),
   page: () => pageCommand({ args }),
   live: () => liveCommand({ args }),

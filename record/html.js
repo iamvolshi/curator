@@ -142,6 +142,26 @@ ${rows
 `;
 }
 
+/**
+ * The kind of call, in a word.
+ *
+ * A proof that a plug answers and a piece of real work through that same plug
+ * land in the same place on this page, on the same address, sometimes a second
+ * apart. Without this they would look identical, so the page says which is which.
+ */
+const CALL_KINDS = {
+  'worker-call': 'worker call',
+  'plug-prove': 'prove',
+  'plug-task': 'task',
+};
+
+function kindChip(what) {
+  const words = CALL_KINDS[what.kind];
+  if (!words) return '';
+  const plug = what.plug ? ` \u00b7 ${what.plug}` : '';
+  return `\n        <span class="chip chip--kind">${esc(words + plug)}</span>`;
+}
+
 function entryCard(entry) {
   const what = entry.what ?? {};
   const label = entry.label === 'judgment' ? 'judgment' : 'fact';
@@ -175,7 +195,7 @@ function entryCard(entry) {
     <article class="entry ${bad ? 'entry--bad' : ''}" id="entry-${esc(entry.seq)}">
       <div class="entry__head">
         <span class="entry__seq">${esc(entry.seq)}</span>
-        <span class="chip chip--${label}">${esc(label)}</span>
+        <span class="chip chip--${label}">${esc(label)}</span>${kindChip(what)}
         <span class="entry__when">${esc(entry.when)}</span>
         ${facts.length ? `<span class="entry__facts">${esc(facts.join(' · '))}</span>` : ''}
       </div>
@@ -243,6 +263,10 @@ const STYLE = `
   }
   .chip--fact { background: var(--fact); }
   .chip--judgment { background: var(--judgment); }
+  .chip--kind {
+    background: none; color: var(--muted);
+    border: 1px solid var(--rule); font-weight: 600; letter-spacing: .08em;
+  }
   .live {
     display: inline-flex; align-items: center; gap: .5rem;
     margin: 0 0 1.3rem; padding: .26rem .62rem;
