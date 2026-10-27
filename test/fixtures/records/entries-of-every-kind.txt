@@ -1,0 +1,69 @@
+
+Records (8 of 8)
+----------------
+file:        records/k-record.jsonl
+
+seq:    1
+when:   2026-10-26T23:12:32.281Z
+label:  fact
+what:   a call to meta-model-api using muse-spark-1.3
+sent to: POST https://api.meta.ai/v1/chat/completions
+body:   kept exactly as sent, in request.body
+prompt: say ready
+result: the call worked
+reply:  ready
+tokens: 186 in total
+took:   1443 ms
+
+seq:    2
+when:   2026-10-26T23:12:32.281Z
+label:  fact
+what:   a prove call to the baseten plug (overseer) using darrens-pick
+sent to: POST https://inference.baseten.co/v1/chat/completions
+prompt: say ready
+result: the call worked
+reply:  ready
+
+seq:    3
+when:   2026-10-26T23:12:32.281Z
+label:  fact
+what:   a task run on the baseten plug (overseer) using darrens-pick
+prompt: name three colours
+result: the call worked
+reply:  red, green, blue
+
+seq:    4
+when:   2026-10-26T23:12:32.281Z
+label:  fact
+what:   a call to meta-model-api using muse-spark-1.3
+sent to: POST https://api.meta.ai/v1/chat/completions
+prompt: say ready
+result: the call did not work
+problem: the key was rejected
+kind:   auth
+fix:    check the key
+
+seq:    5
+when:   2026-10-26T23:12:32.281Z
+label:  fact
+what:   a call to meta-model-api using muse-spark-1.3
+prompt: say ready
+result: the call did not work
+problem: the key is not there
+kind:   missing-key
+fix:    put it in .env
+
+seq:    6
+when:   2026-10-26T23:12:32.281Z
+label:  judgment
+what:   {"kind":"judgment","move":1,"subjects":["Ada Okafor"],"observation":"the reply supports the claim about Ada"}
+
+seq:    7
+when:   2026-10-26T23:12:32.281Z
+label:  question
+what:   {"kind":"question","move":3,"subjects":[],"question":"what in the record shows the basis for this?"}
+
+seq:    8
+when:   2026-10-26T23:12:32.281Z
+label:  judgment
+what:   {"kind":"something-later","note":"a shape the printer does not know"}

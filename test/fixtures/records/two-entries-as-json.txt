@@ -1,0 +1,47 @@
+
+Records (2 of 2)
+----------------
+file:        records/k-record.jsonl
+
+{
+  "seq": 1,
+  "when": "2026-10-26T23:12:32.281Z",
+  "label": "fact",
+  "what": {
+    "kind": "worker-call",
+    "worker": "meta-model-api",
+    "endpoint": "POST https://api.meta.ai/v1/chat/completions",
+    "request": {
+      "method": "POST",
+      "url": "https://api.meta.ai/v1/chat/completions",
+      "body": {
+        "model": "muse-spark-1.3",
+        "messages": []
+      }
+    },
+    "model": "muse-spark-1.3",
+    "prompt": "say ready",
+    "ok": true,
+    "response": "ready",
+    "usage": {
+      "total_tokens": 186
+    },
+    "durationMs": 1443
+  }
+}
+
+{
+  "seq": 2,
+  "when": "2026-10-26T23:12:32.281Z",
+  "label": "fact",
+  "what": {
+    "kind": "plug-prove",
+    "plug": "baseten",
+    "role": "overseer",
+    "endpoint": "POST https://inference.baseten.co/v1/chat/completions",
+    "model": "darrens-pick",
+    "prompt": "say ready",
+    "ok": true,
+    "response": "ready"
+  }
+}

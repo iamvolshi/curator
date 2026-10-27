@@ -5,8 +5,10 @@ import { createStore } from '../record/store.js';
 import { renderEntry } from '../record/render.js';
 import { heading, line, note } from './output.js';
 
-export async function recordsCommand({ args = [] } = {}) {
-  const store = createStore();
+// The store is taken as an argument like every other command's, so a check can
+// read a fixed record back without a file on disk and without this printing
+// whatever the machine happens to hold. The default is the real one.
+export async function recordsCommand({ args = [], store = createStore() } = {}) {
   const entries = await store.readAll();
   const wanted = args.includes('--last') ? entries.slice(-1) : entries;
 
