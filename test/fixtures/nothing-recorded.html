@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Overseer — a K-record of 0 calls</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --ink: #1a1710;
+    --muted: #6b6154;
+    --rule: #d9d2c3;
+    --fact: #0f5e3f;
+    --judgment: #8a3b12;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3.5rem 1.5rem 4rem;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 47rem; margin: 0 auto; }
+  .eyebrow {
+    margin: 0 0 .6rem;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    margin: 0 0 .8rem;
+    font: 600 clamp(1.9rem, 5vw, 2.6rem)/1.12 "Iowan Old Style", Georgia, serif;
+    letter-spacing: -.015em;
+  }
+  .deck { margin: 0 0 1.8rem; font-size: 1.02rem; color: var(--muted); }
+  .deck strong { color: var(--ink); font-weight: 600; }
+  .rule { height: 1px; background: var(--rule); border: 0; margin: 0 0 1.6rem; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.4rem;
+    margin: 0 0 2.4rem; padding: 0; list-style: none;
+    font-size: .86rem; color: var(--muted);
+  }
+  .legend li { display: flex; align-items: baseline; gap: .45rem; }
+  .chip {
+    display: inline-block;
+    padding: .1rem .48rem;
+    border-radius: 2px;
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--paper);
+  }
+  .chip--fact { background: var(--fact); }
+  .chip--judgment { background: var(--judgment); }
+  .chip--question { background: none; color: var(--judgment); border: 1px dashed var(--judgment); }
+  .chip--kind {
+    background: none; color: var(--muted);
+    border: 1px solid var(--rule); font-weight: 600; letter-spacing: .08em;
+  }
+  .live {
+    display: inline-flex; align-items: center; gap: .5rem;
+    margin: 0 0 1.3rem; padding: .26rem .62rem;
+    border: 1px solid var(--rule); border-radius: 999px;
+    font-size: .72rem; letter-spacing: .04em; color: var(--muted);
+  }
+  .live__dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--fact); }
+  .live--stopped .live__dot { background: var(--judgment); }
+  .index { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; margin: 0 0 1.9rem; }
+  .index__label {
+    margin-right: .3rem;
+    font-size: .64rem; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .index__link {
+    min-width: 1.65rem; padding: .05rem .4rem;
+    font: 600 .82rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink); text-align: center; text-decoration: none;
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
+  .index__link:hover, .index__link:focus-visible {
+    background: var(--ink); border-color: var(--ink); color: var(--paper);
+  }
+  .entry:target { background: rgba(26, 23, 16, .045); }
+  .socket { margin: 0 0 2.2rem; }
+  .socket h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .socket__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .socket__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .socket__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .5rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .socket__name { min-width: 9rem; font-weight: 600; }
+  .socket__role {
+    font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .socket__state { color: var(--muted); }
+  .socket__row--called .socket__state { color: var(--fact); font-weight: 600; }
+  .socket__last {
+    margin-left: auto;
+    font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .parked { margin: 0 0 2.2rem; }
+  .parked h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .parked__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .parked__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .parked__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .5rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .parked__seq {
+    min-width: 1.6rem;
+    font: 600 .95rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .parked__state { color: var(--judgment); font-weight: 600; }
+  .parked__about { color: var(--muted); }
+  .parked__subject { margin-left: auto; font-size: .78rem; color: var(--muted); }
+  .entry {
+    padding: 1.35rem 0 1.5rem;
+    border-top: 1px solid var(--rule);
+    break-inside: avoid;
+  }
+  .entry:first-of-type { border-top: 0; padding-top: 0; }
+  .entry__head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem;
+    margin-bottom: .9rem;
+  }
+  .entry__seq {
+    font: 600 1.35rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    min-width: 1.6rem;
+  }
+  .entry__when {
+    font: .8rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .entry__facts {
+    margin-left: auto;
+    font: .8rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .entry__body { margin: 0; padding-left: 2.2rem; }
+  .entry__body dt {
+    float: left; clear: left; width: 5.4rem;
+    font-size: .72rem; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+    padding-top: .18rem;
+  }
+  .entry__body dd {
+    margin: 0 0 .55rem 5.4rem;
+    font-size: .97rem;
+    overflow-wrap: anywhere;
+  }
+  .entry__body dd:last-child { margin-bottom: 0; }
+  .foot {
+    margin-top: 3rem; padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+    font-size: .82rem; line-height: 1.6; color: var(--muted);
+  }
+  .foot code { font: .95em ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+  .empty { padding: 2rem 0; color: var(--muted); }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { max-width: none; }
+    .chip { border: 1px solid currentColor; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <p class="eyebrow">The Overseer</p>
+  <h1>A record of what actually happened</h1>
+  <p class="deck"><strong>0 calls · 0 facts · 0 judgments · 0 questions</strong> — no model recorded yet</p>
+  <hr class="rule">
+  <ul class="legend">
+    <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
+    <li><span class="chip chip--judgment">judgment</span> the Overseer's assessment of an observed move, labelled as one</li>
+    <li><span class="chip chip--question">question</span> an open question on a subject, sitting in its thread until the record answers it</li>
+  </ul>
+<p class="empty">Nothing has been recorded yet. The page is empty because the file is.</p>
+  <p class="foot">
+    Generated from <code>records/k-record.jsonl</code> on 2026-10-26T23:12:32.281Z.
+    Every number and every line above was read from that file at that moment;
+    nothing here was typed in by hand.<br>
+    0 calls worked · 0 calls never sent ·
+    0 entries kept the request body ·
+    0 tokens in total.
+    No judgments or questions yet: the judge has not written one.
+    This page is a view of the record, not a copy of it — regenerate it after every call.
+  </p>
+</div>
+</body>
+</html>
