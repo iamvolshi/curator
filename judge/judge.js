@@ -39,6 +39,7 @@ import { call, notReadyReport, preflight, resolvePlug } from '../provider/index.
 import { plugForSlot } from '../provider/routing.js';
 import { makeEntry } from '../record/entry.js';
 import { normalizeSubjectList } from '../record/folders.js';
+import { PARK_AFTER, parkedFrom } from './attempts.js';
 import { judgeMessages, readJudgeReply } from './prompt.js';
 import { directs } from './wording.js';
 
@@ -125,6 +126,11 @@ export function moveBySeq(entries, seq) {
  * checked, so a sequence that cannot be judged is reported as a fact about the
  * record rather than hidden behind a missing key.
  *
+ * `attempts` is the ledger of failed attempts, and `parkAfter` is how many park a
+ * move. A parked move is not attempted, is not written about, and stays unjudged
+ * in the record — the ledger is a cost bound, not a verdict. Naming a parked move
+ * with `move` still attempts it: an explicit ask outranks a bound.
+ *
  * @returns {Promise<{
  *   refused: null|{status: string, missing: string, keyProblem: string|null},
  *   problem: string|null,  why the named move could not be judged
@@ -132,12 +138,17 @@ export function moveBySeq(entries, seq) {
  *   written: {judgments: number, questions: number},
  *   candidates: number,   how many moves this run attempted
  *   waiting: number,      how many were unjudged when it started
+ *   parked: Array<{seq: number, fails: number}>,  unjudged moves it did not attempt
  * }>}
  */
-export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date(), limit = null, move = null }) {
+export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date(), limit = null, move = null, attempts = null, parkAfter = PARK_AFTER }) {
   const waiting = movesToJudge(entries);
   const chosen = Number.isInteger(move) ? moveBySeq(entries, move) : null;
-  const nothing = { outcomes: [], written: { judgments: 0, questions: 0 }, waiting: waiting.length };
+  const parked = attempts ? parkedFrom(await attempts.readAll(), parkAfter) : [];
+  // A named move is attempted even when parked: the caller asked for this one.
+  const parkedSeqs = new Set(parked.map((held) => held.seq));
+  const offerable = waiting.filter((entry) => !parkedSeqs.has(entry.seq));
+  const nothing = { outcomes: [], written: { judgments: 0, questions: 0 }, waiting: waiting.length, parked };
 
   if (chosen?.problem) {
     return { refused: null, problem: chosen.problem, candidates: 0, ...nothing };
@@ -155,14 +166,15 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       written: { judgments: 0, questions: 0 },
       candidates: 0,
       waiting: waiting.length,
+      parked,
     };
   }
 
   const candidates = chosen
     ? [chosen.move]
     : Number.isInteger(limit) && limit > 0
-      ? waiting.slice(0, limit)
-      : waiting;
+      ? offerable.slice(0, limit)
+      : offerable;
   const outcomes = [];
   const written = { judgments: 0, questions: 0 };
 
@@ -172,6 +184,9 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     // Nothing came back, so nothing was learned about the move. No entry, and the
     // move stays queued: see the note at the top on why this is unlike a refusal.
     if (!sent.ok) {
+      // Counted, not recorded: the count parks the move after a few attempts so a
+      // broken provider stops costing a call on every run.
+      if (attempts) await attempts.noteFailure(move.seq, 'call-failed', now().toISOString());
       outcomes.push({ seq: move.seq, state: 'call-failed', detail: sent.error?.message ?? 'the call did not work' });
       continue;
     }
@@ -181,6 +196,7 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       // Nothing is written from a reply that cannot be read: a guess here would be
       // this code's opinion wearing the model's name, and naming the move would
       // stop the retry that a malformed reply deserves.
+      if (attempts) await attempts.noteFailure(move.seq, 'unreadable', now().toISOString());
       outcomes.push({ seq: move.seq, state: 'unreadable', detail: read.error });
       continue;
     }
@@ -228,5 +244,13 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     outcomes.push({ seq: move.seq, state: 'judged', detail: read.observation });
   }
 
-  return { refused: null, problem: null, outcomes, written, candidates: candidates.length, waiting: waiting.length };
+  // One place decides what a resolved move is: anything that left something in the
+  // record is no longer failing, and its count goes back to nothing.
+  if (attempts) {
+    for (const outcome of outcomes) {
+      if (outcome.state !== 'call-failed' && outcome.state !== 'unreadable') await attempts.clear(outcome.seq);
+    }
+  }
+
+  return { refused: null, problem: null, outcomes, written, candidates: candidates.length, waiting: waiting.length, parked };
 }

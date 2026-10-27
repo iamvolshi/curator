@@ -98,7 +98,13 @@ reply that arrived unreadable, write nothing at all and leave the move in the
 queue: nothing was decided about that move, so an entry would assert a gap
 nobody observed, and naming the move would spend the retry a bad reply deserves.
 The run says which of the three happened, and the next run offers those moves
-again. The judge runs on the
+again. Because that leaves a persistently broken move costing a call on every
+run, the judge keeps a count of failed attempts per move in
+`records/judge-attempts.json` — deliberately not part of the record, and ignored
+by git. At three failed attempts a move is **parked**: not attempted, nothing
+written about it, still unjudged in the record, and listed by the run that
+skipped it. `--retry-parked` clears the counts and offers everything again, and
+deleting the file does the same. A success clears the count on its own. The judge runs on the
 `baseten` plug and never touches a fact entry; without Baseten credentials it
 refuses before any call, writing nothing.
 
@@ -191,6 +197,7 @@ npm run folders         # one folder per subject, plus any unfiled questions
 npm run judge           # the Overseer observes the moves (needs Baseten)
 npm run judge -- --limit 1   # ...and a first run can cost one call, not one per move
 npm run judge -- --move 5    # ...or judge the one move with seq 5, whichever it is
+npm run judge -- --retry-parked  # offer every move that kept failing again
 npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date

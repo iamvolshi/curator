@@ -14,3 +14,8 @@ node_modules/
 # The page built from the record. Generated, never edited: a committed copy would
 # be a stale second version of the record. Run "npm run page" to rebuild it.
 record.html
+
+# The judge's count of failed attempts per move. Operational state, not the
+# record: it decides what a run attempts, never what the record holds. Deleting
+# it retries every parked move.
+records/judge-attempts.json

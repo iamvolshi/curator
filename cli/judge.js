@@ -20,6 +20,7 @@
 //             5 a reply was refused for its wording; the gap was recorded as a
 //               question instead
 
+import { PARK_AFTER, createLedger } from '../judge/attempts.js';
 import { judgeMoves, JUDGE_PLUG } from '../judge/judge.js';
 import { createStore } from '../record/store.js';
 import { describeKeyPresence, resolvePlug } from '../provider/index.js';
@@ -36,7 +37,7 @@ const STATE_WORDS = {
   'call-failed': 'nothing written \u2014 the call did not work, so the move stays unjudged',
 };
 
-export async function judgeCommand({ args = [], env = process.env, fetchImpl = fetch, store = createStore() } = {}) {
+export async function judgeCommand({ args = [], env = process.env, fetchImpl = fetch, store = createStore(), ledger = createLedger(undefined, env) } = {}) {
   // Refused before anything is read or sent: a limit nobody can honour is a usage
   // mistake, not a call that failed.
   const rawLimit = readOption(args, '--limit');
@@ -72,6 +73,11 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
     move = Number(rawMove);
   }
 
+  // `--retry-parked` puts every parked move back in the running. It is also the
+  // honest answer to a ledger that got out of step: the counts are disposable.
+  const retryParked = args.includes('--retry-parked');
+  if (retryParked) await ledger.reset();
+
   const entries = await store.readAll();
   const plug = resolvePlug(JUDGE_PLUG, env);
 
@@ -81,7 +87,7 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
   line('model:', plug.model ?? `none \u2014 set ${plug.modelEnvVar}`);
   line('key:', describeKeyPresence(plug, env));
 
-  const result = await judgeMoves({ entries, env, fetchImpl, store, limit, move });
+  const result = await judgeMoves({ entries, env, fetchImpl, store, limit, move, attempts: ledger, parkAfter: PARK_AFTER });
 
   if (result.refused) {
     heading('Stopped before the call');
@@ -104,7 +110,11 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
 
   heading('The moves');
   if (result.candidates === 0) {
-    note('Nothing to judge: every observed move already has a judgment or a question.');
+    note(
+      (result.parked ?? []).length > 0
+        ? 'Nothing attempted: every move still unjudged is parked. --retry-parked tries them again.'
+        : 'Nothing to judge: every observed move already has a judgment or a question.',
+    );
   } else {
     // Said out loud, so a capped or picked run is never mistaken for a complete one.
     if (move !== null) {
@@ -120,6 +130,17 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
       const words = STATE_WORDS[outcome.state] ?? outcome.state;
       line(`seq ${outcome.seq}`, `${words}${outcome.detail ? `  (${outcome.detail})` : ''}`);
     }
+  }
+
+  // Parked moves are reported, not hidden: a run that quietly skipped work would
+  // look exactly like a run that had none to do.
+  const parked = result.parked ?? [];
+  if (parked.length > 0) {
+    heading('Parked \u2014 still unjudged, not attempted');
+    for (const held of parked) {
+      line(`seq ${held.seq}`, `${held.fails} failed attempts, last one not recorded`);
+    }
+    note("They are still in the record as unjudged, and nothing was written about them. --retry-parked tries them again.");
   }
 
   heading('What the record gained');
@@ -153,6 +174,12 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
   if (unreadable) {
     note('result: something was left unwritten rather than written badly');
     return 5;
+  }
+  // Not "clean": a run that attempted nothing because the rest is parked has not
+  // judged anything, and saying clean would read as a finished queue.
+  if (parked.length > 0 && result.candidates === 0) {
+    note('result: nothing attempted \u2014 what is left is parked, not judged');
+    return 0;
   }
   note('result: clean');
   return 0;
