@@ -251,6 +251,33 @@ test('the judge command exits 3 without credentials, having recorded nothing', a
   });
 });
 
+test('a refused reply exits 5 and says the gap it left was recorded', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    const directing = JSON.stringify({
+      basis: 'shown',
+      observation: 'the reply supports the claim, but you should add a timing figure next',
+      question: '',
+    });
+
+    const out = capture();
+    let code;
+    try {
+      code = await judgeCommand({ env: BASETEN_ENV, store, fetchImpl: provider(directing) });
+    } finally {
+      out.restore();
+    }
+
+    // Still 5: a judgment was refused. What changed is that the refusal is no
+    // longer invisible — it is an entry, and the run says so.
+    assert.equal(code, 5);
+    assert.match(out.text(), /question written instead/);
+    assert.match(out.text(), /the gap it left was recorded as a question/);
+    assert.equal((await store.readAll()).filter((e) => e.label === 'question').length, 1, 'the trace is in the record');
+  });
+});
+
 test('the command says where a question with no subject went, and exits 0', async () => {
   await withStore(async (store) => {
     await observed(store, 'a move that names no subject', []);

@@ -18,7 +18,13 @@
 // entry; a decision not to record something is not.
 //
 // The manner rule is enforced here, not trusted to the model: wording that
-// directs stops the entry being written, and the run says which phrase did it.
+// directs is never written, and the run says which phrase did it. What is written
+// instead is a question in the record's own words, because the alternative was
+// silence: a refused reply left no entry at all, so the record could not show that
+// the judge had answered and been refused, and the move stayed in the queue to be
+// paid for again on every later run. The model's words cannot stand in for the
+// trace either — a directive is exactly what the record forbids — so the trace
+// asks for the basis without repeating the direction.
 
 import { call, notReadyReport, preflight, resolvePlug } from '../provider/index.js';
 import { plugForSlot } from '../provider/routing.js';
@@ -33,6 +39,18 @@ export const JUDGE_PLUG = plugForSlot(JUDGE_SLOT);
 
 export const JUDGMENT_KIND = 'judgment';
 export const QUESTION_KIND = 'question';
+
+/**
+ * What is written when the model's wording is refused.
+ *
+ * The gap is recorded, the directive is not: this asks for the basis for the
+ * move, and says why the answer is a question rather than an observation. It
+ * has to pass the same manner rule it is standing in for, so a check runs it
+ * through `directs` — a trace that directed would be the original fault wearing
+ * a different label.
+ */
+export const DIRECTED_QUESTION =
+  'What in the record shows the basis for this move? The judge answered with wording that directed the agent, so no observation was written in its place.';
 
 /** Moves that already have a judgment or a question naming them, by seq. */
 export function alreadyNamed(entries) {
@@ -160,7 +178,18 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     const wording = read.basis === 'shown' ? read.observation : read.question;
     const direction = directs(wording);
     if (direction) {
-      outcomes.push({ seq: move.seq, state: 'directed', detail: direction });
+      // The refusal is written down, in the record's own words. The move is named,
+      // so it leaves the queue: a move nothing names is offered on every run, and
+      // the only thing a second run would learn is that the same reply directs.
+      await store.append(
+        makeEntry({ when, label: 'question', what: { kind: QUESTION_KIND, move: move.seq, subjects, question: DIRECTED_QUESTION } }),
+      );
+      written.questions += 1;
+      outcomes.push({
+        seq: move.seq,
+        state: subjects.length === 0 ? 'asked-instead-unfiled' : 'asked-instead',
+        detail: `the wording directed: ${direction}`,
+      });
       continue;
     }
 

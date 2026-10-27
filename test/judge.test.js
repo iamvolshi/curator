@@ -19,7 +19,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { judgeMoves, movesToJudge } from '../judge/judge.js';
+import { DIRECTED_QUESTION, judgeMoves, movesToJudge } from '../judge/judge.js';
+import { directs } from '../judge/wording.js';
 import { createStore } from '../record/store.js';
 import { shadeFor } from '../record/shades.js';
 import { wrapCall } from '../wrapper/wrap.js';
@@ -91,22 +92,61 @@ test('a judgment names its move, carries its label, and says nothing else', asyn
   });
 });
 
-test('wording that directs stops the entry being written, and names the phrase', async () => {
+const DIRECTING = JSON.stringify({
+  basis: 'shown',
+  observation: 'the reply supports the claim, but you should add a timing figure next',
+  question: '',
+});
+
+test('wording that directs is never written, and the refusal is recorded in its place', async () => {
+  await withStore(async (store) => {
+    const { entry: fact } = await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(DIRECTING) });
+
+    assert.equal(result.written.judgments, 0, 'the directive is never written as a judgment');
+    assert.equal(result.written.questions, 1, 'the refusal is recorded, rather than left as a silence');
+    assert.equal(result.outcomes[0].state, 'asked-instead');
+    assert.match(result.outcomes[0].detail, /you should/i, 'the report names the phrase that stopped it');
+
+    const stored = (await store.readAll()).at(-1);
+    assert.equal(stored.label, 'question', 'the trace reads as a question, not as a judgment');
+    assert.equal(stored.what.question, DIRECTED_QUESTION);
+    assert.equal(stored.what.move, fact.seq, 'it names the move, so the move leaves the queue');
+    assert.deepEqual(stored.what.subjects, ['Ada Okafor'], 'and it sits in that move\u2019s subject thread');
+
+    // The one thing the record must not hold is the direction itself.
+    assert.doesNotMatch(JSON.stringify(stored), /you should/i, 'the model\u2019s directive is not in the record');
+
+    assert.deepEqual(movesToJudge(await store.readAll()).map((e) => e.seq), [], 'the move is not offered again');
+  });
+});
+
+test('a refused reply is not paid for twice', async () => {
   await withStore(async (store) => {
     await observed(store, 'a move about Ada', ['Ada Okafor']);
 
-    const directing = JSON.stringify({
-      basis: 'shown',
-      observation: 'the reply supports the claim, but you should add a timing figure next',
-      question: '',
-    });
+    const seen = [];
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(DIRECTING, seen) });
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(DIRECTING, seen) });
 
-    const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(directing) });
+    assert.equal(seen.length, 1, 'the second run has nothing left to ask about');
+    assert.equal((await store.readAll()).length, 2, 'the fact and one trace, appended once');
+  });
+});
 
-    assert.equal(result.written.judgments, 0, 'nothing is written from a directive');
-    assert.equal(result.outcomes[0].state, 'directed');
-    assert.match(result.outcomes[0].detail, /you should/i, 'the report names the phrase that stopped it');
-    assert.equal((await store.readAll()).length, 1, 'only the fact is in the record');
+test('the trace the code writes passes the manner rule it stands in for', async () => {
+  assert.equal(directs(DIRECTED_QUESTION), null, 'the record-authored question directs nothing');
+
+  await withStore(async (store) => {
+    await observed(store, 'a move that names no subject');
+
+    const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(DIRECTING) });
+
+    assert.equal(result.outcomes[0].state, 'asked-instead-unfiled', 'no subject, so the trace is unfiled');
+    const stored = (await store.readAll()).at(-1);
+    assert.deepEqual(stored.what.subjects, [], 'no subject is invented for it');
+    assert.equal(stored.what.question, DIRECTED_QUESTION);
   });
 });
 

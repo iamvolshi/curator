@@ -1,9 +1,11 @@
 // Running the judge from the command line.
 //
 // The judge writes entries, so this command reports what was written and, just as
-// importantly, what was not and why. Three things stop an entry: the plug is not
-// callable (no call is made at all), the reply could not be read, or the wording
-// directed the Worker instead of observing it.
+// importantly, what was not and why. Three things stop an entry being written for
+// a move: the plug is not callable (no call is made at all), the reply could not
+// be read, or the wording directed the agent instead of observing it. The third of
+// those still leaves a trace — a question in the record's own words, naming the
+// move — so a refusal is never a silence and never costs another call.
 //
 // `--limit N` judges at most N moves, so a first live run against a paid
 // endpoint can cost one call instead of one per move in the record. `--move N`
@@ -15,7 +17,8 @@
 //               is not one this record can judge
 //             3 the Overseer's plug is not ready, so nothing was attempted
 //             4 a model call did not work
-//             5 the run wrote nothing for a move because its wording directed
+//             5 a reply was refused for its wording; the gap was recorded as a
+//               question instead
 
 import { judgeMoves, JUDGE_PLUG } from '../judge/judge.js';
 import { createStore } from '../record/store.js';
@@ -27,7 +30,8 @@ const STATE_WORDS = {
   judged: 'judgment written',
   asked: 'question written',
   'asked-unfiled': 'question written \u2014 no subject, so it sits in no folder',
-  directed: 'nothing written \u2014 the wording directed',
+  'asked-instead': 'question written instead \u2014 the wording directed',
+  'asked-instead-unfiled': 'question written instead \u2014 the wording directed, and no subject, so it sits in no folder',
   unreadable: 'nothing written \u2014 the reply could not be read',
   'call-failed': 'nothing written \u2014 the call did not work',
 };
@@ -122,7 +126,7 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
   line('judgments:', String(result.written.judgments));
   line('questions:', String(result.written.questions));
   // A judgment is appended, never substituted: the facts it judges are unchanged.
-  if (result.outcomes.some((o) => o.state === 'asked-unfiled')) {
+  if (result.outcomes.some((o) => o.state === 'asked-unfiled' || o.state === 'asked-instead-unfiled')) {
     note('A question about a move that names no subject belongs to no folder. It is still in the record, and that move is not judged again.');
   }
   note('');
@@ -130,13 +134,17 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
 
   const failed = result.outcomes.some((o) => o.state === 'call-failed');
   const unreadable = result.outcomes.some((o) => o.state === 'unreadable');
-  const directed = result.outcomes.some((o) => o.state === 'directed');
+  const directed = result.outcomes.some((o) => o.state === 'asked-instead' || o.state === 'asked-instead-unfiled');
 
   if (failed) {
     note('result: a model call did not work');
     return 4;
   }
-  if (unreadable || directed) {
+  if (directed) {
+    note('result: a reply was refused for its wording, and the gap it left was recorded as a question');
+    return 5;
+  }
+  if (unreadable) {
     note('result: something was left unwritten rather than written badly');
     return 5;
   }

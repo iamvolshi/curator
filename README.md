@@ -89,9 +89,11 @@ the prompt forbids naming a mechanism, technique, tool or fix — a question ask
 for evidence, not for a change, so "what hash chain anchors this?" is not one. A question about a move that names no subject is written too — unfiled,
 but recorded and visible, and naming the move — because the older behaviour, not
 writing it, let a move the judge declined leave no trace at all, and left it in
-the queue to cost another call every later run. Wording that directs the Worker
-("you should…") stops the entry being written and the run names the phrase that
-did it. The judge runs on the
+the queue to cost another call every later run. Wording that directs the agent ("you should…") is never written: the model's
+directive cannot go in the record, and neither can silence, so the gap is written
+instead as a question in the record's own words, naming the move, saying why no
+observation was written, and — because the move is now named — leaving the queue.
+The run names the phrase that was refused. The judge runs on the
 `baseten` plug and never touches a fact entry; without Baseten credentials it
 refuses before any call, writing nothing.
 
