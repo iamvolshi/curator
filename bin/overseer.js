@@ -35,11 +35,12 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       records nothing. --subject says what the work is about and may be repeated;
       that is what puts the entry in a folder.
 
-  node bin/overseer.js judge
+  node bin/overseer.js judge [--limit N]
       The Overseer observes the record's observed moves and appends judgments,
       and questions where the record does not show the basis. It runs on the
       Overseer's plug (baseten) and never touches a fact entry. Without Baseten
-      credentials it refuses: no call, no entry.
+      credentials it refuses: no call, no entry. --limit N judges at most N
+      moves, so a first run costs one call instead of one per move.
 
   node bin/overseer.js folders [--subject "..."]
       One folder per subject the record names. With --subject, read that folder
@@ -71,8 +72,9 @@ A key is needed for "prove" and "task", and which key depends on the plug. Put
 it in a .env file next to this repo. Default prove prompt: ${JSON.stringify(DEFAULT_PROMPT)}
 "task" has no default prompt: it will not invent work nobody asked for.
 
-Exit codes: 0 held | 1 unexpected problem | 2 unknown command, plug name, or
-            nothing to do | 3 the plug is not ready, so nothing was attempted
+Exit codes: 0 held | 1 unexpected problem | 2 unknown command, plug name,
+            nothing to do, or a bad option | 3 the plug is not ready, so nothing
+            was attempted
             4 the call did not work | 5 the call worked but the record did not match
 `;
 
@@ -83,7 +85,7 @@ const commands = {
   prove: () => proveCommand({ args }),
   task: () => taskCommand({ args }),
   folders: () => foldersCommand({ args }),
-  judge: () => judgeCommand({}),
+  judge: () => judgeCommand({ args }),
   records: () => recordsCommand({ args }),
   page: () => pageCommand({ args }),
   live: () => liveCommand({ args }),

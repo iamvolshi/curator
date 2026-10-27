@@ -55,14 +55,20 @@ export function movesToJudge(entries) {
  * missing Baseten key produces no call and no entry — the same discipline as the
  * prove commands.
  *
+ * `limit` caps how many moves one run will judge, because a first live run
+ * against a paid endpoint should be able to cost one call rather than all of
+ * them. The moves it does not reach are left unjudged, not skipped: the next run
+ * offers them again, in record order.
+ *
  * @returns {Promise<{
  *   refused: null|{status: string, missing: string, keyProblem: string|null},
  *   outcomes: Array<{seq: number, state: string, detail?: string}>,
  *   written: {judgments: number, questions: number},
- *   candidates: number,
+ *   candidates: number,   how many moves this run attempted
+ *   waiting: number,      how many were unjudged when it started
  * }>}
  */
-export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date() }) {
+export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch, store, now = () => new Date(), limit = null }) {
   const ready = preflight(JUDGE_PLUG, env);
 
   if (!ready.ready) {
@@ -73,10 +79,12 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
       outcomes: [],
       written: { judgments: 0, questions: 0 },
       candidates: 0,
+      waiting: 0,
     };
   }
 
-  const candidates = movesToJudge(entries);
+  const waiting = movesToJudge(entries);
+  const candidates = Number.isInteger(limit) && limit > 0 ? waiting.slice(0, limit) : waiting;
   const outcomes = [];
   const written = { judgments: 0, questions: 0 };
 
@@ -126,5 +134,5 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     outcomes.push({ seq: move.seq, state: 'judged', detail: read.observation });
   }
 
-  return { refused: null, outcomes, written, candidates: candidates.length };
+  return { refused: null, outcomes, written, candidates: candidates.length, waiting: waiting.length };
 }

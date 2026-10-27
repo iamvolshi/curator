@@ -58,6 +58,10 @@ this record's own text would have produced a folder called "Company Logs Every
 AI Agent Call Permanently", because a Title Case headline looks exactly like a
 proper noun.
 
+`judge --limit N` judges at most N moves. What it does not reach is left
+unjudged, not skipped — the next run offers it again, in record order — and the
+run says so rather than looking complete.
+
 The **judge** reads the observed moves (facts) and appends what it observes. For
 each move it asks the Overseer's model one question — does the record show the
 basis? If it does, a `judgment` is written naming that move by sequence. If it
@@ -155,6 +159,7 @@ npm run prove:openrouter
 npm run task -- --prompt "..."   # one real piece of work, recorded
 npm run folders         # one folder per subject the record names
 npm run judge           # the Overseer observes the moves (needs Baseten)
+npm run judge -- --limit 1   # ...and a first run can cost one call, not one per move
 npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date

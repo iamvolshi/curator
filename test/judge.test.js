@@ -261,6 +261,64 @@ test('a move already named by a judgment is not judged twice', async () => {
   });
 });
 
+test('--limit judges one move and reports how many are still waiting', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'first move about Ada', ['Ada Okafor']);
+    await observed(store, 'second move about Ada', ['Ada Okafor']);
+    await observed(store, 'third move about Ada', ['Ada Okafor']);
+
+    const seen = [];
+    const out = capture();
+    let code;
+    try {
+      code = await judgeCommand({ args: ['--limit', '1'], env: BASETEN_ENV, store, fetchImpl: provider(SHOWN, seen) });
+    } finally {
+      out.restore();
+    }
+
+    assert.equal(code, 0);
+    assert.equal(seen.length, 1, 'one call, not three');
+    assert.equal((await store.readAll()).filter((e) => e.label === 'judgment').length, 1);
+    assert.match(out.text(), /judging 1 of 3 unjudged moves \(--limit 1\)/, 'a capped run says it was capped');
+    assert.match(out.text(), /The other 2 are still waiting/);
+  });
+});
+
+test('the moves a limit left out are offered again, in record order', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'first move', ['Ada Okafor']);
+    await observed(store, 'second move', ['Ada Okafor']);
+
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(SHOWN), limit: 1 });
+    const afterFirst = movesToJudge(await store.readAll());
+    assert.equal(afterFirst.length, 1, 'one move is still waiting');
+    assert.equal(afterFirst[0].what.prompt, 'second move', 'and it is the next one in the record');
+
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(SHOWN), limit: 5 });
+    assert.equal(movesToJudge(await store.readAll()).length, 0, 'a limit larger than the queue judges the rest');
+  });
+});
+
+test('a limit that is not a number of moves is refused before anything is read', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    for (const bad of ['0', 'abc', '2.5', '-1']) {
+      const out = capture();
+      let code;
+      try {
+        code = await judgeCommand({ args: ['--limit', bad], env: BASETEN_ENV, store, fetchImpl: async () => assert.fail('no call expected') });
+      } finally {
+        out.restore();
+      }
+      assert.equal(code, 2, `refused --limit ${bad}`);
+      assert.match(out.text(), /Not a good limit/);
+    }
+
+    assert.equal((await store.readAll()).length, 1, 'nothing was written');
+  });
+});
+
 test('an unreadable reply writes nothing rather than guessing', async () => {
   await withStore(async (store) => {
     await observed(store, 'a move about Ada', ['Ada Okafor']);
