@@ -7,6 +7,7 @@
 //
 // Each command returns an exit code; 0 means it held.
 
+import { pageCommand } from '../cli/page.js';
 import { proveCommand, DEFAULT_PROMPT } from '../cli/prove.js';
 import { recordsCommand } from '../cli/records.js';
 import { statusCommand } from '../cli/status.js';
@@ -21,6 +22,10 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
 
   node bin/overseer.js records [--last] [--json]
       Read what has been recorded.
+
+  node bin/overseer.js page [--out PATH]
+      Write the record out as one readable page. Built from the file as it is
+      now, so it can never describe a record that does not exist.
 
   node bin/overseer.js status
       Every plug: how it is wired, and whether its address answers. Needs no
@@ -44,6 +49,7 @@ const name = command ?? 'help';
 const commands = {
   prove: () => proveCommand({ args }),
   records: () => recordsCommand({ args }),
+  page: () => pageCommand({ args }),
   status: () => statusCommand({ args }),
   help: async () => {
     console.log(USAGE);

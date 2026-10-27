@@ -14,6 +14,7 @@
     "prove:baseten": "node --env-file-if-exists=.env bin/overseer.js prove --plug baseten",
     "prove:openrouter": "node --env-file-if-exists=.env bin/overseer.js prove --plug openrouter",
     "records": "node --env-file-if-exists=.env bin/overseer.js records",
+    "page": "node --env-file-if-exists=.env bin/overseer.js page",
     "status": "node --env-file-if-exists=.env bin/overseer.js status",
     "test": "node --test"
   }

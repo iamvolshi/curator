@@ -121,8 +121,16 @@ npm run prove           # one real call on the Worker's plug (meta), recorded, r
 npm run prove:baseten   # the same, on the Overseer's plug
 npm run prove:openrouter
 npm run records         # read the record file back
+npm run page            # write the record out as one readable page (record.html)
 npm run status          # every plug: wiring, and whether its address answers; no key needed
 ```
+
+`page` builds a single self-contained HTML file from the record as it is at that
+moment — no external font, image or script, so it opens anywhere and can be
+printed to PDF. Every number on it is counted from the entries, and every line of
+model output is escaped rather than trusted as markup. The file is generated and
+ignored by git: a committed copy would be a stale second version of the record.
+Regenerate it after every call with `--out PATH` if you want it somewhere else.
 
 `status` reports every plug — its address, where its model comes from, whether its
 key is present, and whether it can be called yet — then probes reachability

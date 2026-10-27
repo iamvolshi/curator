@@ -21,6 +21,7 @@ import { buildChatRequest, describeFailure, describeRequest, runWorkerCall } fro
 // Worker's plug, which would name the wrong environment variable for any other.
 import { describeKeyPresence, preflight, resolvePlug } from '../provider/index.js';
 import { plugForSlot } from '../provider/routing.js';
+import { readOption } from './args.js';
 import { PROVE_KIND, describePlugRequest, runPlugCall } from './plug-call.js';
 import { heading, line, note, check } from './output.js';
 
@@ -155,11 +156,4 @@ export async function proveCommand({
 
   if (!ok) return 4;
   return checksPassed ? 0 : 5;
-}
-
-function readOption(args, name) {
-  const index = args.indexOf(name);
-  if (index === -1) return undefined;
-  const value = args[index + 1];
-  return value && !value.startsWith('--') ? value : undefined;
 }

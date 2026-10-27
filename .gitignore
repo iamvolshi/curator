@@ -10,3 +10,7 @@ node_modules/
 
 # Logs
 *.log
+
+# The page built from the record. Generated, never edited: a committed copy would
+# be a stale second version of the record. Run "npm run page" to rebuild it.
+record.html
