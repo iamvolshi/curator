@@ -93,7 +93,12 @@ the queue to cost another call every later run. Wording that directs the agent (
 directive cannot go in the record, and neither can silence, so the gap is written
 instead as a question in the record's own words, naming the move, saying why no
 observation was written, and — because the move is now named — leaving the queue.
-The run names the phrase that was refused. The judge runs on the
+The run names the phrase that was refused. A call that never arrived, and a
+reply that arrived unreadable, write nothing at all and leave the move in the
+queue: nothing was decided about that move, so an entry would assert a gap
+nobody observed, and naming the move would spend the retry a bad reply deserves.
+The run says which of the three happened, and the next run offers those moves
+again. The judge runs on the
 `baseten` plug and never touches a fact entry; without Baseten credentials it
 refuses before any call, writing nothing.
 

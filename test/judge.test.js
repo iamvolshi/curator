@@ -251,6 +251,61 @@ test('an unreadable reply writes nothing rather than guessing', async () => {
     assert.equal(result.written.questions, 0);
     assert.equal(result.outcomes[0].state, 'unreadable');
     assert.equal((await store.readAll()).length, 1);
+
+    // Unlike a refusal, nothing was decided about the move, so it keeps its
+    // place: a malformed reply deserves the retry that naming the move would end.
+    assert.deepEqual(movesToJudge(await store.readAll()).map((e) => e.seq), [1], 'the move is still queued');
+  });
+});
+
+test('a call that fails writes nothing and leaves the move for the next run', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    let asked = 0;
+    const down = async () => {
+      asked += 1;
+      throw new Error('the network was down');
+    };
+
+    const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: down });
+
+    assert.equal(asked, 1, 'the call was attempted once');
+    assert.equal(result.outcomes[0].state, 'call-failed');
+    assert.equal(result.written.judgments + result.written.questions, 0, 'nothing is written for a call that never arrived');
+    assert.equal((await store.readAll()).length, 1, 'only the fact is in the record');
+    assert.deepEqual(movesToJudge(await store.readAll()).map((e) => e.seq), [1], 'the move keeps its place');
+
+    // And the retry that place exists for: the same move is judged once a reply
+    // arrives, so a blip does not become a verdict.
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(SHOWN) });
+    assert.equal((await store.readAll()).filter((e) => e.label === 'judgment').length, 1, 'the next run judges it');
+  });
+});
+
+test('in one run, a refusal is recorded and a failure is not', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'first move about Ada', ['Ada Okafor']);
+    await observed(store, 'second move about Ada', ['Ada Okafor']);
+
+    let call = 0;
+    const mixed = async () => {
+      call += 1;
+      if (call === 1) {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ model: 'darrens-pick', choices: [{ message: { content: DIRECTING } }] }) };
+      }
+      throw new Error('the network was down');
+    };
+
+    const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: mixed });
+
+    assert.deepEqual(result.outcomes.map((o) => o.state), ['asked-instead', 'call-failed'], 'one was refused, one never arrived');
+
+    const questions = (await store.readAll()).filter((e) => e.label === 'question');
+    assert.equal(questions.length, 1, 'one trace — for the refusal only');
+    assert.equal(questions[0].what.move, 1, 'and it names the move that was refused');
+
+    assert.deepEqual(movesToJudge(await store.readAll()).map((e) => e.seq), [2], 'the failed move is the one still queued');
   });
 });
 

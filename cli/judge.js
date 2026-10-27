@@ -32,8 +32,8 @@ const STATE_WORDS = {
   'asked-unfiled': 'question written \u2014 no subject, so it sits in no folder',
   'asked-instead': 'question written instead \u2014 the wording directed',
   'asked-instead-unfiled': 'question written instead \u2014 the wording directed, and no subject, so it sits in no folder',
-  unreadable: 'nothing written \u2014 the reply could not be read',
-  'call-failed': 'nothing written \u2014 the call did not work',
+  unreadable: 'nothing written \u2014 the reply could not be read, so the move stays unjudged',
+  'call-failed': 'nothing written \u2014 the call did not work, so the move stays unjudged',
 };
 
 export async function judgeCommand({ args = [], env = process.env, fetchImpl = fetch, store = createStore() } = {}) {
@@ -128,6 +128,12 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
   // A judgment is appended, never substituted: the facts it judges are unchanged.
   if (result.outcomes.some((o) => o.state === 'asked-unfiled' || o.state === 'asked-instead-unfiled')) {
     note('A question about a move that names no subject belongs to no folder. It is still in the record, and that move is not judged again.');
+  }
+  // Said out loud, because these two look like the refusal above in the log and
+  // are the opposite in the record: nothing was decided about the move, so
+  // nothing is written and the next run offers it again.
+  if (result.outcomes.some((o) => o.state === 'unreadable' || o.state === 'call-failed')) {
+    note('A move whose call failed or whose reply could not be read keeps its place in the queue: nothing was learned about it, so nothing is written in its place, and the next run offers it again.');
   }
   note('');
   note('Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.');

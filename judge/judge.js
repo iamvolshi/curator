@@ -25,6 +25,15 @@
 // paid for again on every later run. The model's words cannot stand in for the
 // trace either — a directive is exactly what the record forbids — so the trace
 // asks for the basis without repeating the direction.
+//
+// That trace is written when the judge DECIDED something about the move, and only
+// then. A call that never arrived, and a reply that arrived unreadable, decide
+// nothing: no basis was seen, no gap was seen either. So neither writes an entry,
+// and the move stays in the queue. A question in its place would assert a gap
+// nobody observed, and naming the move would take it out of the queue for good —
+// turning a network blip, or one malformed reply, into a permanent verdict about
+// a move that was never read. The run reports both, names the reason, and the
+// next run offers the move again, which is what a retry needs.
 
 import { call, notReadyReport, preflight, resolvePlug } from '../provider/index.js';
 import { plugForSlot } from '../provider/routing.js';
@@ -160,6 +169,8 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
   for (const move of candidates) {
     const sent = await call(JUDGE_PLUG, { messages: judgeMessages(move), env, fetchImpl });
 
+    // Nothing came back, so nothing was learned about the move. No entry, and the
+    // move stays queued: see the note at the top on why this is unlike a refusal.
     if (!sent.ok) {
       outcomes.push({ seq: move.seq, state: 'call-failed', detail: sent.error?.message ?? 'the call did not work' });
       continue;
@@ -167,8 +178,9 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
 
     const read = readJudgeReply(sent.text);
     if (read.error) {
-      // Nothing is written from a reply that cannot be read: a guess here would
-      // be this code's opinion wearing the model's name.
+      // Nothing is written from a reply that cannot be read: a guess here would be
+      // this code's opinion wearing the model's name, and naming the move would
+      // stop the retry that a malformed reply deserves.
       outcomes.push({ seq: move.seq, state: 'unreadable', detail: read.error });
       continue;
     }
