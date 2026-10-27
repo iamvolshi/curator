@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { createStore } from '../record/store.js';
 import { wrapCall } from '../wrapper/wrap.js';
+import { runWorkerCall } from '../worker/client.js';
 
 async function withStore(fn) {
   const dir = await mkdtemp(join(tmpdir(), 'overseer-wrapper-'));
@@ -103,5 +104,79 @@ test('the wrapper refuses to run without a call or a store', async () => {
   await withStore(async (store) => {
     await assert.rejects(() => wrapCall({ prompt: 'x', store }), /needs a call function/);
     await assert.rejects(() => wrapCall({ call: goodCall, prompt: 'x' }), /needs a record store/);
+  });
+});
+
+/** A worker call wired to a fake fetch that hands back whatever it was sent. */
+async function recordOneWorkerCall(store, { env, onSend }) {
+  return wrapCall({
+    call: (request) =>
+      runWorkerCall({
+        ...request,
+        env,
+        fetchImpl: async (url, options) => {
+          onSend?.(url, options);
+          return {
+            ok: true,
+            status: 200,
+            text: async () =>
+              JSON.stringify({
+                model: 'muse-spark-1.3',
+                choices: [{ message: { content: 'ready' }, finish_reason: 'stop' }],
+              }),
+          };
+        },
+      }),
+    prompt: 'say ready',
+    store,
+  });
+}
+
+test('the entry keeps the exact body that went out, byte for byte', async () => {
+  await withStore(async (store) => {
+    let sentBody = null;
+
+    await recordOneWorkerCall(store, {
+      env: { MODEL_API_KEY: 'LLM_test_key' },
+      onSend: (_url, options) => {
+        sentBody = options.body;
+      },
+    });
+
+    const [entry] = await store.readAll();
+
+    assert.equal(typeof sentBody, 'string', 'the transport really did serialize something');
+    assert.equal(
+      JSON.stringify(entry.what.request.body),
+      sentBody,
+      'the stored body re-serializes to exactly what went over the wire',
+    );
+    assert.equal(entry.what.request.method, 'POST');
+    assert.equal(entry.what.request.url, 'https://api.meta.ai/v1/chat/completions');
+    assert.deepEqual(entry.what.request.body.messages, [{ role: 'user', content: 'say ready' }]);
+  });
+});
+
+test('the key never reaches the record, even though the request does', async () => {
+  await withStore(async (store) => {
+    const secret = 'LLM_555000111222333_the-key-itself';
+
+    await recordOneWorkerCall(store, { env: { MODEL_API_KEY: secret } });
+
+    const [entry] = await store.readAll();
+    const asText = JSON.stringify(entry);
+
+    assert.equal(asText.includes(secret), false, 'no part of the key is in the entry');
+    assert.equal(asText.includes('Authorization'), false, 'headers are not recorded at all');
+    assert.equal(Object.hasOwn(entry.what.request, 'headers'), false);
+  });
+});
+
+test('a call that was never sent records no request at all', async () => {
+  await withStore(async (store) => {
+    const { entry } = await recordOneWorkerCall(store, { env: {} });
+
+    assert.equal(entry.what.noCallMade, true, 'nothing was sent');
+    assert.equal(entry.what.request, null, 'so there is no request to show');
   });
 });

@@ -60,6 +60,15 @@ A prove call through any other plug writes the same entry with
 kind is read from the result rather than assumed, so the entry says what
 happened and not what the caller intended.
 
+Entries also carry `request`: the method, the URL, and the exact body that was
+sent. That is the same object the transport serialised, so re-serialising the
+stored copy gives back byte for byte what went over the wire — an offline check
+asserts exactly that against the string the transport actually sent. The
+`Authorization` header is deliberately left out, because a record that can be
+handed to someone must not carry a key. A call that was never sent records
+`request: null`, and the first entries in this repository predate the field, so
+they have none — they are left as written, because the record is append-only.
+
 ## Where model calls go
 
 Every model call in this repo goes through one function,
@@ -171,8 +180,8 @@ The mapping follows Meta's published error reference, listed below.
 - The record store computes an entry's position (`seq`) by counting the lines
   already there. Fine at this scale — one line per call — and worth replacing
   with an index when records get long.
-- Stored text is not truncated. A model reply is kept whole, and deliberately
-  not printed in full by the read-back.
+- Stored text is not truncated. A model reply and the request body are kept
+  whole, and deliberately not printed in full by the read-back.
 - One process at a time. There is no lock on the record file.
 - Nothing here talks to a network except `provider/transport.js`.
 - Proving a plug is a real, paid call. Nothing rate-limits it or stops it being

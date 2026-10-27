@@ -73,6 +73,10 @@ function entryForOutcome(outcome, prompt, durationMs) {
     kind: result.kind ?? 'worker-call',
     worker: result.worker ?? null,
     endpoint: result.endpoint ?? null,
+    // The body as it was actually sent, reported by whoever sent it. Never a copy
+    // rebuilt here from the prompt: a rebuilt copy could agree with an intention
+    // instead of with what went over the wire.
+    request: result.request ?? null,
     model: result.model ?? null,
     prompt: String(prompt ?? ''),
     ok: result.ok === true,
@@ -96,6 +100,7 @@ function entryForThrow(err, prompt, durationMs, kind = 'worker-call') {
     kind,
     worker: null,
     endpoint: null,
+    request: null,
     model: null,
     prompt: String(prompt ?? ''),
     ok: false,

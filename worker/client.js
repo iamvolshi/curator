@@ -47,6 +47,8 @@ export async function runWorkerCall({
   const base = {
     worker: WORKER_NAME,
     endpoint: `POST ${CHAT_COMPLETIONS_URL}`,
+    // Filled in by the seam when a request really goes out; null until then.
+    request: null,
     model: chosenModel,
     text: null,
     finishReason: null,
@@ -89,6 +91,9 @@ export async function runWorkerCall({
   return {
     ...base,
     ok: result.ok === true,
+    // The seam reports exactly what it sent, so the record keeps the body rather
+    // than a second copy of it built here.
+    request: result.request ?? null,
     model: result.model ?? chosenModel,
     text: result.text ?? null,
     finishReason: result.finishReason ?? null,

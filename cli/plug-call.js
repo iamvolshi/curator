@@ -35,6 +35,8 @@ export async function runPlugCall(name, { prompt, env = process.env, fetchImpl =
     plug: plug.name,
     role: plug.role,
     endpoint: plug.chatUrl ? `POST ${plug.chatUrl}` : null,
+    // The seam fills this in only when a request really goes out.
+    request: null,
     model: plug.model ?? null,
     text: null,
     finishReason: null,
@@ -61,6 +63,7 @@ export async function runPlugCall(name, { prompt, env = process.env, fetchImpl =
     ...base,
     ok: result.ok === true,
     endpoint: result.endpoint ?? base.endpoint,
+    request: result.request ?? null,
     model: result.model ?? base.model,
     text: result.text ?? null,
     finishReason: result.finishReason ?? null,

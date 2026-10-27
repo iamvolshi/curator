@@ -15,6 +15,9 @@ export function renderEntry(entry) {
   if (what.kind === 'worker-call' || what.kind === 'plug-prove') {
     lines.push(describeCall(what));
     if (what.endpoint) lines.push(`sent to: ${what.endpoint}`);
+    // Entries written before the body was kept do not have one; saying nothing is
+    // better than implying an empty body was sent.
+    if (what.request?.body) lines.push('body:   kept exactly as sent, in request.body');
     lines.push(`prompt: ${oneLine(what.prompt)}`);
     if (what.ok) {
       lines.push(`result: the call worked`);

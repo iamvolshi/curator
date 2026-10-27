@@ -66,7 +66,7 @@ test('a plug prove calls that plug, carries its key, and records one fact entry'
           ...request,
           env: BASETEN_ENV,
           fetchImpl: async (url, options) => {
-            seen.push({ url, auth: options.headers.Authorization, body: JSON.parse(options.body) });
+            seen.push({ url, auth: options.headers.Authorization, raw: options.body, body: JSON.parse(options.body) });
             return reply({ model: 'darrens-pick', choices: [{ message: { content: 'ready' } }] });
           },
         }),
@@ -79,6 +79,11 @@ test('a plug prove calls that plug, carries its key, and records one fact entry'
     assert.equal(seen[0].url, 'https://inference.baseten.co/v1/chat/completions');
     assert.equal(seen[0].auth, 'Bearer baseten-secret', 'it carries the plug\u2019s own key');
     assert.equal(seen[0].body.model, 'darrens-pick');
+    assert.equal(
+      JSON.stringify(entry.what.request.body),
+      seen[0].raw,
+      'a plug prove keeps the body exactly as it was sent',
+    );
 
     assert.equal(ok, true);
     assert.equal(entry.label, 'fact');

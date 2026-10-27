@@ -65,6 +65,9 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     plug: plug.name,
     kind: plug.kind,
     endpoint: plug.chatUrl ? `POST ${plug.chatUrl}` : null,
+    // What was sent, filled in only once something really is sent. Nothing went
+    // out before that, so there is nothing honest to put here.
+    request: null,
     model: requestedModel,
     text: null,
     finishReason: null,
@@ -118,19 +121,27 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     };
   }
 
+  const body = { model: requestedModel, messages };
+
   const sent = await sendJson({
     url: plug.chatUrl,
     headers: {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
     },
-    body: { model: requestedModel, messages },
+    body,
     timeoutMs: timeoutMs ?? plug.timeoutMs,
     fetchImpl,
   });
 
+  // What was sent, for the record. This is the same object the transport
+  // serialised, so re-serialising the stored copy gives back exactly what went
+  // over the wire. The Authorization header is deliberately not part of it: a
+  // record that can be handed to someone must not carry a key.
+  const request = { method: 'POST', url: plug.chatUrl, body };
+
   if (!sent.ok) {
-    return { ...base, ok: false, durationMs: sent.durationMs, error: sent.error };
+    return { ...base, request, ok: false, durationMs: sent.durationMs, error: sent.error };
   }
 
   const choice = sent.parsed?.choices?.[0] ?? null;
@@ -139,6 +150,9 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
   if (typeof text !== 'string' || text.trim() === '') {
     return {
       ...base,
+      // It was sent, so the body is part of the record even though the reply was
+      // unusable.
+      request,
       ok: false,
       durationMs: sent.durationMs,
       error: fixedFailure(
@@ -151,6 +165,7 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
 
   return {
     ...base,
+    request,
     ok: true,
     durationMs: sent.durationMs,
     // The model the API says it used, not the one that was asked for.
