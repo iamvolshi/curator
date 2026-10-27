@@ -1,0 +1,5 @@
+
+Not a good move
+---------------
+--move takes the seq of one recorded move, 1 or more; it was given nothing.
+Nothing was sent and nothing was written.

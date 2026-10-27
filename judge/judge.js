@@ -110,7 +110,7 @@ export function moveBySeq(entries, seq) {
 }
 
 /** How a failed attempt is said, in words, wherever a park is shown. */
-const FAIL_WORDS = {
+export const FAIL_WORDS = {
   'call-failed': 'the call did not work',
   unreadable: 'the reply could not be read',
 };

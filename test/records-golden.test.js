@@ -18,18 +18,20 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { recordsCommand } from '../cli/records.js';
+import { assertInventory, firstDifference, goldenText, writeRequested } from '../checks/golden.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GOLDENS = join(HERE, 'fixtures', 'records');
+const SCRIPT = 'node test/records-golden.test.js --write';
 
 /** Writing is asked for outright, never inferred. */
-const WRITE = process.argv.includes('--write') || Boolean(process.env.OVERSEER_WRITE_RECORD_GOLDENS);
+const WRITE = writeRequested('OVERSEER_WRITE_RECORD_GOLDENS');
 
 const WHEN = '2026-10-26T23:12:32.281Z';
 const WORKER_URL = 'https://api.meta.ai/v1/chat/completions';
@@ -169,70 +171,16 @@ const FIXTURES = [
   { name: 'nothing-recorded', args: [], entries: [] },
 ];
 
-/** A line as a failure can show it, so a long entry does not bury the point. */
-function show(line) {
-  if (line === undefined) return '(the output ends here)';
-  const text = String(line);
-  return text.length > 120 ? `${text.slice(0, 119)}\u2026` : text;
-}
-
-/**
- * Where two outputs part company, as a sentence.
- * Comparing whole outputs says only that something moved; the line turns that
- * into a reason a reader can act on.
- */
-function firstDifference(name, blessed, printed) {
-  // A checkout that rewrote the fixture's line endings is not a change to the
-  // read-back, and reporting it as one would send the reader to the wrong file.
-  if (blessed.includes('\r\n') && !printed.includes('\r\n')) {
-    return [
-      `the blessed output for "${name}" was checked out with Windows line endings, so nothing can match it:`,
-      '  these files are compared byte for byte, so git has to check them out as stored.',
-      '  .gitattributes keeps that true; get the file again with:',
-      '    rm test/fixtures/records/*.txt && git checkout -- test/fixtures/records',
-    ].join('\n');
-  }
-
-  const before = blessed.split('\n');
-  const after = printed.split('\n');
-  const at = before.findIndex((line, i) => line !== after[i]);
-  const where =
-    at === -1
-      ? `the lines agree up to line ${Math.min(before.length, after.length)}, where one ends and the other does not (blessed ${before.length} lines, printed ${after.length})`
-      : `first difference at line ${at + 1}\n    blessed: ${show(before[at])}\n    printed: ${show(after[at])}`;
-
-  return [
-    `the read-back for "${name}" is no longer what was blessed:`,
-    `  ${where}`,
-    'If the printing changed on purpose, re-bless it and read the diff:',
-    '    node test/records-golden.test.js --write',
-  ].join('\n');
-}
-
 test('every fixed record reads back as exactly the output that was blessed', async () => {
   const seen = [];
 
   for (const fixture of FIXTURES) {
     const text = await printed(fixture.args, fixture.entries);
-    const path = join(GOLDENS, `${fixture.name}.txt`);
+    const blessed = await goldenText({ dir: GOLDENS, extension: 'txt', name: fixture.name, text, write: WRITE, script: SCRIPT });
 
-    if (WRITE) {
-      await mkdir(GOLDENS, { recursive: true });
-      await writeFile(path, text, 'utf8');
-      seen.push(`${fixture.name} (blessed)`);
-      continue;
+    if (blessed !== null) {
+      assert.equal(text, blessed, firstDifference({ name: fixture.name, blessed, printed: text, noun: 'read-back', script: SCRIPT, glob: 'test/fixtures/records/*.txt' }));
     }
-
-    let blessed;
-    try {
-      blessed = await readFile(path, 'utf8');
-    } catch {
-      assert.fail(
-        `no blessed output for "${fixture.name}" at test/fixtures/records/${fixture.name}.txt; create it with: node test/records-golden.test.js --write`,
-      );
-    }
-
-    assert.equal(text, blessed, firstDifference(fixture.name, blessed, text));
     seen.push(fixture.name);
   }
 
@@ -241,19 +189,12 @@ test('every fixed record reads back as exactly the output that was blessed', asy
 });
 
 test('the blessed outputs are exactly the fixtures, with none left behind', async () => {
-  const files = (await readdir(GOLDENS)).filter((file) => file.endsWith('.txt')).sort();
-
-  assert.deepEqual(
-    files,
-    FIXTURES.map((fixture) => `${fixture.name}.txt`).sort(),
-    'an output with no fixture, or a fixture with no output, means the set and the files have drifted apart',
-  );
-  assert.equal(new Set(FIXTURES.map((fixture) => fixture.name)).size, FIXTURES.length, 'one output per name');
-
-  for (const file of files) {
-    const text = await readFile(join(GOLDENS, file), 'utf8');
-    assert.equal(text.endsWith('\n'), true, `${file} ends with a newline, as the terminal saw it`);
-  }
+  await assertInventory({
+    dir: GOLDENS,
+    extension: 'txt',
+    names: FIXTURES.map((fixture) => fixture.name),
+    validate: (file, text) => assert.equal(text.endsWith('\n'), true, `${file} ends with a newline, as the terminal saw it`),
+  });
 });
 
 test('nothing but the printing decides these outputs', async () => {

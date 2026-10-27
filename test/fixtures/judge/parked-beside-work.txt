@@ -8,8 +8,6 @@ key:         set
 
 The moves
 ---------
-capped:      judging 2 of 3 unjudged moves (--limit null)
-The other 1 are still waiting, in record order.
 seq 1        judgment written  (the reply supports its claim)
 seq 2        judgment written  (the reply supports its claim)
 

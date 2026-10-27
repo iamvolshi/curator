@@ -106,9 +106,13 @@ if (!run) {
   process.exit(2);
 }
 
+// The code is set rather than exit()ed, so output written to a pipe is flushed
+// before the process ends: `process.exit` can cut the tail off a piped report.
 run()
-  .then((code) => process.exit(code))
+  .then((code) => {
+    process.exitCode = code;
+  })
   .catch((err) => {
     console.error('The command could not finish:', err?.message ?? err);
-    process.exit(1);
+    process.exitCode = 1;
   });

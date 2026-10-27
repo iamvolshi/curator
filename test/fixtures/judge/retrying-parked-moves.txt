@@ -1,0 +1,21 @@
+
+Overseer — the judge (baseten)
+------------------------------
+record file: records/k-record.jsonl
+entries read: 3
+model:       darrens-pick
+key:         set
+
+The moves
+---------
+seq 1        judgment written  (the reply supports its claim)
+seq 2        question written  (what in the record supports this claim?)
+seq 3        judgment written  (the reply supports its claim)
+
+What the record gained
+----------------------
+judgments:   2
+questions:   1
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+result: clean

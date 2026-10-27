@@ -21,17 +21,18 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { renderPage } from '../record/html.js';
+import { assertInventory, firstDifference, goldenText, writeRequested } from '../checks/golden.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GOLDENS = join(HERE, 'fixtures');
+const SCRIPT = 'node test/page-golden.test.js --write';
 
 /** Writing is asked for outright, never inferred. */
-const WRITE = process.argv.includes('--write') || Boolean(process.env.OVERSEER_WRITE_PAGE_GOLDENS);
+const WRITE = writeRequested('OVERSEER_WRITE_PAGE_GOLDENS');
 
 const WHEN = '2026-10-26T23:12:32.281Z';
 const SOURCE = 'records/k-record.jsonl';
@@ -144,69 +145,16 @@ const FIXTURES = [
   },
 ];
 
-/** A line as a failure can show it: short enough to read, never silently cut to nothing. */
-function show(line) {
-  if (line === undefined) return '(the page ends here)';
-  const text = String(line);
-  return text.length > 120 ? `${text.slice(0, 119)}\u2026` : text;
-}
-
-/**
- * Where two pages part company, as a sentence.
- * Comparing two 14 KB documents tells a reader only that something moved; the
- * line is what turns that into a reason.
- */
-function firstDifference(name, blessed, rendered) {
-  // A checkout that rewrote the file's line endings is not a change to the page.
-  // Saying so is the difference between a one-line fix and an afternoon spent
-  // reading a diff where every line moved.
-  if (blessed.includes('\r\n') && !rendered.includes('\r\n')) {
-    return [
-      `the page for "${name}" was checked out with Windows line endings, so nothing can match it:`,
-      '  these files are compared byte for byte, so git has to check them out as stored.',
-      '  .gitattributes keeps that true (test/fixtures/*.html -text); get the file again with:',
-      '    rm test/fixtures/*.html && git checkout -- test/fixtures',
-    ].join('\n');
-  }
-
-  const before = blessed.split('\n');
-  const after = rendered.split('\n');
-  const at = before.findIndex((line, i) => line !== after[i]);
-  const where =
-    at === -1
-      ? `the lines agree up to line ${Math.min(before.length, after.length)}, where one page ends and the other does not (blessed ${before.length} lines, rendered ${after.length})`
-      : `first difference at line ${at + 1}\n    blessed:  ${show(before[at])}\n    rendered: ${show(after[at])}`;
-
-  return [
-    `the page for "${name}" is no longer the page that was blessed:`,
-    `  ${where}`,
-    'If the renderer changed on purpose, re-bless it and read the diff:',
-    '    node test/page-golden.test.js --write',
-  ].join('\n');
-}
-
 test('every fixed set of entries renders to exactly the page that was blessed', async () => {
   const seen = [];
 
   for (const fixture of FIXTURES) {
     const html = renderPage(fixture.entries, fixture.options);
-    const path = join(GOLDENS, `${fixture.name}.html`);
+    const blessed = await goldenText({ dir: GOLDENS, extension: 'html', name: fixture.name, text: html, write: WRITE, script: SCRIPT });
 
-    if (WRITE) {
-      await mkdir(GOLDENS, { recursive: true });
-      await writeFile(path, html, 'utf8');
-      seen.push(`${fixture.name} (blessed)`);
-      continue;
+    if (blessed !== null) {
+      assert.equal(html, blessed, firstDifference({ name: fixture.name, blessed, printed: html, noun: 'page', script: SCRIPT, glob: 'test/fixtures/*.html' }));
     }
-
-    let blessed;
-    try {
-      blessed = await readFile(path, 'utf8');
-    } catch {
-      assert.fail(`no blessed page for "${fixture.name}" at test/fixtures/${fixture.name}.html; create it with: node test/page-golden.test.js --write`);
-    }
-
-    assert.equal(html, blessed, firstDifference(fixture.name, blessed, html));
     seen.push(fixture.name);
   }
 
@@ -215,19 +163,12 @@ test('every fixed set of entries renders to exactly the page that was blessed', 
 });
 
 test('the pinned pages are exactly the fixtures, with none left behind', async () => {
-  const files = (await readdir(GOLDENS)).filter((file) => file.endsWith('.html')).sort();
-
-  assert.deepEqual(
-    files,
-    FIXTURES.map((fixture) => `${fixture.name}.html`).sort(),
-    'a page with no fixture, or a fixture with no page, means the set and the files have drifted apart',
-  );
-  assert.equal(new Set(FIXTURES.map((fixture) => fixture.name)).size, FIXTURES.length, 'one page per name');
-
-  for (const file of files) {
-    const html = await readFile(join(GOLDENS, file), 'utf8');
-    assert.match(html, /^<!doctype html>/, `${file} is a whole page, not a fragment of one`);
-  }
+  await assertInventory({
+    dir: GOLDENS,
+    extension: 'html',
+    names: FIXTURES.map((fixture) => fixture.name),
+    validate: (file, html) => assert.match(html, /^<!doctype html>/, `${file} is a whole page, not a fragment of one`),
+  });
 });
 
 test('nothing but the renderer decides these pages', async () => {
