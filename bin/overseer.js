@@ -13,9 +13,11 @@ import { statusCommand } from '../cli/status.js';
 
 const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffold)
 
-  node bin/overseer.js prove [--dry-run] [--prompt "..."]
-      Make one real Muse Spark call through the wrapper, then read the record
-      back from the file. --dry-run shows the request and sends nothing.
+  node bin/overseer.js prove [--dry-run] [--plug NAME] [--prompt "..."]
+      Make one real call through the wrapper, then read the record back from the
+      file. With no --plug it proves the Worker's own plug (meta); name another
+      (baseten, openrouter) to prove that one on its own. --dry-run shows the
+      request that would be sent and sends nothing.
 
   node bin/overseer.js records [--last] [--json]
       Read what has been recorded.
@@ -28,10 +30,11 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
   node bin/overseer.js help
       This text.
 
-A key is needed for "prove". Put it in MODEL_API_KEY, or in a .env file next to
-this repo. Default prompt: ${JSON.stringify(DEFAULT_PROMPT)}
+A key is needed for "prove", and which key depends on the plug. Put it in a .env
+file next to this repo. Default prompt: ${JSON.stringify(DEFAULT_PROMPT)}
 
-Exit codes: 0 held | 1 unexpected problem | 2 unknown command | 3 no key
+Exit codes: 0 held | 1 unexpected problem | 2 unknown command or plug name
+            3 the plug is not ready, so nothing was attempted
             4 the call did not work | 5 the call worked but the record did not match
 `;
 

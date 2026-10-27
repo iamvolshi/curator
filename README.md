@@ -55,6 +55,11 @@ One entry per line, in `records/k-record.jsonl`:
 A call that fails is recorded just as faithfully. A call that fails and is not
 written down is exactly the hole this layer exists to close.
 
+A prove call through any other plug writes the same entry with
+`kind: "plug-prove"`, plus `plug` and `role` naming which plug was called. The
+kind is read from the result rather than assumed, so the entry says what
+happened and not what the caller intended.
+
 ## Where model calls go
 
 Every model call in this repo goes through one function,
@@ -101,10 +106,13 @@ claim otherwise:
 Needs Node 22.9 or newer. There are no dependencies to install.
 
 ```bash
-npm test          # the offline checks, no key and no network needed
-npm run prove:dry # show the exact request that would be sent; sends nothing
-npm run records   # read the record file back
-npm run status    # every plug: wiring, and whether its address answers; no key needed
+npm test                # the offline checks, no key and no network needed
+npm run prove:dry       # show the exact request that would be sent; sends nothing
+npm run prove           # one real call on the Worker's plug (meta), recorded, read back
+npm run prove:baseten   # the same, on the Overseer's plug
+npm run prove:openrouter
+npm run records         # read the record file back
+npm run status          # every plug: wiring, and whether its address answers; no key needed
 ```
 
 `status` reports every plug — its address, where its model comes from, whether its
@@ -124,11 +132,18 @@ npm run prove
 `prove` makes **one** call, then reads the entry back **from the file** and
 checks what is stored against what happened: one entry written, label `fact`,
 timestamp, prompt, model, reply. It exits non-zero if anything does not match,
-and it makes no call at all when there is no key. Add `--prompt "..."` to send
-your own prompt instead of the default short one.
+and it makes no call at all when the plug is not ready.
 
-Exit codes: `0` everything held · `3` no key, so nothing was attempted ·
-`4` the call did not work · `5` the call worked but a stored item did not match.
+`--plug NAME` says which plug to prove. With no `--plug` it proves the Worker's
+own plug, `meta`, through the worker's call path — unchanged. Any other plug is
+proven by one plain call through the seam, and its entry is marked `plug-prove`
+instead of `worker-call`, so a reader can tell a plug being checked apart from
+the Worker doing a task. Add `--prompt "..."` to send your own prompt instead of
+the default short one.
+
+Exit codes: `0` everything held · `2` unknown plug name · `3` the plug is not
+ready, so nothing was attempted · `4` the call did not work · `5` the call worked
+but a stored item did not match.
 
 ## The model
 
@@ -160,9 +175,8 @@ The mapping follows Meta's published error reference, listed below.
   not printed in full by the read-back.
 - One process at a time. There is no lock on the record file.
 - Nothing here talks to a network except `provider/transport.js`.
-- Only the `meta` plug has a prove command. `baseten` and `openrouter` have no
-  way to be live-proven yet, so one has to be built before either can be called
-  for real.
+- Proving a plug is a real, paid call. Nothing rate-limits it or stops it being
+  run in a loop; one call per plug is the intention, not an enforcement.
 - The record file is tracked in git, so a live call leaves one uncommitted line
   in the working tree.
 - The picture slot has no reader for an image reply. Every plug here reads the

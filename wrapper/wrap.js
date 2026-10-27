@@ -20,6 +20,10 @@ import { makeEntry } from '../record/entry.js';
  * @param {{append: Function}} options.store  the record store
  * @param {() => Date} [options.now]     clock, injectable so tests are steady
  * @param {() => number} [options.clock] timer, injectable for the same reason
+ * @param {string} [options.kind]        what to call this in the record if the
+ *   call itself throws. A call that returns states its own kind, because the
+ *   kind describes what actually happened; a throw is the one case where there
+ *   is no result to read it from.
  * @returns {Promise<{ok: boolean, entry: object, outcome: object|null, threw: Error|null}>}
  */
 export async function wrapCall({
@@ -28,6 +32,7 @@ export async function wrapCall({
   store,
   now = () => new Date(),
   clock = Date.now,
+  kind = 'worker-call',
 } = {}) {
   if (typeof call !== 'function') {
     throw new Error('wrapCall needs a call function to wrap');
@@ -50,7 +55,9 @@ export async function wrapCall({
   }
 
   const durationMs = clock() - startedAt;
-  const what = threw ? entryForThrow(threw, prompt, durationMs) : entryForOutcome(outcome, prompt, durationMs);
+  const what = threw
+    ? entryForThrow(threw, prompt, durationMs, kind)
+    : entryForOutcome(outcome, prompt, durationMs);
 
   const entry = makeEntry({ when, label: 'fact', what });
   const stored = await store.append(entry);
@@ -61,7 +68,9 @@ export async function wrapCall({
 function entryForOutcome(outcome, prompt, durationMs) {
   const result = outcome ?? {};
   return {
-    kind: 'worker-call',
+    // Read from the result, not from the caller's intention: the entry says what
+    // came back. A caller with no result to offer gets the default.
+    kind: result.kind ?? 'worker-call',
     worker: result.worker ?? null,
     endpoint: result.endpoint ?? null,
     model: result.model ?? null,
@@ -76,12 +85,15 @@ function entryForOutcome(outcome, prompt, durationMs) {
     // True when nothing was sent, so a reader is never told a call happened
     // when the setup stopped it first.
     noCallMade: result.noCallMade === true,
+    // Only a call that names the plug it went through gets these. A worker call
+    // leaves them out, so the entry it writes is the same one it always wrote.
+    ...(result.plug ? { plug: result.plug, role: result.role ?? null } : {}),
   };
 }
 
-function entryForThrow(err, prompt, durationMs) {
+function entryForThrow(err, prompt, durationMs, kind = 'worker-call') {
   return {
-    kind: 'worker-call',
+    kind,
     worker: null,
     endpoint: null,
     model: null,

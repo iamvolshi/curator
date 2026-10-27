@@ -11,6 +11,8 @@
   "scripts": {
     "prove": "node --env-file-if-exists=.env bin/overseer.js prove",
     "prove:dry": "node --env-file-if-exists=.env bin/overseer.js prove --dry-run",
+    "prove:baseten": "node --env-file-if-exists=.env bin/overseer.js prove --plug baseten",
+    "prove:openrouter": "node --env-file-if-exists=.env bin/overseer.js prove --plug openrouter",
     "records": "node --env-file-if-exists=.env bin/overseer.js records",
     "status": "node --env-file-if-exists=.env bin/overseer.js status",
     "test": "node --test"

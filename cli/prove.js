@@ -1,56 +1,92 @@
-// The live proof for Outcome 1.
+// The live proof for one plug.
 //
-// One short prompt goes out through the wrapper to Muse Spark. Then the record
-// file is read back from disk — not from memory — and each thing the outcome
-// claims is checked against what is actually stored.
+// One short prompt goes out through the wrapper. Then the record file is read
+// back from disk — not from memory — and each thing the proof claims is checked
+// against what is actually stored.
 //
-// Exit codes: 0 everything held, 3 no key so nothing was attempted,
-// 4 the call did not work, 5 the call worked but a stored item did not match.
+// With no --plug it proves the plug the Worker agent routes to, through the
+// worker's own call path. With --plug NAME it proves that plug by one plain call
+// through the seam. Either way it is one real call, one recorded fact entry, and
+// the entry read back.
+//
+// Exit codes: 0 everything held, 2 unknown plug name, 3 the plug is not ready so
+// nothing was attempted, 4 the call did not work, 5 the call worked but a stored
+// item did not match.
 
 import { createStore } from '../record/store.js';
 import { renderEntry } from '../record/render.js';
 import { wrapCall } from '../wrapper/wrap.js';
-import {
-  buildChatRequest,
-  describeFailure,
-  describeRequest,
-  preflight,
-  resolveModel,
-  runWorkerCall,
-} from '../worker/index.js';
-import { describeKeyPresence, resolvePlug } from '../provider/index.js';
+import { buildChatRequest, describeFailure, describeRequest, runWorkerCall } from '../worker/index.js';
+// The seam's preflight, not the worker's: the worker's always answers for the
+// Worker's plug, which would name the wrong environment variable for any other.
+import { describeKeyPresence, preflight, resolvePlug } from '../provider/index.js';
+import { plugForSlot } from '../provider/routing.js';
+import { PROVE_KIND, describePlugRequest, runPlugCall } from './plug-call.js';
 import { heading, line, note, check } from './output.js';
 
 /** Short and ordinary on purpose: this proves the path, it is not a benchmark. */
 export const DEFAULT_PROMPT = 'Reply with the single word: ready';
 
-export async function proveCommand({ args = [], env = process.env, fetchImpl = fetch } = {}) {
+/** The plug the Worker agent routes to, which keeps its own call path. */
+const WORKER_PLUG = plugForSlot('worker');
+
+export async function proveCommand({
+  args = [],
+  env = process.env,
+  fetchImpl = fetch,
+  store = createStore(),
+} = {}) {
   const dryRun = args.includes('--dry-run');
   const prompt = readOption(args, '--prompt') ?? DEFAULT_PROMPT;
-  const store = createStore();
+  const wanted = readOption(args, '--plug') ?? WORKER_PLUG;
 
-  heading('Overseer — one call through the wrapper');
+  let plug;
+  try {
+    plug = resolvePlug(wanted, env);
+  } catch (err) {
+    heading('No such plug');
+    note(`${err.message}.`);
+    return 2;
+  }
+
+  // The Worker's plug is proven the way it has always been proven. Proving it by
+  // another route would write a different entry for the same call.
+  const throughWorker = plug.name === WORKER_PLUG;
+  const ready = preflight(plug.name, env);
+
+  heading(`Overseer — one call through the wrapper (${plug.name})`);
   line('record file:', store.path);
-  line('model:', resolveModel(null, env));
-  line('key:', describeKeyPresence(resolvePlug('meta', env), env));
+  line('model:', plug.model ?? `none — set ${plug.modelEnvVar}`);
+  line('key:', describeKeyPresence(plug, env));
   line('prompt:', JSON.stringify(prompt));
 
   // A dry run shows the request that would go out. It makes no call and writes
   // no record, because recording a call that never happened would be a lie.
   if (dryRun) {
     heading('Dry run — nothing sent, nothing recorded');
-    const body = buildChatRequest({ prompt }, env);
-    note(JSON.stringify(describeRequest(body), null, 2));
+    const request = throughWorker
+      ? describeRequest(buildChatRequest({ prompt }, env))
+      : describePlugRequest(plug, prompt);
+    note(JSON.stringify(request, null, 2));
     return 0;
   }
 
-  const ready = preflight(env);
+  // Stopping here is not a failed call: nothing was attempted and nothing was
+  // recorded, which is a different fact from "the call did not work".
   if (!ready.ready) {
     heading('Stopped before the call');
-    note('No Meta Model API key was found, so no call was made and nothing was recorded.');
-    line('missing:', ready.envVar);
-    line('unblocks:', 'a Meta Model API key from the Model API dashboard, set as MODEL_API_KEY');
-    line('handy:', 'put it in a file named .env next to this repo; the npm scripts read it, and it stays out of git');
+    note(`The ${plug.name} plug is not ready, so no call was made and nothing was recorded.`);
+    // What the plug itself says it needs comes first, because a slot waiting on a
+    // decision is blocked by the decision, not by its key. Both are the plug's own
+    // words: composing a list of variables here would be a second copy to drift.
+    const notReady = plug.status === 'ready' ? null : plug.blockedReason;
+    const primary = notReady ?? ready.problem ?? `the ${plug.name} plug is not ready`;
+    const keyProblem = ready.problem && ready.problem !== primary ? ready.problem : null;
+
+    line('status:', plug.status);
+    line('missing:', primary);
+    if (keyProblem) line('also:', keyProblem);
+    line('handy:', 'put what it needs in a file named .env next to this repo; the npm scripts read it, and it stays out of git');
     return 3;
   }
 
@@ -58,9 +94,12 @@ export async function proveCommand({ args = [], env = process.env, fetchImpl = f
 
   heading('The call');
   const { ok, entry, outcome } = await wrapCall({
-    call: (request) => runWorkerCall({ ...request, env, fetchImpl }),
+    call: throughWorker
+      ? (request) => runWorkerCall({ ...request, env, fetchImpl })
+      : (request) => runPlugCall(plug.name, { ...request, env, fetchImpl }),
     prompt,
     store,
+    kind: throughWorker ? 'worker-call' : PROVE_KIND,
   });
 
   for (const warning of outcome?.warnings ?? []) {
@@ -99,6 +138,12 @@ export async function proveCommand({ args = [], env = process.env, fetchImpl = f
       String(stored?.what?.model),
     ),
   ];
+
+  // A prove on any other plug has to say which plug answered, or a reader cannot
+  // tell it from a call the Worker made.
+  if (!throughWorker) {
+    all.push(check(stored?.what?.plug === plug.name, 'the entry names the plug that was called', String(stored?.what?.plug)));
+  }
 
   if (ok) {
     all.push(check(stored?.what?.response === outcome.text, 'the stored reply is the reply that came back'));

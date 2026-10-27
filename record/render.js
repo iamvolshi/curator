@@ -10,8 +10,10 @@ export function renderEntry(entry) {
   ];
 
   const what = entry.what ?? {};
-  if (what.kind === 'worker-call') {
-    lines.push(`what:   a call to ${what.worker ?? 'a worker'} using ${what.model ?? 'an unnamed model'}`);
+  // Two kinds of observed call so far: the Worker agent doing a task, and a plug
+  // being checked. They read the same way apart from the line that says which.
+  if (what.kind === 'worker-call' || what.kind === 'plug-prove') {
+    lines.push(describeCall(what));
     if (what.endpoint) lines.push(`sent to: ${what.endpoint}`);
     lines.push(`prompt: ${oneLine(what.prompt)}`);
     if (what.ok) {
@@ -32,6 +34,17 @@ export function renderEntry(entry) {
   }
 
   return lines.join('\n');
+}
+
+/** The one line that says which kind of call this was. */
+function describeCall(what) {
+  const model = what.model ?? 'an unnamed model';
+
+  if (what.kind === 'plug-prove') {
+    return `what:   a prove call to the ${what.plug} plug (${what.role ?? 'no role'}) using ${model}`;
+  }
+
+  return `what:   a call to ${what.worker ?? 'a worker'} using ${model}`;
 }
 
 /** Several entries, each separated by a blank line. */
