@@ -61,6 +61,13 @@ this record's own text would have produced a folder called "Company Logs Every
 AI Agent Call Permanently", because a Title Case headline looks exactly like a
 proper noun.
 
+`npm run folders` lists one folder per subject, and under them a shelf of
+**unfiled questions** — questions whose move named no subject. They belong to no
+folder by design, and the shelf exists so they can be read without opening the
+record file. It appears even when the record declares no subjects at all, which
+is this record's shape, and it is absent when nothing is unfiled, rather than
+being an empty heading.
+
 `judge --limit N` judges at most N moves. What it does not reach is left
 unjudged, not skipped — the next run offers it again, in record order — and the
 run says so rather than looking complete.
@@ -171,7 +178,7 @@ npm run prove           # one real call on the Worker's plug (meta), recorded, r
 npm run prove:baseten   # the same, on the Overseer's plug
 npm run prove:openrouter
 npm run task -- --prompt "..."   # one real piece of work, recorded
-npm run folders         # one folder per subject the record names
+npm run folders         # one folder per subject, plus any unfiled questions
 npm run judge           # the Overseer observes the moves (needs Baseten)
 npm run judge -- --limit 1   # ...and a first run can cost one call, not one per move
 npm run judge -- --move 5    # ...or judge the one move with seq 5, whichever it is

@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 import { foldersCommand } from '../cli/folders.js';
 import { makeEntry } from '../record/entry.js';
-import { folderNamed, foldersFrom, normalizeSubjectList, subjectsOf } from '../record/folders.js';
+import { folderNamed, foldersFrom, normalizeSubjectList, subjectsOf, unfiledQuestions } from '../record/folders.js';
 import { createStore } from '../record/store.js';
 import { wrapCall } from '../wrapper/wrap.js';
 
@@ -124,6 +124,82 @@ test('read-back is in record order and every label is visible', async () => {
     for (const label of ['fact', 'judgment', 'question']) {
       assert.match(out.text(), new RegExp(`label:\\s+${label}`), `the read-back shows the ${label} label`);
     }
+  });
+});
+
+test('a question with no subject is shown on its own shelf, and files nothing', async () => {
+  await withStore(async (store) => {
+    const fact = await observed(store, 'a move about nothing');
+    await store.append(
+      makeEntry({
+        when,
+        label: 'question',
+        what: { kind: 'question', move: fact.entry.seq, subjects: [], question: 'what anchors this entry?' },
+      }),
+    );
+
+    const entries = await store.readAll();
+    assert.deepEqual(foldersFrom(entries), [], 'the question created no folder to sit in');
+    assert.deepEqual(unfiledQuestions(entries).map((e) => e.seq), [2]);
+
+    // The record can hold unfiled questions while declaring no subject at all.
+    // That is the shape of this record, and the shelf has to survive it.
+    const out = capture();
+    let code;
+    try {
+      code = await foldersCommand({ args: [], store });
+    } finally {
+      out.restore();
+    }
+    assert.equal(code, 0);
+    assert.match(out.text(), /No folder exists yet/);
+    assert.match(out.text(), /Unfiled/);
+    assert.match(out.text(), /seq 2 \u2014 about the move at seq 1/);
+    assert.match(out.text(), /what anchors this entry\?/);
+    assert.match(out.text(), /Unfiled questions: 1/);
+  });
+});
+
+test('only a question that names no subject is unfiled', async () => {
+  await withStore(async (store) => {
+    const fact = await observed(store, 'a move about Ada', ['Ada Okafor']);
+    await store.append(
+      makeEntry({ when, label: 'judgment', what: { kind: 'judgment', move: fact.entry.seq, subjects: [], observation: 'no subject named' } }),
+    );
+    await question(store, 'Ada Okafor', 'a filed question about Ada');
+    await store.append(
+      makeEntry({ when, label: 'question', what: { kind: 'question', move: fact.entry.seq, subjects: [], question: 'an unfiled question' } }),
+    );
+
+    const entries = await store.readAll();
+    const unfiled = unfiledQuestions(entries);
+
+    assert.deepEqual(unfiled.map((e) => e.seq), [4], 'a filed question, a subject-less judgment and a fact are not unfiled');
+    assert.deepEqual(foldersFrom(entries).map((f) => f.name), ['Ada Okafor'], 'the shelf did not add a folder');
+
+    const out = capture();
+    try {
+      await foldersCommand({ args: [], store });
+    } finally {
+      out.restore();
+    }
+    const [, shelf = ''] = out.text().split(/Unfiled \u2014/);
+    assert.match(shelf, /an unfiled question/, 'the unfiled question is on the shelf');
+    assert.doesNotMatch(shelf, /a filed question about Ada/, 'a question in a folder is not repeated on the shelf');
+  });
+});
+
+test('with nothing unfiled there is no shelf, so an empty section is never printed', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move about Ada', ['Ada Okafor']);
+
+    const out = capture();
+    try {
+      await foldersCommand({ args: [], store });
+    } finally {
+      out.restore();
+    }
+    assert.doesNotMatch(out.text(), /Unfiled/);
   });
 });
 

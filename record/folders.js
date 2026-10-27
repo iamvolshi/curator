@@ -72,6 +72,19 @@ export function foldersFrom(entries) {
 }
 
 /**
+ * Questions that named no subject, in record order.
+ *
+ * A question about a move that names no subject belongs to no folder, so the
+ * folder list cannot reach it. It is still an entry, and this is the one place
+ * that gathers those entries so a reader can meet them: reading the raw record
+ * was the only way before. Nothing here invents a subject to file them under —
+ * the shelf is a view, not a folder.
+ */
+export function unfiledQuestions(entries) {
+  return entries.filter((entry) => entry.label === 'question' && subjectsOf(entry).length === 0);
+}
+
+/**
  * One folder, or an empty folder for a subject no entry has named.
  * The empty case is returned rather than null so a reader sees "nothing here"
  * instead of a crash, and it is never written down as if it existed.
