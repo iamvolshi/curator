@@ -43,6 +43,72 @@ function count(n, singular, plural = `${singular}s`) {
   return `${n} ${n === 1 ? singular : plural}`;
 }
 
+/** Which plug an entry belongs to, by what the entry itself says it did. */
+function belongsTo(entry, plug) {
+  const what = entry.what ?? {};
+  // A plug prove names its plug outright. A worker call names the address it
+  // reached, so the address is what it is matched on.
+  if (what.plug) return what.plug === plug.name;
+  return Boolean(plug.chatUrl) && what.endpoint === `POST ${plug.chatUrl}`;
+}
+
+/** Short, non-alarming words for a slot that cannot be called yet. */
+const WAITING = {
+  'needs-config': 'not configured yet',
+  'awaiting-pick': 'waiting on the provider and model pick',
+  'needs-parser': 'cannot read an image reply yet',
+};
+
+/**
+ * One line per plug: what the record shows for it, or that it is silent.
+ * "Never called" is reported as silence, never as a failure — the two are
+ * different facts and only one of them is bad news.
+ */
+function renderSocket(entries, plugs) {
+  const rows = plugs.map((plug) => {
+    const mine = entries.filter((entry) => belongsTo(entry, plug));
+    const worked = mine.filter((entry) => entry.what?.ok === true).length;
+    const last = mine.length ? mine[mine.length - 1].when : null;
+
+    let state;
+    if (mine.length > 0) {
+      const failed = mine.length - worked;
+      state = `${count(mine.length, 'call')} \u00b7 ${worked} worked${failed ? ` \u00b7 ${failed} did not` : ''}`;
+    } else if (plug.status === 'ready') {
+      state = 'ready, not called yet';
+    } else {
+      state = `not called \u2014 ${WAITING[plug.status] ?? 'not ready'}`;
+    }
+
+    return {
+      name: plug.label ?? plug.name,
+      role: plug.role ?? '',
+      state,
+      called: mine.length > 0,
+      last,
+    };
+  });
+
+  return `  <section class="socket">
+    <h2>Who has actually answered</h2>
+    <p class="socket__note">Counted from this record, not from configuration. A plug with no
+    entries here has not been called \u2014 which is not the same as having failed.</p>
+    <ul class="socket__list">
+${rows
+    .map(
+      (row) => `      <li class="socket__row ${row.called ? 'socket__row--called' : ''}">
+        <span class="socket__name">${esc(row.name)}</span>
+        <span class="socket__role">${esc(row.role)}</span>
+        <span class="socket__state">${esc(row.state)}</span>
+        ${row.last ? `<span class="socket__last">last ${esc(row.last)}</span>` : ''}
+      </li>`,
+    )
+    .join('\n')}
+    </ul>
+  </section>
+`;
+}
+
 function entryCard(entry) {
   const what = entry.what ?? {};
   const label = entry.label === 'judgment' ? 'judgment' : 'fact';
@@ -144,6 +210,29 @@ const STYLE = `
   }
   .chip--fact { background: var(--fact); }
   .chip--judgment { background: var(--judgment); }
+  .socket { margin: 0 0 2.2rem; }
+  .socket h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .socket__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .socket__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .socket__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .5rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .socket__name { min-width: 9rem; font-weight: 600; }
+  .socket__role {
+    font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .socket__state { color: var(--muted); }
+  .socket__row--called .socket__state { color: var(--fact); font-weight: 600; }
+  .socket__last {
+    margin-left: auto;
+    font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
   .entry {
     padding: 1.35rem 0 1.5rem;
     border-top: 1px solid var(--rule);
@@ -201,7 +290,7 @@ const STYLE = `
  * @param {{source?: string, generatedAt?: string}} meta  where it came from, and when
  * @returns {string} a complete, self-contained HTML document
  */
-export function renderPage(entries, { source = 'the record file', generatedAt = '' } = {}) {
+export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [] } = {}) {
   const stats = measure(entries);
   const deck = [
     count(stats.total, 'call'),
@@ -229,7 +318,7 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
   <h1>A record of what actually happened</h1>
   <p class="deck"><strong>${esc(deck)}</strong> — ${esc(models)}</p>
   <hr class="rule">
-  <ul class="legend">
+${plugs.length ? renderSocket(entries, plugs) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
     <li><span class="chip chip--judgment">judgment</span> an assessment someone made about an observation</li>
   </ul>

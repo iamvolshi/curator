@@ -7,6 +7,7 @@
 import { writeFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 
+import { resolveAll } from '../provider/index.js';
 import { renderPage } from '../record/html.js';
 import { createStore } from '../record/store.js';
 import { readOption } from './args.js';
@@ -19,6 +20,7 @@ export async function pageCommand({
   args = [],
   store = createStore(),
   now = () => new Date(),
+  env = process.env,
 } = {}) {
   const outPath = resolve(readOption(args, '--out') ?? DEFAULT_PAGE_PATH);
   const entries = await store.readAll();
@@ -26,7 +28,17 @@ export async function pageCommand({
 
   // Shown as it appears in the project rather than as a machine's absolute path:
   // the page may end up in front of someone who does not have this checkout.
-  const html = renderPage(entries, { source: showablePath(store.path), generatedAt });
+  // Which plugs exist is configuration; which of them answered is in the record.
+  // The page needs both to say "not called" without pretending it knows why.
+  const plugs = resolveAll(env).map((plug) => ({
+    name: plug.name,
+    label: plug.label,
+    role: plug.role,
+    status: plug.status,
+    chatUrl: plug.chatUrl,
+  }));
+
+  const html = renderPage(entries, { source: showablePath(store.path), generatedAt, plugs });
   await writeFile(outPath, html, 'utf8');
 
   heading('The record, as one page');

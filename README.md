@@ -128,7 +128,10 @@ npm run status          # every plug: wiring, and whether its address answers; n
 `page` builds a single self-contained HTML file from the record as it is at that
 moment — no external font, image or script, so it opens anywhere and can be
 printed to PDF. Every number on it is counted from the entries, and every line of
-model output is escaped rather than trusted as markup. The file is generated and
+model output is escaped rather than trusted as markup. At the top it lists every
+plug with what the record shows for it: the calls each one answered, counted from
+the file, and the plugs that have never been called — reported as silence, which
+is not the same as failure. The file is generated and
 ignored by git: a committed copy would be a stale second version of the record.
 Regenerate it after every call with `--out PATH` if you want it somewhere else.
 

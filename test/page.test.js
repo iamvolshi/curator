@@ -101,6 +101,89 @@ test('an empty record produces a page that says so', () => {
   assert.match(html, /records\/k-record\.jsonl/);
 });
 
+const META = { name: 'meta', label: 'Meta Model API', role: 'worker', status: 'ready', chatUrl: URL };
+const BASETEN = {
+  name: 'baseten',
+  label: 'Baseten',
+  role: 'overseer',
+  status: 'needs-config',
+  chatUrl: 'https://inference.baseten.co/v1/chat/completions',
+};
+const PICTURE = { name: 'picture', label: 'picture kid', role: 'picture', status: 'awaiting-pick', chatUrl: null };
+
+const BASETEN_URL = 'POST https://inference.baseten.co/v1/chat/completions';
+
+function basetenCall(seq, overrides = {}) {
+  return {
+    seq,
+    when,
+    label: 'fact',
+    what: {
+      kind: 'plug-prove',
+      plug: 'baseten',
+      role: 'overseer',
+      endpoint: BASETEN_URL,
+      model: 'a-model',
+      prompt: 'say ready',
+      ok: true,
+      response: 'ready',
+      ...overrides,
+    },
+  };
+}
+
+test('each plug gets a line, and the counts come from the record', () => {
+  const html = renderPage([call(1), call(2)], { plugs: [META, BASETEN, PICTURE] });
+
+  assert.match(html, /Who has actually answered/);
+  assert.match(html, /Meta Model API/);
+  assert.match(html, /2 calls · 2 worked/, 'two worker entries matched to meta by the address they reached');
+  assert.match(html, /Baseten/);
+  assert.match(html, /not called — not configured yet/);
+  assert.match(html, /waiting on the provider and model pick/, 'the empty slot says why it is silent');
+});
+
+test('a plug that was never called is shown as silence, not as failure', () => {
+  const html = renderPage([call(1)], { plugs: [META, BASETEN] });
+
+  assert.match(html, /the same as having failed/);
+  assert.equal(html.includes('2 did not'), false, 'nothing failed, so nothing says it did');
+});
+
+test('a plug that was called and failed shows both numbers', () => {
+  const html = renderPage(
+    [
+      basetenCall(1),
+      basetenCall(2, {
+        ok: false,
+        response: null,
+        error: { kind: 'auth', message: 'the key was rejected', fix: 'check the key' },
+      }),
+    ],
+    { plugs: [META, BASETEN] },
+  );
+
+  assert.match(html, /2 calls · 1 worked · 1 did not/);
+  assert.match(html, /the call did not work/, 'the failed entry itself is still shown');
+});
+
+test('a plug that is ready but has not been called says exactly that', () => {
+  const html = renderPage([basetenCall(1)], { plugs: [META, BASETEN] });
+
+  // Scoped to the row: the footer says "0 calls never sent", which is a different
+  // statement and must not be mistaken for this one.
+  const row = html.split('<li class="socket__row').find((chunk) => chunk.includes('Meta Model API'));
+  assert.ok(row, 'the meta row is on the page');
+  assert.match(row, /ready, not called yet/);
+  assert.equal(row.includes('0 calls'), false, 'an uncalled plug is not given a call count');
+});
+
+test('with no plug information the page simply has no such section', () => {
+  const html = renderPage([call(1)]);
+
+  assert.equal(html.includes('Who has actually answered'), false);
+});
+
 test('the command writes the page from the file, and the page names the file', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'overseer-page-'));
   try {
