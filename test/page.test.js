@@ -79,7 +79,10 @@ test('a judgment and a question read as themselves, and are counted apart from f
   const html = renderPage([call(1), judgment(2, 1, 'Ada Okafor'), question(3, 1, 'Ada Okafor')]);
 
   assert.match(html, /chip--judgment/);
-  assert.match(html, /chip--question/);
+  // Inside the entry card, not just the legend at the foot of the page: the chip
+  // on the card is the one a reader trusts, and it has to say what the entry is.
+  assert.match(html, /id="entry-3">[\s\S]{0,240}chip--question">question</, 'a question wears the question chip');
+  assert.doesNotMatch(html, /id="entry-3">[\s\S]{0,240}chip--fact/, 'and is never dressed as a fact');
   assert.match(html, /Judges/, 'a judgment says which move it judges');
   assert.match(html, /the move at seq 1/);
   assert.match(html, /Observed/);

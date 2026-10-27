@@ -26,10 +26,10 @@ import { heading, line, note } from './output.js';
 const STATE_WORDS = {
   judged: 'judgment written',
   asked: 'question written',
+  'asked-unfiled': 'question written \u2014 no subject, so it sits in no folder',
   directed: 'nothing written \u2014 the wording directed',
   unreadable: 'nothing written \u2014 the reply could not be read',
   'call-failed': 'nothing written \u2014 the call did not work',
-  'nowhere-to-ask': 'nothing written \u2014 the move names no subject to ask in',
 };
 
 export async function judgeCommand({ args = [], env = process.env, fetchImpl = fetch, store = createStore() } = {}) {
@@ -122,6 +122,9 @@ export async function judgeCommand({ args = [], env = process.env, fetchImpl = f
   line('judgments:', String(result.written.judgments));
   line('questions:', String(result.written.questions));
   // A judgment is appended, never substituted: the facts it judges are unchanged.
+  if (result.outcomes.some((o) => o.state === 'asked-unfiled')) {
+    note('A question about a move that names no subject belongs to no folder. It is still in the record, and that move is not judged again.');
+  }
   note('');
   note('Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.');
 

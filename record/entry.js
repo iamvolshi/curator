@@ -10,7 +10,9 @@
 //              entry itself, so no reader can mistake it for a fact.
 //   question — an open follow-up question on a subject. It sits in the subject's
 //              thread. It is not a fact and not a judgment, and it darkens
-//              nothing.
+//              nothing. A question about a move that names no subject belongs to
+//              no folder; it is still written, because an unfiled entry is a
+//              record and a skipped one is a hole.
 //
 // Only facts are observations. A judgment never changes a fact, and a question
 // never darkens a shade — the labels are what keep those three apart.

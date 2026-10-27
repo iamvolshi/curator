@@ -10,6 +10,13 @@
 // instead — because a judgment that needs something the record does not show is
 // not a judgment this record can support.
 //
+// A question about a move that names no subject has no folder to sit in, and it is
+// written anyway. Not writing it was the older behaviour and it was a hole: the
+// move the judge declined left no trace at all, so the record could not show that
+// the judge had looked and found nothing, and the move stayed in the queue to cost
+// another call on every later run. An entry that belongs to no folder is a normal
+// entry; a decision not to record something is not.
+//
 // The manner rule is enforced here, not trusted to the model: wording that
 // directs stops the entry being written, and the run says which phrase did it.
 
@@ -158,16 +165,18 @@ export async function judgeMoves({ entries, env = process.env, fetchImpl = fetch
     }
 
     if (read.basis === 'not-shown') {
-      // A question with no subject has no thread to sit in, so it is not written.
-      if (subjects.length === 0) {
-        outcomes.push({ seq: move.seq, state: 'nowhere-to-ask', detail: 'the move names no subject' });
-        continue;
-      }
+      // Written whether or not the move names a subject. The entry still names the
+      // move, so the question is anchored to the one thing that is certain about
+      // it; a subject would only decide which folder reads it.
       await store.append(
         makeEntry({ when, label: 'question', what: { kind: QUESTION_KIND, move: move.seq, subjects, question: read.question } }),
       );
       written.questions += 1;
-      outcomes.push({ seq: move.seq, state: 'asked', detail: read.question });
+      outcomes.push(
+        subjects.length === 0
+          ? { seq: move.seq, state: 'asked-unfiled', detail: read.question }
+          : { seq: move.seq, state: 'asked', detail: read.question },
+      );
       continue;
     }
 

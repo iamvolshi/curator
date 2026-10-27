@@ -165,7 +165,10 @@ function kindChip(what) {
 
 function entryCard(entry) {
   const what = entry.what ?? {};
-  const label = entry.label === 'judgment' ? 'judgment' : 'fact';
+  // The label is the difference between the three kinds of entry, so it is taken
+  // from the entry rather than guessed: a question shown under a fact chip would
+  // be a reader mistaking an open question for something observed.
+  const label = entry.label === 'judgment' || entry.label === 'question' ? entry.label : 'fact';
   const bad = what.ok === false;
 
   const rows = [];

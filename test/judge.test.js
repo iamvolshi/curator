@@ -460,3 +460,51 @@ test('the judge is told to observe, and asked only for the two-way choice', () =
   assert.match(messages[1].content, /move: seq 7/);
   assert.match(messages[1].content, /about: Ada Okafor/);
 });
+
+test('a question about a move that names no subject is written, not swallowed', async () => {
+  await withStore(async (store, path) => {
+    const { entry: fact } = await observed(store, 'a move about nothing in particular', []);
+    const before = (await readFile(path, 'utf8')).trim().split('\n');
+
+    const seen = [];
+    const result = await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(NOT_SHOWN, seen) });
+
+    assert.equal(seen.length, 1, 'one move, one call');
+    assert.equal(result.written.questions, 1, 'the question is written even with no folder to put it in');
+    assert.equal(result.written.judgments, 0, 'nothing is called a judgment that has no basis');
+    assert.equal(result.outcomes[0].state, 'asked-unfiled');
+
+    const stored = (await store.readAll()).at(-1);
+    assert.equal(stored.label, 'question', 'the trace is labelled as the question it is');
+    assert.deepEqual(stored.what.subjects, [], 'no subject is invented to give it a folder');
+    assert.equal(stored.what.move, fact.seq, 'it still names the move it is about');
+    assert.equal(stored.what.question, 'what in the record supports this claim?');
+
+    const after = (await readFile(path, 'utf8')).trim().split('\n');
+    assert.deepEqual(after.slice(0, before.length), before, 'the fact it read is byte-identical');
+
+    // The declining moved is named now, so a later run does not pay to ask again.
+    assert.deepEqual(movesToJudge(await store.readAll()).map((e) => e.seq), []);
+    await judgeMoves({ entries: await store.readAll(), env: BASETEN_ENV, store, fetchImpl: provider(NOT_SHOWN, seen) });
+    assert.equal(seen.length, 1, 'no second call for a move already asked about');
+  });
+});
+
+test('the command says where a question with no subject went, and exits 0', async () => {
+  await withStore(async (store) => {
+    await observed(store, 'a move that names no subject', []);
+
+    const out = capture();
+    let code;
+    try {
+      code = await judgeCommand({ env: BASETEN_ENV, store, fetchImpl: provider(NOT_SHOWN) });
+    } finally {
+      out.restore();
+    }
+
+    assert.equal(code, 0, 'a written question is not a failure');
+    assert.match(out.text(), /no subject, so it sits in no folder/, 'the report says it was not filed');
+    assert.match(out.text(), /belongs to no folder\. It is still in the record/);
+    assert.equal((await store.readAll()).filter((e) => e.label === 'question').length, 1);
+  });
+});

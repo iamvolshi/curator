@@ -43,6 +43,9 @@ are looking at:
 the entry itself, so no reader can mistake it for an observed fact.
 - **`question`** — an open follow-up question on a subject, sitting in that
 subject's thread. It is not a fact and not a judgment, and it darkens nothing.
+When the move it is about names no subject, the question is written anyway and
+belongs to no folder: an entry filed nowhere still exists, whereas silence would
+leave the skipped move looking like one nobody looked at.
 
 A judgment never changes a fact, and a question never darkens a shade. The
 labels are what keep the three apart.
@@ -74,8 +77,12 @@ each move it asks the Overseer's model one question — does the record show the
 basis? If it does, a `judgment` is written naming that move by sequence. If it
 does not, no judgment is written and a `question` is written instead, because a
 judgment needing something the record does not show is not one this record can
-support. Wording that directs the Worker ("you should…") stops the entry being
-written and the run names the phrase that did it. The judge runs on the
+support. A question about a move that names no subject is written too — unfiled,
+but recorded and visible, and naming the move — because the older behaviour, not
+writing it, let a move the judge declined leave no trace at all, and left it in
+the queue to cost another call every later run. Wording that directs the Worker
+("you should…") stops the entry being written and the run names the phrase that
+did it. The judge runs on the
 `baseten` plug and never touches a fact entry; without Baseten credentials it
 refuses before any call, writing nothing.
 
