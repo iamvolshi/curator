@@ -7,6 +7,7 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { storedLinkProblems } from '../judge/readout.js';
 import { createStore } from '../record/store.js';
 import { readOption } from './args.js';
 import { heading, line, note } from './output.js';
@@ -25,6 +26,10 @@ export async function pageCommand({
   const entries = await store.readAll();
   const generatedAt = now().toISOString();
   const parked = await parkedFor(entries, env);
+  // Checked before the page is opened, let alone shared: a stored opinion that no
+  // longer links is a fact about the record, and the person building the page should
+  // hear it from this output rather than notice a marked row later.
+  const linkProblems = storedLinkProblems(entries);
 
   const html = buildPage(entries, { source: store.path, generatedAt, env, parked });
   await writeFile(outPath, html, 'utf8');
@@ -32,6 +37,15 @@ export async function pageCommand({
   heading('The record, as one page');
   line('read from:', store.path);
   line('entries:', String(entries.length));
+  line(
+    'links:',
+    linkProblems.length === 0
+      ? 'every stored delivery still finds the seats it cites'
+      : `${linkProblems.length} stored opinion${linkProblems.length === 1 ? '' : 's'} no longer link${linkProblems.length === 1 ? 's' : ''} to a seat`,
+  );
+  for (const problem of linkProblems) {
+    note(`  seq ${problem.seq}, move ${problem.move}: ${describeLinkProblem(problem)}`);
+  }
   line('written to:', outPath);
 
   if (entries.length === 0) {
@@ -44,5 +58,24 @@ export async function pageCommand({
   }
   note('Open it in a browser, or print it to PDF. Regenerate it after every call.');
 
-  return 0;
+  // The page is still written, with the row marked: the record is not hidden from a
+  // reader because a link broke. The non-zero code is the alarm, so a script or a
+  // person building the page sees it before the page is shown to anyone.
+  return linkProblems.length === 0 ? 0 : 1;
+}
+
+/** One line a reader can act on: what the basis no longer places, and why. */
+function describeLinkProblem(problem) {
+  const basis = problem.basis.length > 0 ? `entries ${problem.basis.join(', ')}` : 'an empty basis';
+  const unplaced = problem.reparse ?? [];
+  if (unplaced.length > 0) {
+    return `${unplaced.join(', ')} ${unplaced.length === 1 ? 'is' : 'are'} not placed by ${basis}`;
+  }
+  if (problem.missing?.length > 0) {
+    return `no seat in this record holds ${problem.missing.join(', ')} for ${basis}`;
+  }
+  if (problem.reason === 'ambiguous') {
+    return `${problem.models.join(', ')} sits on more than one seat with different opinions, so ${basis} cannot choose between them`;
+  }
+  return `no seat in this record holds an opinion on ${basis}`;
 }

@@ -307,3 +307,52 @@ function consolidatedMove(seq, seats, majority, about, report) {
 
   return { seq, seats, majority, probable, edgeGreys, noPosition };
 }
+
+/**
+ * Every stored delivery in the record, checked against the seats it cites.
+ *
+ * A delivery report is written once, from the seat reports the record held at the
+ * time. The record is append-only and the report is fixed, so an opinion that
+ * linked when it was written should still link now — but what a cited Q2 parses to
+ * is code, not history, and a reading that changes can leave a stored opinion with
+ * fewer seats than the report names, or none at all. The page marks such a row when
+ * it has to; this is the check that catches it before the page is built and shared.
+ *
+ * Every delivery is checked, including one a later run superseded: it is still a
+ * stored derivation, and a link that broke is a fact about the record whether or
+ * not the page happens to show that report today.
+ *
+ * @param {Array} entries the record, oldest first
+ * @returns {Array<object>} one entry per opinion that no longer links — its delivery
+ *   seq, the move, the basis and sources it claims, and why it failed: 'absent' or
+ *   'ambiguous' with the models, or 'partial' with the sources the basis leaves out
+ *   ('reparse') and those the record does not seat at all ('missing'). Empty means
+ *   every stored opinion still finds its seats.
+ */
+export function storedLinkProblems(entries) {
+  const problems = [];
+
+  for (const entry of entries) {
+    if (entry.label !== 'delivery') continue;
+    const what = entry.what ?? {};
+    const about = entries.filter((other) => fromASeat(other) && other.what?.move === what.move);
+
+    for (const opinion of what.opinions ?? []) {
+      const { held, reason, models, partial } = sourcesOf(about, opinion);
+      if (held.length > 0 && partial === null) continue;
+
+      problems.push({
+        seq: entry.seq,
+        move: what.move,
+        basis: [...(opinion.basis ?? [])],
+        supporting_models: [...(opinion.supporting_models ?? [])],
+        reason: held.length === 0 ? reason : 'partial',
+        ...(partial
+          ? { reparse: [...partial.reparse], missing: [...partial.missing] }
+          : { models: [...models] }),
+      });
+    }
+  }
+
+  return problems;
+}

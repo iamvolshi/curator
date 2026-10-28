@@ -342,6 +342,13 @@ The file is generated and
 ignored by git: a committed copy would be a stale second version of the record.
 Regenerate it after every call with `--out PATH` if you want it somewhere else.
 
+Before it writes, `page` checks every stored delivery report in the record
+against the seats it cites. An opinion whose basis no longer places a cited seat,
+or leaves one out, is named in the output and the command exits 1 — the page is
+still written with that row marked, because hiding the record is the worse
+answer. The same check runs over the committed live record in `npm test`, so a
+reading change that stops a stored opinion linking fails before a page is shared.
+
 The page itself is **pinned**: `test/fixtures/` holds a blessed page for a fixed
 set of entries, and `npm test` fails if a renderer edit changes one byte of one.
 When the change is deliberate, re-bless and read that diff — it is the change to

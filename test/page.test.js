@@ -712,3 +712,77 @@ test('the command writes the page from the file, and the page names the file', a
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('the command reports a stored opinion that no longer links, and still writes the page', async () => {
+  // The check runs before the page is opened: the person building it is told which
+  // cited source the basis no longer places, and the command exits non-zero so a
+  // script notices. The page is still written, with the row marked — refusing to
+  // write would hide the record, which is the worse answer.
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-page-links-'));
+  try {
+    const store = createStore(join(dir, 'records.jsonl'));
+    const out = join(dir, 'page.html');
+
+    await store.append(call(1));
+    await store.append({
+      seq: 2,
+      when,
+      label: 'judgment',
+      what: {
+        kind: 'seat-judgment',
+        move: 1,
+        subjects: [],
+        seat: 1,
+        model: 'model-a',
+        observation: 'the reply supports the claim',
+        numbered: { deed: 'the move', pool: 'entry 1', basis: 'shown', topics: [], sitting: 'none' },
+      },
+    });
+    await store.append({
+      seq: 3,
+      when,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-z'],
+        opinions: [
+          { position: 'justified', basis: [1], support_count: 2, supporting_models: ['model-a', 'model-z'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    });
+
+    const printed = [];
+    const original = console.log;
+    console.log = (...args) => printed.push(args.map(String).join(' '));
+    let code;
+    try {
+      code = await pageCommand({
+        store,
+        args: ['--out', out],
+        now: () => new Date(when),
+        env: { OVERSEER_LEDGER: join(dir, 'attempts.json') },
+      });
+    } finally {
+      console.log = original;
+    }
+
+    const text = printed.join('\n');
+    assert.equal(code, 1, 'a stored opinion with no seat behind it fails the command');
+    assert.match(text, /links:\s+1 stored opinion no longer links to a seat/);
+    assert.match(text, /seq 3, move 1: no seat in this record holds model-z for entries 1/);
+
+    const html = await readFile(out, 'utf8');
+    assert.match(
+      html,
+      /readout__count">1 seat attached \u00b7 the report counts 2 independent judges \(model-a, model-z\) \u2014 no seat in this record holds model-z</,
+      'the page still shows the row, marked, rather than hiding the record',
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
