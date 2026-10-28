@@ -145,7 +145,8 @@ async function seatSeat({ seat, move, bank, env, fetchImpl, log }) {
       };
     }
 
-    skips.push({ plug: name, why: SEAT_FAIL_WORDS[filled.state] ?? 'it produced nothing writable' });
+    const why = `${SEAT_FAIL_WORDS[filled.state] ?? 'it produced nothing writable'}${filled.detail && filled.state === SEAT_STATES.callFailed ? ` (${filled.detail})` : ''}`;
+    skips.push({ plug: name, why });
   }
 
   return { opinion: null, substitution: null, skips, last: first };

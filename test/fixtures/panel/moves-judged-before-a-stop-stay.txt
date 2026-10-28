@@ -38,7 +38,7 @@ The panel stopped
 -----------------
 seq 2: seat 3 (nvidia using free-b) produced nothing writable — the call did not work.
 detail:      the connection was refused
-bank nvidia: could not fill the seat — the call did not work
+bank nvidia: could not fill the seat — the call did not work (the connection was refused)
 The bank had no plug left that could fill it, so nothing was written for this move.
 The 1 move(s) judged before it are in the record; nothing was written about seq 2.
 
