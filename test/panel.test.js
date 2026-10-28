@@ -616,6 +616,42 @@ test('a stored opinion still finds its seats after a cited basis is read differe
   assert.deepEqual(readout.moves[0].edgeGreys.map((opinion) => opinion.support), [1, 1], 'the counts still come from the report');
 });
 
+test('a stored opinion the record cannot back is marked unbacked, not shown blank', () => {
+  // The report cites a model and a basis this record does not hold, so nothing here
+  // can say what that seat wrote. The opinion is still shown — a stored derivation is
+  // never dropped — but it is marked, so a blank line cannot read as an opinion
+  // nobody wrote. The words are not invented and the report's count is not changed.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entry 1', 'the reply supports the claim'),
+    {
+      seq: 3,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-z'],
+        opinions: [
+          { position: 'justified', basis: [1], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+          { position: 'justified', basis: [99], support_count: 1, supporting_models: ['model-z'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const readout = readPanel(entries);
+  const [held, unbacked] = readout.moves[0].edgeGreys;
+
+  assert.equal(held.unbacked, false, 'an opinion the record backs is not marked');
+  assert.equal(unbacked.unbacked, true, 'and one it cannot back is');
+  assert.equal(unbacked.text, '', 'the record holds no words for it, so none are invented');
+  assert.equal(unbacked.support, 1, 'the report count is carried unchanged');
+});
+
 test('the readout is counted against the seats the record shows, never a panel it never held', () => {
   const entries = [
     fact(1),

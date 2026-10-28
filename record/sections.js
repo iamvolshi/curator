@@ -138,12 +138,21 @@ export function renderReadout(readout) {
     // A consolidated move's report names the box: gray box when no opinion reached
     // a majority, so the page does not call non-convergence a dissent.
     const label = kind === 'probable' ? 'highest probable' : opinion.status === 'gray_box' ? 'gray box' : 'edge grey';
+    // A stored opinion is the report's word about a seat, and the seat is read from
+    // this record. When the record shows none of the seats it cites, the row says
+    // that in the text column instead of showing a blank opinion, and the count
+    // says the record has no seat behind it rather than "0 seats" beside a count.
+    const unbacked = opinion.unbacked === true;
+    const text = unbacked
+      ? `unbacked: the report cites ${opinion.ids.length ? opinion.ids.join(', ') : 'no model'}, and no seat in this record holds this opinion`
+      : opinion.text;
+    const heldBy = unbacked
+      ? 'no seat in this record'
+      : `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`;
     return `      <li class="readout__row">
         <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(label)}</span>
-        <span class="readout__text">${esc(opinion.text)}</span>
-        <span class="readout__count">${esc(
-          `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`,
-        )}</span>
+        <span class="readout__text">${esc(text)}</span>
+        <span class="readout__count">${esc(heldBy)}</span>
       </li>`;
   };
 

@@ -181,6 +181,61 @@ test('the page reads a stored delivery with the seats it cites, even when its ba
   assert.match(html, /1 seat \u00b7 1 independent judge \(model-a\)/, 'and counted against that seat, not against nobody');
 });
 
+test('a stored opinion the record cannot back is marked unbacked on the page', () => {
+  // The report cites a model and a basis the record does not hold. The row is shown
+  // — a stored derivation is never dropped — but it says it is unbacked, and it does
+  // not report itself as held by zero seats beside a count.
+  const seat = (seq, seatNumber, model, pool, observation) => ({
+    seq,
+    when,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat: seatNumber,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  });
+
+  const html = buildPage(
+    [
+      call(1),
+      seat(2, 1, 'model-a', 'entry 1', 'the reply supports the claim'),
+      {
+        seq: 3,
+        when,
+        label: 'delivery',
+        what: {
+          kind: 'delivery',
+          move: 1,
+          mmrc_model_id: 'model-m',
+          seats: ['model-a', 'model-z'],
+          opinions: [
+            { position: 'justified', basis: [1], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+            { position: 'justified', basis: [99], support_count: 1, supporting_models: ['model-z'], status: 'gray_box' },
+          ],
+          highest_probable: null,
+          questions: [],
+          derived: true,
+        },
+      },
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.match(
+    html,
+    /readout__text">unbacked: the report cites model-z, and no seat in this record holds this opinion</,
+    'the row says why it has no words instead of showing a blank opinion',
+  );
+  assert.match(html, /readout__count">no seat in this record</, 'and it is not reported as held by zero seats');
+  assert.doesNotMatch(html, /readout__count">0 seats/);
+  assert.match(html, /readout__text">the reply supports the claim</, 'the opinion the record does back still reads as itself');
+});
+
 test('a record no panel wrote carries no readout, because no panel sat', () => {
   // The single judge's judgment carries no seat. A page that read it out would say
   // "no opinion reached 2 independent judges" about a move one judge answered — a

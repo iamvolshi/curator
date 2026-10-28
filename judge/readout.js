@@ -225,6 +225,11 @@ function consolidatedMove(seq, seats, majority, about, report) {
       ids: [...opinion.supporting_models],
       support: opinion.support_count,
       judges: held.length,
+      // The report's words are fixed, but the seats behind them are read from this
+      // record. When the record shows none of them, the row is marked rather than
+      // left blank: an empty opinion with a count beside it reads as one nobody
+      // wrote, which is a claim about the record the record does not make.
+      unbacked: held.length === 0,
       // The status the report decided, carried so the readout can say "gray box"
       // for a move no opinion carried, instead of calling every dissent an edge grey.
       status: opinion.status,
