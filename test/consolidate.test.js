@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { consolidateReports, consolidateMove, deliveryFrom, MMRC_FAILURES, MMRC_MAX_ATTEMPTS } from '../judge/consolidate.js';
+import { citedEntries } from '../judge/readout.js';
 import { MMRC_MODEL_ID, MMRC_TEMPERATURE } from '../worker/config.js';
 
 const MMRC = 'mmrc/model-under-test';
@@ -109,6 +110,37 @@ test('a move-37 shape groups same position and same basis into one opinion, coun
   assert.equal(only.status, 'highest_probable');
   assert.equal(only.support_count, 3);
   assert.deepEqual(only.supporting_models, ['model-a', 'model-b', 'model-c']);
+});
+
+test('a cited span and the same entries listed are one basis, so the seats group as one opinion', () => {
+  // Q2 is prose: one seat cites a stretch of the record, another lists the same
+  // entries. They read the same basis, so they are one opinion — not two.
+  const entries = [
+    FACT,
+    judgment(1, 'model-a', 'entries 7\u20139', 'the approval entry covers the deed'),
+    judgment(2, 'model-b', 'entries 7, 8 and 9', 'the deed follows from the approval'),
+    judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
+  ];
+  const report = assertValid(consolidateReports(entries, 1));
+
+  assert.equal(report.opinions.length, 2);
+  const probable = report.opinions.find((o) => o.status === 'highest_probable');
+  assert.deepEqual(probable.basis, [7, 8, 9], 'the span is the entries inside it');
+  assert.equal(probable.support_count, 2);
+  assert.deepEqual(probable.supporting_models, ['model-a', 'model-b']);
+});
+
+test('a cited span is read the same however the range is written', () => {
+  const span = [4, 5, 6, 7, 8, 9];
+  for (const pool of ['entries 4\u20139', 'entries 4-9', 'entries 4 \u2014 9', 'entries 4 to 9', 'entries 4 through 9', 'entries 9\u20134']) {
+    assert.deepEqual(citedEntries(pool), span, pool);
+  }
+  assert.deepEqual(citedEntries('entries 4, 5, 6, 7, 8, 9'), span, 'the listed form is the same basis');
+});
+
+test('a span too wide to be a citation is left as its two numbers, and a hyphen inside a name is not a span', () => {
+  assert.deepEqual(citedEntries('entries 1\u20139999'), [1, 9999], 'no seat read ten thousand entries');
+  assert.deepEqual(citedEntries('llama-3-8b'), [3, 8], 'the numbers stay as written; the name is not expanded into a stretch');
 });
 
 test('the same model twice is stacking, not support', () => {

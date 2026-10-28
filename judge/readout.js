@@ -50,12 +50,40 @@ export function sameOpinion(text) {
 }
 
 /**
+ * The widest cited span that is read as the entries inside it. A span wider than
+ * this is not a citation a seat could have read, so it is left as the two numbers
+ * it wrote rather than becoming a basis of thousands of entries.
+ */
+export const MAX_CITED_SPAN = 64;
+
+/**
+ * A cited range: "4–9", "4-9", "4 to 9", "4 through 9". The boundary checks keep
+ * a hyphen inside a longer token — "llama-3-8b", "gpt-4-0613" — from being read as
+ * a span of entries: those name a model, not a stretch of the record.
+ */
+const CITED_RANGE = /(?<![\w.-])(\d+)\s*(?:[–—-]|to|through)\s*(\d+)(?![\w.-])/gi;
+
+/**
  * The entry numbers a seat cited for its basis, from its Q2 answer. Sorted and
  * unique, so the same cited entries compare equal however the seat ordered them.
+ *
+ * Q2 is prose, so one seat may cite a span ("entries 4–9") where another lists the
+ * same entries ("entries 4, 5, 6, 7, 8, 9"). Both cite the same basis, so both are
+ * read as the entries inside the span, and the seats group as one opinion.
  */
 export function citedEntries(pool) {
-  const found = String(pool ?? '').match(/\d+/g) ?? [];
-  return [...new Set(found.map(Number))].sort((a, b) => a - b);
+  const text = String(pool ?? '');
+  const cited = new Set();
+
+  for (const [, from, to] of text.matchAll(CITED_RANGE)) {
+    const low = Math.min(Number(from), Number(to));
+    const high = Math.max(Number(from), Number(to));
+    if (high - low > MAX_CITED_SPAN) continue;
+    for (let entry = low; entry <= high; entry += 1) cited.add(entry);
+  }
+
+  for (const digits of text.match(/\d+/g) ?? []) cited.add(Number(digits));
+  return [...cited].sort((a, b) => a - b);
 }
 
 /**

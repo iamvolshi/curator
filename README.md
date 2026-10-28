@@ -185,7 +185,11 @@ The grouping is decided in code, not by the model. Two seats hold the same opini
 when their **position** (Q3: `justified` or `not shown`) and their **basis** (the
 entries Q2 cited) agree. Wording is ignored: the same sentence citing a different
 basis is two opinions, and three different sentences citing the same basis are
-one. Support is counted by distinct model ID, so one model answering twice is
+one. Q2 is prose, so a cited span — `entries 4–9` — is read as the entries inside
+it: a seat that cites the span and a seat that lists `4, 5, 6, 7, 8, 9` hold one
+basis and group as one opinion. A span too wide to be a real citation (more than
+64 entries) is left as its two numbers, and a hyphen inside a name (`llama-3-8b`)
+is never a span. Support is counted by distinct model ID, so one model answering twice is
 stacking, not independent agreement. The opinion with the most independent
 support is the **highest probable**, and only when that support reaches a majority
 of the seats the record shows; otherwise no probable is declared and every opinion
@@ -466,6 +470,9 @@ The mapping follows Meta's published error reference, listed below.
 - The consolidation groups by position and cited basis, and by nothing else. It
   cannot tell whether two seats cite the same entries for different reasons, and
   it cannot catch a wrong citation: a basis is taken as the seat's report gave it.
+  Every number in Q2 is read as an entry, so digits inside prose (a model name, a
+  date) count as citations; only a cited span is expanded, and never past 64
+  entries.
 - The MMRC model and its temperature are set in `worker/config.js` and sent with
   every consolidation call. They were filled in before this build order and are
   Darren's to confirm or change; no new paid model is used for them.
