@@ -139,15 +139,23 @@ export function renderReadout(readout) {
     // a majority, so the page does not call non-convergence a dissent.
     const label = kind === 'probable' ? 'highest probable' : opinion.status === 'gray_box' ? 'gray box' : 'edge grey';
     // A stored opinion is the report's word about a seat, and the seat is read from
-    // this record. When the record shows none of the seats it cites, the row says
-    // that in the text column instead of showing a blank opinion, and the count
-    // says the record has no seat behind it rather than "0 seats" beside a count.
+    // this record. When the record cannot supply the seat, the row says why in the
+    // text column instead of showing a blank opinion, and the count says no seat is
+    // behind it rather than "0 seats" beside a count. A seat that is missing and a
+    // model the record seats twice with different readings are told apart: the
+    // first is a gap, the second is a link this view refuses to guess.
     const unbacked = opinion.unbacked === true;
-    const text = unbacked
-      ? `unbacked: the report cites ${opinion.ids.length ? opinion.ids.join(', ') : 'no model'}, and no seat in this record holds this opinion`
-      : opinion.text;
+    const ambiguous = unbacked && opinion.unbackedReason === 'ambiguous';
+    const contested = (opinion.ambiguousModels ?? []).join(', ') || 'one model';
+    const text = ambiguous
+      ? `ambiguous: this record shows more than one seat with ${contested} holding different opinions, so no seat is attached`
+      : unbacked
+        ? `unbacked: the report cites ${opinion.ids.length ? opinion.ids.join(', ') : 'no model'}, and no seat in this record holds this opinion`
+        : opinion.text;
     const heldBy = unbacked
-      ? 'no seat in this record'
+      ? ambiguous
+        ? 'no seat attached'
+        : 'no seat in this record'
       : `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`;
     return `      <li class="readout__row">
         <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(label)}</span>

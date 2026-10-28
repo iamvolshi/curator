@@ -197,18 +197,43 @@ export function readPanel(entries) {
  * change must still find the seats it cites, or the page shows an opinion with no
  * one behind it. The report also names its sources by model ID, and a model ID does
  * not depend on how Q2 parses, so that is the fallback.
+ *
+ * @returns {{held: Array, reason: string|null, models: Array}} the seats behind the
+ *   opinion; or none, with the reason — 'absent' when the record holds no such seat,
+ *   'ambiguous' when it holds seats on one model that disagree, naming that model
  */
 function sourcesOf(about, opinion) {
   const basis = (opinion.basis ?? []).join(',');
-  const held = about.filter(
+  const byBasis = about.filter(
     (other) => other.label === 'judgment' && citedEntries(other.what?.numbered?.pool).join(',') === basis,
   );
-  if (held.length > 0) return held;
+  if (byBasis.length > 0) return { held: byBasis, reason: null, models: [] };
 
   const cited = new Set(
     (opinion.supporting_models ?? []).map((id) => String(id ?? '').trim()).filter((id) => id !== ''),
   );
-  return about.filter((other) => other.label === 'judgment' && cited.has(String(other.what?.model ?? '').trim()));
+  const candidates = about.filter(
+    (other) => other.label === 'judgment' && cited.has(String(other.what?.model ?? '').trim()),
+  );
+  if (candidates.length === 0) return { held: [], reason: 'absent', models: [] };
+
+  // Two seats can carry one model ID — a bank that filled a failed seat with the
+  // model already seated. One judge twice is stacking, not two judges, and its two
+  // seats are not interchangeable: when the basis cannot place them and they do not
+  // say the same thing, nothing in the record says which of them the report meant.
+  // Attaching both would hand one opinion a seat that holds another, so the link
+  // refuses rather than guessing. There is no partial list either: a half-known set
+  // of seats is not a readout.
+  const readings = new Map();
+  for (const candidate of candidates) {
+    const id = String(candidate.what?.model ?? '').trim();
+    if (!readings.has(id)) readings.set(id, new Set());
+    readings.get(id).add(sameOpinion(candidate.what?.observation));
+  }
+  const split = [...readings].filter(([, said]) => said.size > 1).map(([id]) => id);
+  if (split.length > 0) return { held: [], reason: 'ambiguous', models: split };
+
+  return { held: candidates, reason: null, models: [] };
 }
 
 /**
@@ -218,7 +243,7 @@ function sourcesOf(about, opinion) {
  */
 function consolidatedMove(seq, seats, majority, about, report) {
   const opinions = report.opinions.map((opinion) => {
-    const held = sourcesOf(about, opinion);
+    const { held, reason, models } = sourcesOf(about, opinion);
     return {
       text: String(held[0]?.what?.observation ?? ''),
       seats: held.map((other) => other.what.seat).filter((seat, index, all) => all.indexOf(seat) === index),
@@ -228,8 +253,12 @@ function consolidatedMove(seq, seats, majority, about, report) {
       // The report's words are fixed, but the seats behind them are read from this
       // record. When the record shows none of them, the row is marked rather than
       // left blank: an empty opinion with a count beside it reads as one nobody
-      // wrote, which is a claim about the record the record does not make.
+      // wrote, which is a claim about the record the record does not make. Why the
+      // link failed is carried too, because a missing seat and two seats that cannot
+      // be told apart are different facts about the record.
       unbacked: held.length === 0,
+      unbackedReason: reason,
+      ambiguousModels: models,
       // The status the report decided, carried so the readout can say "gray box"
       // for a move no opinion carried, instead of calling every dissent an edge grey.
       status: opinion.status,

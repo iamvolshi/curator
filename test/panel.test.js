@@ -652,6 +652,48 @@ test('a stored opinion the record cannot back is marked unbacked, not shown blan
   assert.equal(unbacked.support, 1, 'the report count is carried unchanged');
 });
 
+test('a model the record seats twice with two readings is ambiguous, and no seat is attached', () => {
+  // The bank filled a failed seat with the model already seated, so one ID sits on two
+  // seats that say different things. The report's basis was read under rules that no
+  // longer apply, so the basis cannot place them, and the cited ID alone cannot say
+  // which seat the report meant. Attaching both would hand one opinion a seat that
+  // holds another; attaching one would be a guess.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entries 7\u20139', 'the approval entry covers the deed'),
+    seated(3, 2, 'model-a', 'entry 12', 'the approval entry names another basis'),
+    {
+      seq: 4,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a'],
+        opinions: [
+          { position: 'justified', basis: [7, 9], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+          { position: 'justified', basis: [12], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const [contested, placed] = readPanel(entries).moves[0].edgeGreys;
+
+  assert.equal(contested.unbacked, true, 'the row is marked rather than shown as held by nobody');
+  assert.equal(contested.unbackedReason, 'ambiguous', 'the seats exist; the link is what is refused');
+  assert.deepEqual(contested.ambiguousModels, ['model-a'], 'and the disputed model is named');
+  assert.deepEqual(contested.seats, [], 'neither seat is attached');
+  assert.equal(contested.text, '', 'no words are invented for the opinion');
+
+  assert.equal(placed.unbacked, false, 'the opinion the basis still places is linked as before');
+  assert.equal(placed.text, 'the approval entry names another basis');
+  assert.deepEqual(placed.seats, [2]);
+});
+
 test('the readout is counted against the seats the record shows, never a panel it never held', () => {
   const entries = [
     fact(1),

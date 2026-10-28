@@ -236,6 +236,61 @@ test('a stored opinion the record cannot back is marked unbacked on the page', (
   assert.match(html, /readout__text">the reply supports the claim</, 'the opinion the record does back still reads as itself');
 });
 
+test('a stored opinion the record seats twice with two readings is shown as ambiguous', () => {
+  // One model on two seats that disagree, with a basis no longer read the way the
+  // report read it: the page cannot say which seat the report meant, so the row says
+  // the link is ambiguous instead of attaching either seat's words.
+  const seat = (seq, seatNumber, model, pool, observation) => ({
+    seq,
+    when,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat: seatNumber,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  });
+
+  const html = buildPage(
+    [
+      call(1),
+      seat(2, 1, 'model-a', 'entries 7\u20139', 'the approval entry covers the deed'),
+      seat(3, 2, 'model-a', 'entry 12', 'the approval entry names another basis'),
+      {
+        seq: 4,
+        when,
+        label: 'delivery',
+        what: {
+          kind: 'delivery',
+          move: 1,
+          mmrc_model_id: 'model-m',
+          seats: ['model-a'],
+          opinions: [
+            { position: 'justified', basis: [7, 9], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+            { position: 'justified', basis: [12], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+          ],
+          highest_probable: null,
+          questions: [],
+          derived: true,
+        },
+      },
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.match(
+    html,
+    /readout__text">ambiguous: this record shows more than one seat with model-a holding different opinions, so no seat is attached</,
+    'the row says the link is ambiguous rather than attaching either seat',
+  );
+  assert.match(html, /readout__count">no seat attached</, 'and no seat count is claimed for it');
+  assert.match(html, /readout__text">the approval entry names another basis</, 'the opinion the basis still places reads with its seat');
+});
+
 test('a record no panel wrote carries no readout, because no panel sat', () => {
   // The single judge's judgment carries no seat. A page that read it out would say
   // "no opinion reached 2 independent judges" about a move one judge answered — a
