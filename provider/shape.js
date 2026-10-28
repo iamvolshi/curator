@@ -7,7 +7,9 @@
 
 const KINDS = ['text', 'image'];
 const STATUSES = ['ready', 'needs-config', 'awaiting-pick', 'needs-parser'];
-const ROLES = ['worker', 'overseer', 'picture', 'development'];
+// `judge` is a seat in the judge panel: a plug that serves one seat, whether it is
+// seated or behind the seats in the bank.
+const ROLES = ['worker', 'overseer', 'picture', 'development', 'judge'];
 const REQUIRED_FIELDS = [
   'name',
   'label',

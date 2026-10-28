@@ -13,11 +13,15 @@
 //              nothing. A question about a move that names no subject belongs to
 //              no folder; it is still written, because an unfiled entry is a
 //              record and a skipped one is a hole.
+//   delivery — the MMRC consolidation of one move's three seat reports: the
+//              opinions the code grouped and the model handed back unchanged. It
+//              is derived from the judgments and questions beside it, never an
+//              observation, and it judges nothing of its own.
 //
 // Only facts are observations. A judgment never changes a fact, and a question
 // never darkens a shade — the labels are what keep those three apart.
 
-export const LABELS = ['fact', 'judgment', 'question'];
+export const LABELS = ['fact', 'judgment', 'question', 'delivery'];
 
 /**
  * Build an entry, refusing to hand back one that is malformed.

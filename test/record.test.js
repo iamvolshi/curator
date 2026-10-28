@@ -35,11 +35,11 @@ test('makeEntry refuses a malformed entry instead of storing half of it', () => 
   assert.throws(() => makeEntry({ when, label: 'hunch', what: { a: 1 } }), /refusing to record/);
 });
 
-test('all three labels are declared, and each one can be written', async () => {
-  // Three, not two: a question is a third kind of statement about the record and
-  // it is labelled as one. The set is still asserted exactly — a fourth label
+test('all four labels are declared, and each one can be written', async () => {
+  // Four: a question is a third kind of statement, and a delivery is the MMRC
+  // consolidation of one move. The set is still asserted exactly — a fifth label
   // added silently would fail here.
-  assert.deepEqual(LABELS, ['fact', 'judgment', 'question']);
+  assert.deepEqual(LABELS, ['fact', 'judgment', 'question', 'delivery']);
 
   for (const label of LABELS) {
     const written = makeEntry({ when, label, what: { kind: 'x' } });

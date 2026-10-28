@@ -5,6 +5,7 @@
 //   task --prompt "..."                  one real piece of work, recorded
 //   folders [--subject "..."]            a subject's entries, rebuilt from the record
 //   judge                                observe the moves and write judgments
+//   panel [--move N | --limit N]         three seats judge a move; one readout
 //   records [--last] [--json]            read the record file back
 //   status                               is the API address reachable?
 //
@@ -14,6 +15,7 @@ import { foldersCommand } from '../cli/folders.js';
 import { judgeCommand } from '../cli/judge.js';
 import { liveCommand } from '../cli/live.js';
 import { pageCommand } from '../cli/page.js';
+import { panelCommand } from '../cli/panel.js';
 import { proveCommand, DEFAULT_PROMPT } from '../cli/prove.js';
 import { recordsCommand } from '../cli/records.js';
 import { statusCommand } from '../cli/status.js';
@@ -50,6 +52,17 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       a view of the record, not a store, so nothing here can create one or lose
       an entry — a subject nobody named has no folder, on purpose.
 
+  node bin/overseer.js panel [--move N | --limit N]
+      The judge panel: three seats read the same move, and the record gets one
+      entry per seat. Seat 1 is the main seat (Muse, through the meta plug); seats
+      2 and 3 are the provisional free seats, each seated by its own model
+      variable. A seat whose judge fails is filled from the bank, and the fill is
+      labelled in the entry it produced. What the seats add up to is printed as a
+      readout — the highest probable opinion and the edge greys — rebuilt from the
+      record afterwards, never merged into one opinion. An unseated panel refuses
+      before the record is read or anything is sent. --limit N seats N moves;
+      --move N seats the one move with that seq.
+
   node bin/overseer.js records [--last] [--json]
       Read what has been recorded.
 
@@ -78,6 +91,12 @@ Exit codes: 0 held | 1 unexpected problem | 2 unknown command, plug name,
             nothing to do, or a bad option | 3 the plug is not ready, so nothing
             was attempted
             4 the call did not work | 5 the call worked but the record did not match
+
+For "panel" the same codes mean: 0 the run finished cleanly | 2 the options were
+not usable, or the named move cannot be judged | 3 a seat is not seated, so
+nothing was read and nothing was sent | 4 a model call did not work and no bank
+plug filled that seat | 5 a reply could not be read, or a reading directed the
+agent, and no bank plug filled that seat
 `;
 
 const [command, ...args] = process.argv.slice(2);
@@ -88,6 +107,7 @@ const commands = {
   task: () => taskCommand({ args }),
   folders: () => foldersCommand({ args }),
   judge: () => judgeCommand({ args }),
+  panel: () => panelCommand({ args }),
   records: () => recordsCommand({ args }),
   page: () => pageCommand({ args }),
   live: () => liveCommand({ args }),

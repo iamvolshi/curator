@@ -1,0 +1,243 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { consolidateReports, consolidateMove, deliveryFrom, MMRC_FAILURES } from '../judge/consolidate.js';
+import { MMRC_MODEL_ID, MMRC_TEMPERATURE } from '../worker/config.js';
+
+const MMRC = 'mmrc/model-under-test';
+
+function judgment(seat, model, pool, observation = 'the move is supported by the cited entries') {
+  return {
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      seat,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  };
+}
+
+function asked(seat, model, question = 'what in the record shows the basis?') {
+  return {
+    label: 'question',
+    what: {
+      kind: 'seat-question',
+      move: 1,
+      seat,
+      model,
+      question,
+      numbered: { deed: 'the move', pool: 'none', basis: 'not-shown', topics: [], sitting: question },
+    },
+  };
+}
+
+const FACT = { label: 'fact', what: { kind: 'fact', move: 1, note: 'not a seat' } };
+
+function assertValid(result) {
+  assert.equal(result.ok, true, result.detail);
+  const delivered = deliveryFrom(result.body, MMRC);
+  assert.equal(delivered.ok, true, delivered.detail);
+  return delivered.report;
+}
+
+test('an agreeing pair with a dissent consolidates to one highest probable and one edge grey', () => {
+  const entries = [
+    FACT,
+    judgment(1, 'model-a', 'entries 4 and 9'),
+    judgment(2, 'model-b', '9, 4', 'a different sentence about the same basis'),
+    judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
+  ];
+  const report = assertValid(consolidateReports(entries, 1));
+
+  assert.equal(report.opinions.length, 2);
+  const probable = report.opinions.find((o) => o.status === 'highest_probable');
+  const grey = report.opinions.find((o) => o.status === 'edge_grey');
+  assert.deepEqual(probable.basis, [4, 9]);
+  assert.equal(probable.support_count, 2);
+  assert.deepEqual(probable.supporting_models, ['model-a', 'model-b']);
+  assert.deepEqual(grey.basis, [12]);
+  assert.equal(grey.support_count, 1);
+  assert.deepEqual(report.highest_probable, probable);
+  assert.equal(report.mmrc_model_id, MMRC);
+  assert.equal(report.derived, true);
+  assert.deepEqual(report.seats, ['model-a', 'model-b', 'model-c']);
+});
+
+test('an all-dissent move consolidates to the gray box with no highest probable', () => {
+  const entries = [
+    judgment(1, 'model-a', 'entry 1'),
+    judgment(2, 'model-b', 'entry 2'),
+    judgment(3, 'model-c', 'entry 3'),
+  ];
+  const report = assertValid(consolidateReports(entries, 1));
+
+  assert.equal(report.highest_probable, null);
+  assert.equal(report.opinions.length, 3);
+  for (const opinion of report.opinions) assert.equal(opinion.status, 'gray_box');
+});
+
+test('an all-questions move has no opinions, no highest probable, and the questions stand', () => {
+  const entries = [
+    asked(1, 'model-a', 'what shows entry six?'),
+    asked(2, 'model-b', 'who wrote the first line?'),
+    asked(3, 'model-c', 'where is the approval?'),
+  ];
+  const report = assertValid(consolidateReports(entries, 1));
+
+  assert.deepEqual(report.opinions, []);
+  assert.equal(report.highest_probable, null);
+  assert.deepEqual(report.questions, [
+    { seat_model_id: 'model-a', question: 'what shows entry six?' },
+    { seat_model_id: 'model-b', question: 'who wrote the first line?' },
+    { seat_model_id: 'model-c', question: 'where is the approval?' },
+  ]);
+});
+
+test('a move-37 shape groups same position and same basis into one opinion, counted by model', () => {
+  // Three different wordings, one basis: the same opinion, three independent judges.
+  const entries = [
+    judgment(1, 'model-a', 'entries 7, 8', 'the approval entry supports the deed'),
+    judgment(2, 'model-b', 'entries 8 and 7', 'the deed follows from the approval'),
+    judgment(3, 'model-c', 'entry 7 and entry 8', 'the approval is what the move relies on'),
+  ];
+  const report = assertValid(consolidateReports(entries, 1));
+
+  assert.equal(report.opinions.length, 1);
+  const [only] = report.opinions;
+  assert.equal(only.status, 'highest_probable');
+  assert.equal(only.support_count, 3);
+  assert.deepEqual(only.supporting_models, ['model-a', 'model-b', 'model-c']);
+});
+
+test('the same model twice is stacking, not support', () => {
+  const entries = [
+    judgment(1, 'model-a', 'entry 5'),
+    judgment(2, 'model-a', 'entry 5', 'the same judge speaking again'),
+    judgment(3, 'model-c', 'entry 6'),
+  ];
+  const report = assertValid(consolidateReports(entries, 1));
+
+  assert.equal(report.highest_probable, null, 'one model twice must not reach a majority');
+  const stacked = report.opinions.find((o) => o.basis[0] === 5);
+  assert.equal(stacked.support_count, 1);
+  assert.deepEqual(stacked.supporting_models, ['model-a']);
+});
+
+test('a partial panel is a typed failure, never a partial consolidation', () => {
+  const entries = [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1')];
+  const result = consolidateReports(entries, 1);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'insufficient_reports');
+});
+
+test('a seat with a basis that does not match its label is malformed input', () => {
+  const judgedNotShown = judgment(3, 'model-c', 'entry 1');
+  judgedNotShown.what.numbered.basis = 'not-shown';
+  const result = consolidateReports([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1'), judgedNotShown], 1);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'malformed_input');
+});
+
+test('a judgment that cites no entry is malformed input, not an uncited opinion', () => {
+  const entries = [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1'), judgment(3, 'model-c', 'no entries here')];
+  const result = consolidateReports(entries, 1);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'malformed_input');
+});
+
+test('a seat whose response named no model is malformed input, because its support cannot be counted', () => {
+  const unnamed = judgment(3, undefined, 'entry 1');
+  const result = consolidateReports([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1'), unnamed], 1);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'malformed_input');
+});
+
+test('two reports from one seat are malformed input, not a fourth opinion', () => {
+  const entries = [
+    judgment(1, 'model-a', 'entry 1'),
+    judgment(2, 'model-b', 'entry 1'),
+    judgment(2, 'model-b', 'entry 2'),
+  ];
+  const result = consolidateReports(entries, 1);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'malformed_input');
+});
+
+test('the live call sends the configured model and temperature and writes the model the response named', async () => {
+  const entries = [
+    FACT,
+    judgment(1, 'model-a', 'entry 4'),
+    judgment(2, 'model-b', 'entry 4', 'a different sentence about the same basis'),
+    judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
+  ];
+  const grouped = consolidateReports(entries, 1).body;
+  let sentBody = null;
+  const fetchImpl = async (url, options) => {
+    sentBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          model: 'muse-spark-1.3',
+          choices: [{ message: { content: JSON.stringify({ opinions: grouped.opinions, highest_probable: grouped.highest_probable, questions: grouped.questions }) }, finish_reason: 'stop' }],
+        }),
+    };
+  };
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, true, result.detail);
+  assert.equal(sentBody.model, MMRC_MODEL_ID);
+  assert.equal(sentBody.temperature, MMRC_TEMPERATURE);
+  assert.equal(result.report.mmrc_model_id, 'muse-spark-1.3');
+});
+
+test('a reply that changes the grouping writes no report', async () => {
+  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const fetchImpl = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({ model: 'muse-spark-1.3', choices: [{ message: { content: '{"opinions":[],"highest_probable":null,"questions":[]}' } }] }),
+  });
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, MMRC_FAILURES.alteredGrouping);
+});
+
+test('a failed call writes no report and names the failure', async () => {
+  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const fetchImpl = async () => ({ ok: false, status: 500, text: async () => '' });
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, MMRC_FAILURES.callFailed);
+});
+
+test('a call that never runs for a move with missing reports makes no call', async () => {
+  const fetchImpl = async () => assert.fail('no call expected for an incomplete move');
+  const result = await consolidateMove([judgment(1, 'model-a', 'entry 1')], 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'insufficient_reports');
+});
+
+test('reports for other moves are not part of this move', () => {
+  const other = judgment(3, 'model-z', 'entry 1');
+  other.what.move = 2;
+  const entries = [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1'), other];
+  const result = consolidateReports(entries, 1);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, 'insufficient_reports');
+});

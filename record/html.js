@@ -20,7 +20,7 @@
 import { liveBadge, liveScript } from './browser.js';
 import { entryCard } from './cards.js';
 import { count, esc } from './markup.js';
-import { renderIndex, renderParked, renderSocket } from './sections.js';
+import { renderGraphs, renderIndex, renderParked, renderReadout, renderSocket } from './sections.js';
 
 /** The numbers on the page, counted from the entries rather than assumed. */
 function measure(entries) {
@@ -93,6 +93,7 @@ const STYLE = `
   .chip--fact { background: var(--fact); }
   .chip--judgment { background: var(--judgment); }
   .chip--question { background: none; color: var(--judgment); border: 1px dashed var(--judgment); }
+  .chip--delivery { background: none; color: var(--judgment); border: 1px solid var(--judgment); }
   .chip--kind {
     background: none; color: var(--muted);
     border: 1px solid var(--rule); font-weight: 600; letter-spacing: .08em;
@@ -144,6 +145,27 @@ const STYLE = `
     font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--muted);
   }
+  .readout { margin: 0 0 2.2rem; }
+  .readout h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .readout__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .readout__move { margin: .9rem 0 .4rem; font-size: .86rem; color: var(--muted); }
+  .readout__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .readout__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .45rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .readout__kind {
+    min-width: 8.5rem;
+    font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .readout__kind--probable { color: var(--fact); font-weight: 700; }
+  .readout__text { flex: 1 1 18rem; }
+  .readout__count { margin-left: auto; font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .readout__aside { padding: .45rem 0; border-bottom: 1px solid var(--rule); font-size: .82rem; color: var(--muted); }
   .parked { margin: 0 0 2.2rem; }
   .parked h2 {
     margin: 0 0 .5rem;
@@ -221,7 +243,7 @@ const STYLE = `
  * @param {{source?: string, generatedAt?: string, parked?: Array}} meta  where it came from, when, and what is parked
  * @returns {string} a complete, self-contained HTML document
  */
-export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [] } = {}) {
+export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [], readout = null } = {}) {
   const stats = measure(entries);
   // The total is entries, not calls. A judgment and a question are entries and no
   // call was made for either, so "N calls" over a record that holds them said
@@ -258,10 +280,11 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
   <h1>A record of what actually happened</h1>
   <p class="deck"><strong>${esc(deck)}</strong> — ${esc(models)}</p>
 ${live ? liveBadge() : ''}  <hr class="rule">
-${renderIndex(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}${parked.length ? renderParked(parked) : ''}  <ul class="legend">
+${renderIndex(entries)}${readout ? renderReadout(readout) : ''}${renderGraphs(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}${parked.length ? renderParked(parked) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
     <li><span class="chip chip--judgment">judgment</span> the Overseer's assessment of an observed move, labelled as one</li>
     <li><span class="chip chip--question">question</span> an open question on a subject, sitting in its thread until the record answers it</li>
+    <li><span class="chip chip--delivery">delivery</span> the MMRC consolidation of one move's three seat reports, derived from them and checked unchanged</li>
   </ul>
 ${body}
   <p class="foot">

@@ -23,6 +23,13 @@ export const MODEL_ENV_VAR = 'MODEL_ID';
  */
 export const DEFAULT_MODEL = 'muse-spark-1.3';
 
+/**
+ * The model that consolidates a move's three seat reports (MMRC), chosen by Darren.
+ * Its temperature is set here too, and judge/consolidate.js sends both.
+ */
+export const MMRC_MODEL_ID = 'muse-spark-1.3';
+export const MMRC_TEMPERATURE = 0.2;
+
 /** The name this worker is recorded under. */
 export const WORKER_NAME = 'meta-model-api';
 

@@ -7,6 +7,7 @@
 // that assembles the page should not also have to hold every one of them.
 
 import { callOutcome, clip, count, esc } from './markup.js';
+import { seatGraph } from '../judge/graph.js';
 
 /**
  * A row of entry numbers, each one a link to its own entry.
@@ -113,6 +114,71 @@ ${rows
 }
 
 /**
+ * The panel's readout, on the page.
+ *
+ * Two parts, and they are drawn apart on purpose: the opinion with the most
+ * independent agreement behind it, and every opinion that is not that one. A page
+ * that showed only the probable one would let the majority delete the dissent, and
+ * a page that averaged them would show a sentence nobody said.
+ *
+ * Support is counted by model ID, and the count says so in words: "2 independent"
+ * is two judges who named two different models, and a seat that named none is
+ * shown as holding an opinion without counting as an independent judge.
+ *
+ * The panel is the one the RECORD shows: the seats are the seat numbers the panel
+ * wrote on this move, and a majority is more than half of them. Nothing is measured
+ * against the panel this machine is configured with, so one file renders one readout
+ * on any machine — and a judgment the single judge wrote carries no seat, so it is
+ * never read out as a panel that agreed on nothing.
+ */
+export function renderReadout(readout) {
+  if (!readout || readout.moves.length === 0) return '';
+
+  const opinionRow = (kind, opinion) => `      <li class="readout__row">
+        <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(kind === 'probable' ? 'highest probable' : 'edge grey')}</span>
+        <span class="readout__text">${esc(opinion.text)}</span>
+        <span class="readout__count">${esc(
+          `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`,
+        )}</span>
+      </li>`;
+
+  const rows = readout.moves
+    .map((move) => {
+      // The numbers are the move's own: the seats the record shows it had, and the
+      // majority those seats need. One number standing for every move would be a
+      // number the record does not hold.
+      const head = `    <p class="readout__move">seq ${esc(move.seq)} \u2014 ${
+        move.probable
+          ? 'one opinion has more independent agreement behind it than the others'
+          : move.edgeGreys.length === 0
+            ? 'no seat offered an opinion: every seat asked what shows the basis'
+            : esc(
+                `none declared: no opinion reached ${count(move.majority, 'independent judge')}, the majority of the ${count(move.seats, 'seat')} this move shows`,
+              )
+      }</p>`;
+      const probable = move.probable ? opinionRow('probable', move.probable) : '';
+      const greys = move.edgeGreys.map((opinion) => opinionRow('grey', opinion)).join('\n');
+      const noPosition = move.noPosition
+        .map((seat) => `      <li class="readout__aside">seat ${esc(seat === null ? 'unrecorded' : seat)} asked what shows the basis, so it took no position</li>`)
+        .join('\n');
+
+      return `${head}
+    <ul class="readout__list">
+${[probable, greys, noPosition].filter((part) => part !== '').join('\n')}
+    </ul>`;
+    })
+    .join('\n');
+
+  return `  <section class="readout">
+    <h2>The readout \u2014 highest probable, and the edge greys</h2>
+    <p class="readout__note">Counted from this record: the seats are the ones each move
+    shows, and a majority is more than half of them. Nothing here is merged: a minority reading is shown
+    beside the probable one, never averaged into it and never dropped.</p>
+${rows}
+  </section>\n`;
+}
+
+/**
  * The moves the judge has stopped attempting.
  *
  * A parked move has no entry of its own — a park is not a judgment — so a page
@@ -121,6 +187,49 @@ ${rows
  * says where the fact comes from: a count in a file beside the record, not an
  * entry in it.
  */
+/**
+ * The graph each seat drew from its numbered answers, one per seat that wrote them.
+ *
+ * Built from the entries themselves, so a page shows only what the record holds. An
+ * entry with no numbered answers draws nothing, and a page with none returns nothing,
+ * which leaves it exactly as it was before the graph existed.
+ */
+export function renderGraphs(entries) {
+  const graphs = entries.map(seatGraph).filter((graph) => graph !== null);
+  if (graphs.length === 0) return '';
+
+  const EDGE_WORDS = { justifies: 'justifies', touches: 'touches', asks: 'asks' };
+  const rows = graphs
+    .map((graph) => {
+      const textOf = new Map(graph.nodes.map((node) => [node.id, node.text]));
+      const head = `    <p class="readout__move">seq ${esc(graph.move)} \u2014 seat ${esc(graph.seat)}: ${
+        count(graph.nodes.length, 'node')} \u00b7 ${count(graph.edges.length, 'edge', 'edges')}</p>`;
+      const edges = graph.edges.length
+        ? graph.edges
+            .map(
+              (edge) => `      <li class="readout__row">
+        <span class="readout__kind">${esc(EDGE_WORDS[edge.kind] ?? edge.kind)}</span>
+        <span class="readout__text">${esc(textOf.get(edge.from) ?? edge.from)} \u2192 ${esc(textOf.get(edge.to) ?? edge.to)}</span>
+      </li>`,
+            )
+            .join('\n')
+        : '      <li class="readout__aside">no edges: this seat drew the move alone</li>';
+      return `${head}
+    <ul class="readout__list">
+${edges}
+    </ul>`;
+    })
+    .join('\n');
+
+  return `  <section class="readout">
+    <h2>The graph \u2014 each seat's numbered answers</h2>
+    <p class="readout__note">Drawn from the numbered answers the seats wrote: the move and its basis, the topics it
+    touches, and the question it asks when the basis is not shown. Each edge is a seat's
+    answer, not a fact the record holds on its own.</p>
+${rows}
+  </section>\n`;
+}
+
 export function renderParked(parked) {
   const rows = parked
     .map(

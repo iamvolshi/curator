@@ -1,0 +1,52 @@
+
+Overseer — the judge panel (3 seats)
+------------------------------------
+record file: records/k-record.jsonl
+entries read: 2
+seat 1:      meta using muse-spark-1.3 from the plug’s own model
+seat 2:      nvidia using free-a via PANEL_SEAT2_MODEL
+seat 3:      nvidia using free-b via PANEL_SEAT3_MODEL
+bank:        nvidia
+
+The moves
+---------
+chosen:      seq 2, picked with --move
+seq 2        3 of 3 seats wrote something
+seat 1       judgment written  (muse-spark-1.3)
+    Q1 deed: the reply supports the claim about Ada
+    Q2 pool: fact 1 in the record
+    Q3 basis: shown
+    Q4 topics: none
+    Q5 sitting: none
+    edge justifies: basis:2:1 -> move:2
+seat 2       judgment written  (free-a)
+    Q1 deed: the reply supports the claim about Ada
+    Q2 pool: fact 1 in the record
+    Q3 basis: shown
+    Q4 topics: none
+    Q5 sitting: none
+    edge justifies: basis:2:2 -> move:2
+seat 3       judgment written  (free-b)
+    Q1 deed: the reply supports the claim about Ada
+    Q2 pool: fact 1 in the record
+    Q3 basis: shown
+    Q4 topics: none
+    Q5 sitting: none
+    edge justifies: basis:2:3 -> move:2
+  consolidation: written (MMRC delivery report)
+
+What the record gained
+----------------------
+judgments:   3
+questions:   0
+calls:       3
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+
+The readout — highest probable, and the edge greys (the seats the record shows)
+-------------------------------------------------------------------------------
+seq 2
+  highest probable: "the reply supports the claim about Ada"
+    3 seat(s) held it, 3 independent: muse-spark-1.3, free-a, free-b
+
+result: clean

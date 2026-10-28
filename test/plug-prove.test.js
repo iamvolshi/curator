@@ -219,7 +219,7 @@ test('an unknown plug name is refused, and the built-in names are listed', async
 
     assert.equal(code, 2);
     assert.match(text, /unknown plug/);
-    assert.match(text, /meta, openrouter, baseten, picture/);
+    assert.match(text, /meta, openrouter, baseten, nvidia, inception, picture/);
     assert.deepEqual(await store.readAll(), []);
   });
 });

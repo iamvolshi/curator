@@ -1,0 +1,14 @@
+
+Overseer — the judge panel (3 seats)
+------------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+seat 1:      meta using muse-spark-1.3 from the plug’s own model
+seat 2:      nvidia using free-a via PANEL_SEAT2_MODEL
+seat 3:      nvidia using free-b via PANEL_SEAT3_MODEL
+bank:        nvidia
+
+No such move to judge
+---------------------
+the record has no entry with seq 9
+Nothing was sent and nothing was written.

@@ -8,6 +8,7 @@ import { isAbsolute, relative } from 'node:path';
 
 import { createLedger, resolveLedgerPath } from '../judge/attempts.js';
 import { parkedMoves } from '../judge/judge.js';
+import { readPanel } from '../judge/readout.js';
 import { resolveAll } from '../provider/index.js';
 import { renderPage } from '../record/html.js';
 
@@ -51,6 +52,23 @@ export async function parkedFor(entries, env = process.env) {
 }
 
 /**
+ * The panel's readout for these entries, counted against the seats THE RECORD shows
+ * — not against the panel this machine is configured with. A view measured against
+ * the local configuration would say different things about one file, and the page
+ * exists to say what the file holds.
+ *
+ * Like the parked list, this is read from the record on every render: it is a view,
+ * and a page built from a stale copy would be a second, unofficial record.
+ *
+ * A record no panel wrote shows nothing here: a judgment the single judge wrote
+ * carries no seat, so there is no panel to read out and the page says nothing about
+ * one.
+ */
+export function readoutFor(entries) {
+  return readPanel(entries);
+}
+
+/**
  * The whole page, from the entries handed in.
  * @param {Array} entries                 the record, oldest first
  * @param {object} options
@@ -67,5 +85,6 @@ export function buildPage(entries, { source, generatedAt, env = process.env, liv
     plugs: plugSummaries(env),
     live,
     parked,
+    readout: readoutFor(entries),
   });
 }

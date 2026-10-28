@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readJudgeReply, judgeMessages } from '../judge/prompt.js';
+import { readJudgeReply, readPanelReply, judgeMessages } from '../judge/prompt.js';
 import { DIRECTIVE_PATTERNS, directs } from '../judge/wording.js';
 
 test('every directive phrase is caught, and ordinary observation is not', () => {
@@ -59,13 +59,41 @@ test('the reply reader refuses a verdict, a missing basis, and an empty observat
   assert.equal(good.observation, 'the reply supports it');
 });
 
+test('the panel reader accepts the numbered shape and refuses a citation on Q3', () => {
+  const conforming = [
+    'Q1: The worker sent a refund request.',
+    'Q2: Entry 12, the customer approved it.',
+    'Q3: justified',
+    'Q4: none',
+    'Q5: none',
+  ].join('\n');
+  const read = readPanelReply(conforming);
+  assert.equal(read.error, undefined);
+  assert.equal(read.basis, 'shown');
+
+  const cited = conforming.replace('Q3: justified', 'Q3: justified [1]');
+  assert.match(readPanelReply(cited).error, /Q3 did not say justified or not shown/);
+
+  const asked = [
+    'Q1: The worker sent a refund request.',
+    'Q2: Nothing in the record.',
+    'Q3: not shown',
+    'Q4: none',
+    'Q5: What in the record shows the customer approved the refund?',
+  ].join('\n');
+  assert.equal(readPanelReply(asked).basis, 'not-shown');
+});
+
 test('the judge is told to observe, and asked only for the two-way choice', () => {
   const messages = judgeMessages({ seq: 7, what: { prompt: 'p', ok: true, response: 'r', subjects: ['Ada Okafor'] } });
   assert.equal(messages[0].role, 'system');
   assert.match(messages[0].content, /You do not judge the agent, grade it, or tell it what to do/);
   assert.match(messages[0].content, /"basis": "shown" \| "not-shown"/);
-  assert.match(messages[1].content, /move: seq 7/);
-  assert.match(messages[1].content, /about: Ada Okafor/);
+  assert.match(messages[1].content, /prompt: p/);
+  assert.match(messages[1].content, /reply: r/);
+  assert.doesNotMatch(messages[1].content, /seq/, 'the record\u2019s sequence number is not part of the move');
+  assert.doesNotMatch(messages[1].content, /about:/, 'the subject threads are not part of the move');
+  assert.doesNotMatch(messages[1].content, /Ada Okafor/, 'nor are the names the record files it under');
 });
 
 // A question that names a mechanism is a design suggestion wearing a question

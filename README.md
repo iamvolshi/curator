@@ -115,6 +115,55 @@ move as skipped that the record already answers. The judge runs on the
 `baseten` plug and never touches a fact entry; without Baseten credentials it
 refuses before any call, writing nothing.
 
+The **panel** is three judges reading the same move. Seat 1 is the main seat —
+Muse, through the `meta` plug. Seat 2 is served by the `nvidia` plug, seat 3 by the
+`inception` plug, and both are seated by their own model variables (`PANEL_SEAT2_MODEL`,
+`PANEL_SEAT3_MODEL`), which is where the picks live rather than in code — both are
+named in `.env.example`. Seat 3's plug is set by `PANEL_SEAT3_PLUG=inception`, with
+Inception Labs' `mercury-3` as its model. Seat 2 keeps NVIDIA's flagship reasoner, so the panel is three different labs.
+No model is chosen *in the code*: a plug that ships without a model (and `nvidia` is one) is
+seated by the caller's model, so a name nobody set is a seat that refuses rather
+than a default somebody guessed. The seats and the bank are free to run: NVIDIA's
+own catalog says its hosted endpoints are free to prototype with and rate-limited
+rather than billed (up to 40 requests a minute for most models), so the only spend
+the panel adds is the main seat's one call per move. An
+unseated panel refuses before the record is read and before anything is sent. Each
+seat writes its own entry — three judgments, never one merged opinion — carrying
+the model ID the **response** named, not the one it was asked for, so a provider
+answering as a different model is recorded as the model that answered. An opinion
+whose reply named no model is written with the ID marked missing, and counts as no
+independent judge: two IDs is what makes two opinions. Each seat is asked as an
+opinion contest of one — told it is one voice of three and cannot see the others —
+and the manner rules are the judge's own, word for word, so a reading that directs
+the agent is refused per seat exactly as before. Behind the seats is a **bank**
+(`PANEL_BANK`, free plugs first by default) that fills a seat whose judge failed,
+and the entry says which seat, which model left and which plug and model ID filled
+it; a bank plug offering the same model as the seat is skipped, because the same
+judge twice is not a second judge. A move whose panel cannot be completed writes
+nothing at all, and the run stops there rather than writing a two-seat panel that
+would read like a complete one. What the seats come to is printed as one
+**readout**, and it is a view over the record, rebuilt after the run like every
+other view: the **highest probable** opinion — the one with the most independent
+agreement behind it, by distinct ID, and only when that reaches a majority of the
+seats **the record shows** on that move — and then every other reading as an
+**edge grey**, the 2-1 dissent or the lone reading nobody shared. Nothing is merged,
+nothing is averaged into a sentence nobody said, and a minority reading is never
+dropped by the majority. With no majority, no probable is declared and every reading
+is surfaced; a move where every seat asked what shows the basis is read out with no
+readings and every seat named. The panel is counted from the entries, never from the
+panel this machine is configured with, so one record reads the same anywhere — and a
+record the single judge wrote carries no readout at all, because a judgment with no
+seat is one judge's reading and not a panel that agreed on nothing. The readout is
+on the page too, built from the record on every render. The panel exits 0 clean, 3 on
+a seat that is not seated, 4 when a call did not work and the bank could not fill
+the seat, 5 when a reply could not be read or a reading directed the agent and the
+bank could not fill the seat, and 2 on an unusable option or a move the record
+cannot judge.
+
+Each seat answers the same five numbered questions, in order, one line each: **Q1** the deed (what the worker did), **Q2** the basis in the record, **Q3** whether the basis is `justified` or `not shown`, **Q4** the other topics the basis touches, and **Q5** the question that would show the basis when it is not shown (`none` when it is justified). The prompt is defined in [`judge/prompt.js`](judge/prompt.js), and a seat's answers are read by number, so a reply that skips a number or adds one is not a reading. The same contract is shared with the single judge: a reply that does not follow it writes nothing.
+
+From those answers, [`judge/graph.js`](judge/graph.js) draws one graph per seat per move. The **nodes** are the move (Q1), its basis (Q2), each topic (Q4), and the question asked when the basis is not shown (Q5). The **edges** are the basis *justifies* the move (only when Q3 says `justified`), the move *touches* each topic, and the move *asks* the question (only when `not shown`). A seat with no numbered answers draws nothing. The panel report prints the numbered answers and the edges under each seat, and the graph is derived, never stored: it is rebuilt from the record, like every other view.
+
 **Shade** runs 0 (white) to 9 (black), and 8–9 is the black band. It is counted,
 not judged: each independent supporting fact about a subject darkens it by one,
 the same move repeated does not stack, and a judgment or a question darkens
@@ -164,6 +213,8 @@ a plain statement of where each of those values came from.
 | `meta` | the Worker agent | `https://api.meta.ai/v1` | `MODEL_API_KEY` | `muse-spark-1.3`, Meta's documented default |
 | `baseten` | the Overseer agent | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` | unset on purpose: `BASETEN_MODEL` is Darren's pick |
 | `openrouter` | interim development path, in no routing slot | `OPENROUTER_BASE_URL` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL`, none assumed |
+| `nvidia` | the panel's free seats and bank | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` | `NVIDIA_MODEL`, none assumed |
+| `inception` | seat 3 (via `PANEL_SEAT3_PLUG`) | `https://api.inceptionlabs.ai/v1` | `INCEPTION_API_KEY` | `INCEPTION_MODEL`, none assumed |
 | `picture` | the picture kid | — | — | — |
 
 Routing is fixed in `provider/routing.js`: Worker → `meta`, Overseer → `baseten`,
@@ -187,6 +238,7 @@ claim otherwise:
 | `meta` | yes | **proven** — `muse-spark-1.3` answered `"ready"` in 1443 ms (186 tokens), one `fact` entry at `seq` 1 |
 | `baseten` | yes | **blocked** on `BASETEN_API_KEY` and `BASETEN_MODEL` |
 | `openrouter` | yes | **blocked** on `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` |
+| `nvidia` | yes | **blocked** on `NVIDIA_API_KEY`. The three model names the panel seats are in `.env.example`, each checked against the live endpoint — the address accepts the ID and rejects the key, which is as far as a check can go without one |
 | `picture` | slot only | **blocked** on the provider and model pick, and on an image reply reader |
 
 ## Running it
@@ -205,6 +257,9 @@ npm run judge           # the Overseer observes the moves (needs Baseten)
 npm run judge -- --limit 1   # ...and a first run can cost one call, not one per move
 npm run judge -- --move 5    # ...or judge the one move with seq 5, whichever it is
 npm run judge -- --retry-parked  # offer every move that kept failing again
+npm run panel           # three seats judge a move, and one readout is printed
+npm run panel -- --limit 1   # ...and a first run can cost three calls, not three per move
+npm run panel -- --move 5    # ...or seat the panel on the one move with seq 5
 npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date
@@ -252,7 +307,11 @@ park alone and beside work, a `--limit` cap and a `--move` pick — each also be
 park, where the counts stop agreeing if a number is taken from the wrong set — and
 the ways a run stops before it judges anything. Each is pinned with the exit code it ends on, and
 a change to the wording or the code fails on the line that moved:
-`node test/judge-golden.test.js --write`. One of those runs is also checked through
+`node test/judge-golden.test.js --write`. So is the **panel's run report** —
+`test/fixtures/panel/` holds a blessed run for each shape a panel can come to
+(unanimous, 2-1, 1-1-1, a fill from the bank, a seat that named no model), for both
+ways a reading can be unusable, and for the ways a run stops before it seats
+anything, re-blessed with `node test/panel-golden.test.js --write`. One of those runs is also checked through
 `node bin/overseer.js`, so the command line has to print what the command prints and
 pass its exit code through. All three pins compare through `checks/golden.js`, so a
 fourth one is a file of fixtures rather than another copy of the comparing.

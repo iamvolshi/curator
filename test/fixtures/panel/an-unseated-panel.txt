@@ -1,0 +1,12 @@
+
+The panel is not seated
+-----------------------
+Nothing was read and nothing was sent.
+seat:        3
+status:      needs-config
+missing:     nothing is seated in seat 3: set PANEL_SEAT3_MODEL, or the nvidia plug’s own model
+
+  seat 1 — meta using muse-spark-1.3 from the plug’s own model
+  seat 2 — nvidia using free-a via PANEL_SEAT2_MODEL
+  seat 3 — nvidia using no model
+  bank: nvidia

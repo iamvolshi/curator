@@ -112,7 +112,7 @@ test('a worker call takes exactly one hop, through the plug the routing table na
 });
 
 test('every plug carries the same config shape, empty slots included', () => {
-  assert.deepEqual(PLUG_NAMES, ['meta', 'openrouter', 'baseten', 'picture']);
+  assert.deepEqual(PLUG_NAMES, ['meta', 'openrouter', 'baseten', 'nvidia', 'inception', 'picture']);
 
   for (const name of PLUG_NAMES) {
     const plug = resolvePlug(name, {});
@@ -247,6 +247,41 @@ test('a baseten call goes to Baseten, with the configured model and its own key'
   assert.equal(JSON.parse(seen[0].options.body).model, 'darrens-pick');
   assert.equal(result.ok, true);
   assert.equal(result.text, 'fine');
+});
+
+test('a call reports the model the response named, and says when it named none', async () => {
+  // The judge panel is built on this distinction: "Muse answered" and "something
+  // answered and did not say what" are different facts, and an opinion whose model
+  // is unknown cannot be counted as an independent one. So the seam keeps the
+  // reported model apart from `model`, which falls back to the model requested —
+  // a reader who cannot tell those apart cannot tell a substitution from the model
+  // it asked for.
+  const env = { BASETEN_API_KEY: 'baseten-secret', BASETEN_MODEL: 'darrens-pick' };
+  const answering = (body) => async () => ({ ok: true, status: 200, text: async () => JSON.stringify(body) });
+  const asking = {
+    messages: [{ role: 'user', content: 'judge this' }],
+    env,
+  };
+
+  const named = await call('baseten', {
+    ...asking,
+    fetchImpl: answering({ model: 'darrens-pick-preview', choices: [{ message: { content: 'fine' } }] }),
+  });
+  assert.equal(named.reportedModel, 'darrens-pick-preview', 'the model the response named, not the one asked for');
+  assert.equal(named.model, 'darrens-pick-preview');
+
+  const silent = await call('baseten', {
+    ...asking,
+    fetchImpl: answering({ choices: [{ message: { content: 'fine' } }] }),
+  });
+  assert.equal(silent.reportedModel, null, 'a response that names no model does not name this one');
+  assert.equal(silent.model, 'darrens-pick', 'and the requested model is still what went out');
+
+  const blank = await call('baseten', {
+    ...asking,
+    fetchImpl: answering({ model: '   ', choices: [{ message: { content: 'fine' } }] }),
+  });
+  assert.equal(blank.reportedModel, null, 'a blank model field names nobody either');
 });
 
 test('an openrouter call uses the address from the environment', async () => {

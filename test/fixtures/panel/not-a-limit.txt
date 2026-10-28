@@ -1,0 +1,5 @@
+
+Not a good limit
+----------------
+--limit takes a whole number of moves, 1 or more; it was given "zero".
+Nothing was sent and nothing was written.

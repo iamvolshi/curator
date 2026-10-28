@@ -33,7 +33,8 @@ export function entryCard(entry) {
   // The label is the difference between the three kinds of entry, so it is taken
   // from the entry rather than guessed: a question shown under a fact chip would
   // be a reader mistaking an open question for something observed.
-  const label = entry.label === 'judgment' || entry.label === 'question' ? entry.label : 'fact';
+  const label =
+    entry.label === 'judgment' || entry.label === 'question' || entry.label === 'delivery' ? entry.label : 'fact';
   const bad = what.ok === false;
 
   const rows = [];
@@ -47,6 +48,13 @@ export function entryCard(entry) {
   if (what.kind === 'question') {
     if (Number.isInteger(what.move)) rows.push(['About', `the move at seq ${what.move}`]);
     if (what.question !== undefined) rows.push(['Asks', what.question]);
+  }
+  // A delivery is the consolidation of one move's seats: it names the move, who
+  // consolidated it, and how many opinions the grouping came to.
+  if (what.kind === 'delivery') {
+    if (Number.isInteger(what.move)) rows.push(['Consolidates', `the move at seq ${what.move}`]);
+    if (what.mmrc_model_id) rows.push(['Consolidated by', what.mmrc_model_id]);
+    if (Array.isArray(what.opinions)) rows.push(['Opinions', String(what.opinions.length)]);
   }
 
   if (what.prompt !== undefined) rows.push(['Asked', what.prompt]);

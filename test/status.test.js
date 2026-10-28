@@ -85,7 +85,7 @@ test('status says a plug with no health address was not checked, rather than inv
   });
 
   const unprobeable = PLUG_NAMES.filter((name) => !resolvePlug(name, {}).statusUrl);
-  assert.deepEqual(unprobeable, ['openrouter', 'baseten', 'picture']);
+  assert.deepEqual(unprobeable, ['openrouter', 'baseten', 'nvidia', 'inception', 'picture']);
   assert.match(text, /no key-free health address/);
 });
 

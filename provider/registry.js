@@ -8,12 +8,16 @@
 import meta from './plugs/meta.js';
 import openrouter from './plugs/openrouter.js';
 import baseten from './plugs/baseten.js';
+import nvidia from './plugs/nvidia.js';
+import inception from './plugs/inception.js';
 import picture from './plugs/picture.js';
 
 const DEFINITIONS = Object.freeze({
   meta,
   openrouter,
   baseten,
+  nvidia,
+  inception,
   picture,
 });
 

@@ -1,0 +1,6 @@
+
+Not a panel option
+------------------
+--retry-parked belongs to judge: the panel keeps no ledger of parked moves.
+The panel seats every move it is asked for, and stops at the first move it cannot seat.
+Nothing was sent and nothing was written.

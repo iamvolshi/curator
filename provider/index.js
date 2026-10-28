@@ -71,9 +71,10 @@ export function notReadyReport(plug, ready) {
  * @param {object} [request.env]           environment to read the key and config from
  * @param {Function} [request.fetchImpl]   test seam; defaults to the global fetch
  * @param {number} [request.timeoutMs]     overrides the plug's timeout
+ * @param {number} [request.temperature]   sent only when given; otherwise the model's default applies
  * @returns {Promise<object>} a result that never throws for a call that was tried
  */
-export async function call(name, { messages, model, env = process.env, fetchImpl = fetch, timeoutMs } = {}) {
+export async function call(name, { messages, model, env = process.env, fetchImpl = fetch, timeoutMs, temperature } = {}) {
   const plug = resolvePlug(name, env);
   const requestedModel = model ?? plug.model ?? null;
 
@@ -85,6 +86,11 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     // out before that, so there is nothing honest to put here.
     request: null,
     model: requestedModel,
+    // The model the response NAMED, or null when it named none. Kept apart from
+    // `model` because `model` falls back to the model that was asked for, and a
+    // reader who cannot tell a named model from an assumed one cannot tell a
+    // substitution from the model it meant to call.
+    reportedModel: null,
     text: null,
     finishReason: null,
     usage: null,
@@ -137,7 +143,11 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     };
   }
 
-  const body = { model: requestedModel, messages };
+  const body = {
+    model: requestedModel,
+    messages,
+    ...(temperature === undefined ? {} : { temperature }),
+  };
 
   const sent = await sendJson({
     url: plug.chatUrl,
@@ -186,11 +196,25 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     durationMs: sent.durationMs,
     // The model the API says it used, not the one that was asked for.
     model: sent.parsed?.model ?? requestedModel,
+    reportedModel: namedModel(sent.parsed),
     text,
     finishReason: choice?.finish_reason ?? null,
     usage: sent.parsed?.usage ?? null,
     error: null,
   };
+}
+
+/**
+ * The model a response named, or null when it named none.
+ *
+ * A response with no model field is not a response with the requested model: it is
+ * a response that does not say who answered. The two are different facts, and the
+ * judge panel is built on telling them apart — an opinion whose model is unknown
+ * cannot be counted as an independent one.
+ */
+function namedModel(parsed) {
+  const named = parsed?.model;
+  return typeof named === 'string' && named.trim() !== '' ? named.trim() : null;
 }
 
 /**

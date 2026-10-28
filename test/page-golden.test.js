@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { renderPage } from '../record/html.js';
+import { readPanel } from '../judge/readout.js';
 import { assertInventory, firstDifference, goldenText, writeRequested } from '../checks/golden.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,24 @@ function call(seq, overrides = {}) {
       usage: { total_tokens: 186 },
       durationMs: 1443,
       ...overrides,
+    },
+  };
+}
+
+/** One seat's judgment: the panel's own shape, with the ID that judged. */
+function opinion(seq, move, { seat, model, observation, substitution = null }) {
+  return {
+    seq,
+    when: WHEN,
+    label: 'judgment',
+    what: {
+      kind: 'judgment',
+      move,
+      subjects: ['Ada Okafor'],
+      seat,
+      model,
+      ...(substitution ? { substitution } : {}),
+      observation,
     },
   };
 }
@@ -96,6 +115,40 @@ const FIXTURES = [
       }),
     ],
     options: { source: SOURCE },
+  },
+  {
+    name: 'panel-readout',
+    entries: [
+      call(1),
+      opinion(2, 1, { seat: 1, model: 'muse-spark-1.3', observation: 'the reply supports the claim about Ada' }),
+      opinion(3, 1, { seat: 2, model: 'free-a', observation: 'the reply supports the claim about Ada' }),
+      // Filled from the bank: the seat's own judge failed, and the entry says so.
+      opinion(4, 1, {
+        seat: 3,
+        model: 'free-c',
+        observation: 'the reply restates the prompt without evidence',
+        substitution: {
+          seat: 3,
+          departed: 'free-b',
+          departedReason: 'the call did not work',
+          plug: 'nvidia',
+          filledBy: 'free-c',
+        },
+      }),
+      // A second move, read by all three seats — the seats are what the readout
+      // counts against, so a move that shows three of them is the pinned case.
+      opinion(5, 2, { seat: 1, model: 'muse-spark-1.3', observation: 'the reply is about a different subject' }),
+      // No model ID in the reply: it holds an opinion and counts as no independent judge.
+      opinion(6, 2, { seat: 2, model: null, observation: 'the move names no basis at all' }),
+      {
+        seq: 7,
+        when: WHEN,
+        label: 'question',
+        what: { kind: 'question', move: 2, subjects: ['Ada Okafor'], seat: 3, model: 'free-b', question: 'what in the record supports this claim?' },
+      },
+      call(8, { prompt: 'a third move' }),
+    ],
+    options: { source: SOURCE, generatedAt: WHEN, plugs: [META] },
   },
   {
     name: 'every-kind-of-entry',
@@ -149,7 +202,7 @@ test('every fixed set of entries renders to exactly the page that was blessed', 
   const seen = [];
 
   for (const fixture of FIXTURES) {
-    const html = renderPage(fixture.entries, fixture.options);
+    const html = withReadout(fixture);
     const blessed = await goldenText({ dir: GOLDENS, extension: 'html', name: fixture.name, text: html, write: WRITE, script: SCRIPT });
 
     if (blessed !== null) {
@@ -208,6 +261,20 @@ function counted(entries) {
   };
 }
 
+/**
+ * A fixture's page, with the readout the record warrants.
+ *
+ * The readout is a view over the entries, so it is built from them here rather than
+ * typed into the fixture: a page pinned with a summarised panel would pin the
+ * summary and not the rule that produced it. Nothing about the panel is passed in —
+ * the seats and the majority come from the entries, so a page over a record the
+ * single judge wrote comes out with no readout at all, and that is pinned too.
+ */
+function withReadout(fixture) {
+  const readout = readPanel(fixture.entries);
+  return renderPage(fixture.entries, { ...fixture.options, ...(readout.moves.length ? { readout } : {}) });
+}
+
 test('every number a page states is the number the record holds', () => {
   // The page states its own counts, and a count that disagrees with the entries it
   // was built from is the page misreporting the record — the one thing this whole
@@ -215,9 +282,24 @@ test('every number a page states is the number the record holds', () => {
   // blessed page only pins what it said; it cannot tell whether that was true.
   // This is what found the headline calling a judgment a call.
   for (const fixture of FIXTURES) {
-    const stated = statedNumbers(fixture.name, renderPage(fixture.entries, fixture.options));
+    const stated = statedNumbers(fixture.name, withReadout(fixture));
     assert.deepEqual(stated, counted(fixture.entries), `"${fixture.name}" states numbers its own record does not hold`);
   }
+});
+
+test('a page shows the probable reading and the minority beside it, never only the probable one', async () => {
+  const fixture = FIXTURES.find((item) => item.name === 'panel-readout');
+  const html = withReadout(fixture);
+
+  assert.match(html, /highest probable/);
+  assert.match(html, /edge grey/, 'the dissent has its own row, marked as one');
+  assert.match(html, /the reply restates the prompt without evidence/, 'and its words are on the page');
+  assert.match(html, /2 seats \u00b7 2 independent judges \(muse-spark-1\.3, free-a\)/);
+  assert.match(html, /1 seat \u00b7 1 independent judge \(free-c\)/);
+  assert.match(html, /the move names no basis at all/, 'an opinion with no ID is still shown');
+  assert.match(html, /1 seat \u00b7 0 independent judges/, 'and its support is counted as none');
+  assert.match(html, /the majority of the 3 seats this move shows/, 'the majority counted is the one the record\u2019s own seats need');
+  assert.match(html, /readout__aside">seat 3 asked what shows the basis/, 'a seat that took no position is named, and not dropped from the panel');
 });
 
 test('the pinned pages are exactly the fixtures, with none left behind', async () => {
@@ -243,7 +325,7 @@ test('nothing but the renderer decides these pages', async () => {
   // Nothing in a fixture may come from the environment: a page pinned to a key
   // that is present on one machine is a page that fails on the next.
   const environment = [process.env.BASETEN_API_KEY, process.env.OVERSEER_RECORDS, process.env.npm_lifecycle_event];
-  const pages = FIXTURES.map((fixture) => renderPage(fixture.entries, fixture.options)).join('\n');
+  const pages = FIXTURES.map((fixture) => withReadout(fixture)).join('\n');
   for (const value of environment) {
     if (value) assert.equal(pages.includes(value), false, 'no environment value reaches a pinned page');
   }

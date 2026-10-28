@@ -18,7 +18,10 @@ import { classifyFailure } from '../worker/errors.js';
 export async function sendJson({ url, headers, body, timeoutMs, fetchImpl = fetch }) {
   const startedAt = Date.now();
   let response;
+  let rawText;
 
+  // The body is read inside the same try: a timeout can fire while the reply is
+  // still arriving, and that must come back as a result, not a thrown error.
   try {
     response = await fetchImpl(url, {
       method: 'POST',
@@ -26,8 +29,10 @@ export async function sendJson({ url, headers, body, timeoutMs, fetchImpl = fetc
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
+    rawText = await response.text();
   } catch (err) {
-    const timedOut = err?.name === 'AbortError' || err?.code === 'ABORT_ERR';
+    // AbortSignal.timeout rejects with TimeoutError, not AbortError.
+    const timedOut = err?.name === 'AbortError' || err?.name === 'TimeoutError' || err?.code === 'ABORT_ERR';
     return {
       ok: false,
       status: null,
@@ -42,7 +47,6 @@ export async function sendJson({ url, headers, body, timeoutMs, fetchImpl = fetc
   }
 
   const durationMs = Date.now() - startedAt;
-  const rawText = await response.text();
 
   // Errors come back as an OpenAI-shaped envelope, but two documented cases do
   // not: an unknown path returns 404 with an empty body, and a few 400s on the

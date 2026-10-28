@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { pageCommand } from '../cli/page.js';
+import { buildPage } from '../cli/view.js';
 import { PARK_AFTER, createLedger } from '../judge/attempts.js';
 import { renderPage } from '../record/html.js';
 import { createStore } from '../record/store.js';
@@ -39,6 +40,69 @@ function call(seq, overrides = {}) {
     },
   };
 }
+
+/** One seat's judgment, as the panel records it: the ID is the one the reply named. */
+function held(seq, move, seat, model, observation) {
+  return {
+    seq,
+    when,
+    label: 'judgment',
+    what: { kind: 'judgment', move, subjects: [], seat, model, observation },
+  };
+}
+
+test('the page carries the panel\u2019s readout, counted from the seats the record shows', () => {
+  // The readout is a view, so it is built where the page is built, from the entries
+  // in hand — not handed to the renderer by whoever remembered to. The panel it is
+  // counted against is the one the record shows: the seat numbers these entries
+  // carry, three of them, so a majority is two.
+  const html = buildPage(
+    [
+      call(1),
+      held(2, 1, 1, 'muse-spark-1.3', 'the reply supports the claim'),
+      held(3, 1, 2, 'free-a', 'the reply supports the claim'),
+      held(4, 1, 3, 'free-b', 'the reply restates the prompt'),
+      // A second move showing two seats, and two readings that disagree: a majority
+      // of two seats is two, so nothing is declared here.
+      held(5, 2, 2, 'free-a', 'the reply is about a different subject'),
+      held(6, 2, 3, 'free-b', 'the reply names something else'),
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.match(html, /highest probable/);
+  assert.match(html, /the reply supports the claim/);
+  assert.match(html, /2 seats \u00b7 2 independent judges \(muse-spark-1\.3, free-a\)/);
+  assert.match(html, /edge grey[\s\S]{0,200}the reply restates the prompt/, 'the dissent is on the page with the probable reading');
+  assert.match(
+    html,
+    /the majority of the 2 seats this move shows/,
+    'the number a move is counted against is the one its own seats need \u2014 not the configured panel\u2019s',
+  );
+});
+
+test('a record no panel wrote carries no readout, because no panel sat', () => {
+  // The single judge's judgment carries no seat. A page that read it out would say
+  // "no opinion reached 2 independent judges" about a move one judge answered — a
+  // claim about a panel that never sat, which is the one thing this section must
+  // never become.
+  const html = buildPage(
+    [
+      call(1),
+      {
+        seq: 2,
+        when,
+        label: 'judgment',
+        what: { kind: 'judgment', move: 1, subjects: [], observation: 'the reply supports the claim' },
+      },
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.equal(html.includes('<section class="readout"'), false, 'no seat in the record, so the page says nothing about a panel');
+  assert.equal(html.includes('the majority of the'), false, 'and it states no majority for one to be measured against');
+  assert.match(html, /the reply supports the claim/, 'the judgment itself is still on the page, labelled as a judgment');
+});
 
 test('the page shows every entry with its number and its label', () => {
   const html = renderPage([

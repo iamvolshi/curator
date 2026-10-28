@@ -1,0 +1,56 @@
+
+Overseer — the judge panel (3 seats)
+------------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+seat 1:      meta using muse-spark-1.3 from the plug’s own model
+seat 2:      nvidia using free-a via PANEL_SEAT2_MODEL
+seat 3:      nvidia using free-b via PANEL_SEAT3_MODEL
+bank:        nvidia
+
+The moves
+---------
+seq 1        3 of 3 seats wrote something
+seat 1       judgment written  (muse-spark-1.3)
+    Q1 deed: the reply supports the claim about Ada
+    Q2 pool: fact 1 in the record
+    Q3 basis: shown
+    Q4 topics: none
+    Q5 sitting: none
+    edge justifies: basis:1:1 -> move:1
+seat 2       judgment written  (free-a)
+    Q1 deed: the reply restates the prompt without evidence
+    Q2 pool: fact 2 in the record
+    Q3 basis: shown
+    Q4 topics: none
+    Q5 sitting: none
+    edge justifies: basis:1:2 -> move:1
+seat 3       judgment written  (free-b)
+    Q1 deed: the reply is about a different subject
+    Q2 pool: fact 3 in the record
+    Q3 basis: shown
+    Q4 topics: none
+    Q5 sitting: none
+    edge justifies: basis:1:3 -> move:1
+  consolidation: written (MMRC delivery report)
+
+What the record gained
+----------------------
+judgments:   3
+questions:   0
+calls:       3
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+
+The readout — highest probable, and the edge greys (the seats the record shows)
+-------------------------------------------------------------------------------
+seq 1
+  highest probable: none declared — no opinion reached 2 independent judge(s), the majority of the 3 seat(s) this move shows
+  edge grey:        "the reply supports the claim about Ada"
+    1 seat(s) held it, 1 independent: muse-spark-1.3
+  edge grey:        "the reply restates the prompt without evidence"
+    1 seat(s) held it, 1 independent: free-a
+  edge grey:        "the reply is about a different subject"
+    1 seat(s) held it, 1 independent: free-b
+
+result: clean

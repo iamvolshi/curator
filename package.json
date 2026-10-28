@@ -16,6 +16,7 @@
     "task": "node --env-file-if-exists=.env bin/overseer.js task",
     "folders": "node --env-file-if-exists=.env bin/overseer.js folders",
     "judge": "node --env-file-if-exists=.env bin/overseer.js judge",
+    "panel": "node --env-file-if-exists=.env bin/overseer.js panel",
     "records": "node --env-file-if-exists=.env bin/overseer.js records",
     "page": "node --env-file-if-exists=.env bin/overseer.js page",
     "live": "node --env-file-if-exists=.env bin/overseer.js live",

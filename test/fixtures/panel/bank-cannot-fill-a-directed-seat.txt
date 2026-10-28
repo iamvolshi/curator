@@ -1,0 +1,34 @@
+
+Overseer — the judge panel (3 seats)
+------------------------------------
+record file: records/k-record.jsonl
+entries read: 1
+seat 1:      meta using muse-spark-1.3 from the plug’s own model
+seat 2:      nvidia using free-a via PANEL_SEAT2_MODEL
+seat 3:      nvidia using free-b via PANEL_SEAT3_MODEL
+bank:        nvidia
+
+The moves
+---------
+
+The panel stopped
+-----------------
+seq 1: seat 3 (nvidia using free-b) produced nothing writable — the reply was refused or could not be read.
+detail:      the wording directed: you should
+bank nvidia: could not fill the seat — it offers the same model as the seat (free-b), so a fill would be the same judge twice
+The bank had no plug left that could fill it, so nothing was written for this move.
+Nothing was written: the record is untouched.
+
+What the record gained
+----------------------
+judgments:   0
+questions:   0
+calls:       3
+
+Every fact entry this run read is still exactly as it was. Judgments and questions are appended after them.
+
+The readout — highest probable, and the edge greys (the seats the record shows)
+-------------------------------------------------------------------------------
+No move in the record has been read by a panel yet: the readout is built from the seats the record shows, and not one move here shows a seat.
+
+result: the panel could not be completed
