@@ -7,6 +7,7 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { storedGroupingProblems } from '../judge/consolidate.js';
 import { storedLinkProblems } from '../judge/readout.js';
 import { createStore } from '../record/store.js';
 import { readOption } from './args.js';
@@ -30,6 +31,10 @@ export async function pageCommand({
   // longer links is a fact about the record, and the person building the page should
   // hear it from this output rather than notice a marked row later.
   const linkProblems = storedLinkProblems(entries);
+  // A stored report can find every seat and still group them differently from what
+  // the code would produce today. That is the other half of the same guarantee, so it
+  // is checked and reported beside the link, before the page is shared.
+  const groupingProblems = storedGroupingProblems(entries);
 
   const html = buildPage(entries, { source: store.path, generatedAt, env, parked });
   await writeFile(outPath, html, 'utf8');
@@ -46,6 +51,17 @@ export async function pageCommand({
   for (const problem of linkProblems) {
     note(`  seq ${problem.seq}, move ${problem.move}: ${describeLinkProblem(problem)}`);
   }
+  line(
+    'grouping:',
+    groupingProblems.length === 0
+      ? 'every stored delivery still groups the way its seat reports do'
+      : groupingProblems.length === 1
+        ? '1 stored delivery no longer matches its seat reports'
+        : `${groupingProblems.length} stored deliveries no longer match their seat reports`,
+  );
+  for (const problem of groupingProblems) {
+    note(`  seq ${problem.seq}, move ${problem.move}: ${describeGroupingProblem(problem)}`);
+  }
   line('written to:', outPath);
 
   if (entries.length === 0) {
@@ -61,7 +77,13 @@ export async function pageCommand({
   // The page is still written, with the row marked: the record is not hidden from a
   // reader because a link broke. The non-zero code is the alarm, so a script or a
   // person building the page sees it before the page is shown to anyone.
-  return linkProblems.length === 0 ? 0 : 1;
+  return linkProblems.length === 0 && groupingProblems.length === 0 ? 0 : 1;
+}
+
+/** One line a reader can act on: which fields the seat reports no longer agree on. */
+function describeGroupingProblem(problem) {
+  if (problem.kind !== 'grouping_mismatch') return `${problem.kind}: ${problem.detail}`;
+  return `the seat reports group differently today (${problem.fields.join(', ')})`;
 }
 
 /** One line a reader can act on: what the basis no longer places, and why. */

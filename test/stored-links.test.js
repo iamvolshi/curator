@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { storedGroupingProblems } from '../judge/consolidate.js';
 import { storedLinkProblems } from '../judge/readout.js';
 import { createStore } from '../record/store.js';
 
@@ -190,5 +191,20 @@ test('every stored delivery in the live record still links all its opinions to s
     storedLinkProblems(entries),
     [],
     'a stored delivery opinion no longer finds the seat it cites; the page would show a marked row, and the record or the reading that broke it needs a look before this is published',
+  );
+});
+
+test('every stored delivery in the live record still groups its seats the way the code does today', async () => {
+  const entries = await createStore(LIVE_RECORD).readAll();
+  const deliveries = entries.filter((entry) => entry.label === 'delivery');
+
+  assert.ok(
+    deliveries.length > 0,
+    `the live record holds no delivery to check, so this check would pass without checking anything: ${LIVE_RECORD}`,
+  );
+  assert.deepEqual(
+    storedGroupingProblems(entries),
+    [],
+    'a stored delivery no longer groups the way its seat reports do; the page would show a grouping this code would not produce',
   );
 });

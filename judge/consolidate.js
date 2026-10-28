@@ -239,6 +239,65 @@ export function consolidateReports(entries, move) {
 }
 
 /**
+ * Every stored delivery in the record, checked against the grouping its seat
+ * reports give today.
+ *
+ * A delivery is written once, from the three reports the panel had just written.
+ * The record is append-only, so those reports are still there — earlier in the file
+ * than the delivery, one per seat — and later entries cannot change them. Re-grouping
+ * them now, with the code that reads a cited Q2 today, has to give the same opinions,
+ * support counts, statuses and questions the report holds. If it does not, the report
+ * and the record have parted ways: the page would show a grouping this code would no
+ * longer produce.
+ *
+ * A move that no longer offers the three reports the delivery was written from is a
+ * typed failure rather than a pass: nothing in the record can confirm the grouping.
+ *
+ * @param {Array} entries the record, oldest first
+ * @returns {Array<object>} one entry per delivery that no longer matches — its seq,
+ *   its move, and either the typed failure or the fields that differ
+ */
+export function storedGroupingProblems(entries) {
+  const problems = [];
+
+  for (const [index, delivery] of entries.entries()) {
+    if (delivery.label !== 'delivery') continue;
+    const what = delivery.what ?? {};
+    const move = what.move;
+
+    // The latest report per seat before the delivery: exactly the three the
+    // consolidator was handed, in seat order, even when a later run wrote more.
+    const latest = new Map();
+    for (const entry of entries.slice(0, index)) {
+      if (!fromASeat(entry) || entry.what.move !== move) continue;
+      latest.set(entry.what.seat, entry);
+    }
+    const inputs = [...latest.values()].sort((a, b) => a.what.seat - b.what.seat);
+
+    const grouped = consolidateReports(inputs, move);
+    if (!grouped.ok) {
+      problems.push({ seq: delivery.seq, move, kind: grouped.kind, detail: grouped.detail });
+      continue;
+    }
+
+    const fields = ['seats', 'opinions', 'highest_probable', 'questions'].filter(
+      (field) => JSON.stringify(grouped.body[field]) !== JSON.stringify(what[field]),
+    );
+    if (fields.length > 0) {
+      problems.push({
+        seq: delivery.seq,
+        move,
+        kind: 'grouping_mismatch',
+        fields,
+        detail: `the seat reports group differently today (${fields.join(', ')})`,
+      });
+    }
+  }
+
+  return problems;
+}
+
+/**
  * Assemble a consolidated body into a delivery report, with the MMRC model the
  * response named, and check it against the schema before it is returned.
  *

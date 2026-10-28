@@ -1,10 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { consolidateReports, consolidateMove, deliveryFrom, MMRC_FAILURES, MMRC_MAX_ATTEMPTS } from '../judge/consolidate.js';
+import {
+  consolidateReports,
+  consolidateMove,
+  deliveryFrom,
+  MMRC_FAILURES,
+  MMRC_MAX_ATTEMPTS,
+  storedGroupingProblems,
+} from '../judge/consolidate.js';
 import { citedEntries } from '../judge/readout.js';
 import { MMRC_MODEL_ID, MMRC_TEMPERATURE } from '../worker/config.js';
 
 const MMRC = 'mmrc/model-under-test';
+const WHEN = '2026-10-27T09:00:00.000Z';
 
 function judgment(seat, model, pool, observation = 'the move is supported by the cited entries') {
   return {
@@ -337,4 +345,76 @@ test('reports for other moves are not part of this move', () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.kind, 'insufficient_reports');
+});
+
+/** Stored seat reports as record lines, with the position a line has. */
+function recorded(reports, from = 1) {
+  return reports.map((report, index) => ({ seq: from + index, when: WHEN, ...report }));
+}
+
+/** A stored delivery entry: the report body, labelled as the record labels it. */
+function stored(seq, report) {
+  return { seq, when: WHEN, label: 'delivery', what: { kind: 'delivery', ...report } };
+}
+
+test('a stored delivery whose grouping still matches its seat reports is not a problem', () => {
+  const entries = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
+  const report = assertValid(consolidateReports(entries, 1));
+  entries.push(stored(4, report));
+
+  assert.deepEqual(storedGroupingProblems(entries), []);
+});
+
+test('a stored delivery that no longer groups its seats the way the code does is a problem', () => {
+  // The seats and their bases are unchanged, so every opinion still links; the stored
+  // report simply declares a probable where the grouping declares none. That is the
+  // grouping check's case, and the link check cannot see it.
+  const entries = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')]);
+  const report = assertValid(consolidateReports(entries, 1));
+  entries.push(stored(4, { ...report, highest_probable: report.opinions[0] }));
+
+  const problems = storedGroupingProblems(entries);
+  assert.equal(problems.length, 1);
+  assert.equal(problems[0].seq, 4);
+  assert.equal(problems[0].move, 1);
+  assert.equal(problems[0].kind, 'grouping_mismatch');
+  assert.deepEqual(problems[0].fields, ['highest_probable'], 'only the field that changed is named');
+});
+
+test('a delivery with fewer than three reports before it is a typed problem, never a pass', () => {
+  const entries = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2')]);
+  entries.push(
+    stored(3, {
+      move: 1,
+      mmrc_model_id: MMRC,
+      seats: ['model-a', 'model-b'],
+      opinions: [],
+      highest_probable: null,
+      questions: [],
+      derived: true,
+    }),
+  );
+
+  const problems = storedGroupingProblems(entries);
+  assert.equal(problems.length, 1);
+  assert.equal(problems[0].kind, 'insufficient_reports');
+});
+
+test('a delivery is checked against the reports before it, not a later run\u2019s', () => {
+  // The record is append-only, so a later panel run on the same move writes its three
+  // reports after the delivery. That delivery was grouped from the reports in force
+  // when it was written, and those are the ones the check must use.
+  const first = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1'), judgment(3, 'model-c', 'entry 1')]);
+  const firstReport = assertValid(consolidateReports(first, 1));
+  const entries = [...first, stored(4, firstReport)];
+
+  const later = recorded(
+    [judgment(1, 'model-a', 'entry 2'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 2')],
+    entries.length + 1,
+  );
+  entries.push(...later);
+  const laterReport = assertValid(consolidateReports(later, 1));
+  entries.push(stored(entries.length + 1, laterReport));
+
+  assert.deepEqual(storedGroupingProblems(entries), [], 'each delivery is checked against the reports in force when it was written');
 });

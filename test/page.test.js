@@ -786,3 +786,84 @@ test('the command reports a stored opinion that no longer links, and still write
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('the command reports a stored delivery that no longer groups as its seat reports do', async () => {
+  // Every opinion still links to a seat, so the link check passes. What disagrees is
+  // the grouping itself: the stored report declares no probable, while the three
+  // seat reports group today into a probable opinion. The command has to say which,
+  // or a reader would think the page's grouping is the code's.
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-page-grouping-'));
+  try {
+    const store = createStore(join(dir, 'records.jsonl'));
+    const out = join(dir, 'page.html');
+
+    await store.append(call(1));
+    const seat = (seq, seatNumber, model, pool) => ({
+      seq,
+      when,
+      label: 'judgment',
+      what: {
+        kind: 'seat-judgment',
+        move: 1,
+        subjects: [],
+        seat: seatNumber,
+        model,
+        observation: 'the move follows from the cited entries',
+        numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+      },
+    });
+    await store.append(seat(2, 1, 'model-a', 'entry 1'));
+    await store.append(seat(3, 2, 'model-b', 'entry 1'));
+    await store.append(seat(4, 3, 'model-c', 'entry 2'));
+
+    const probable = {
+      position: 'justified',
+      basis: [1],
+      support_count: 2,
+      supporting_models: ['model-a', 'model-b'],
+      status: 'highest_probable',
+    };
+    await store.append({
+      seq: 5,
+      when,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-b', 'model-c'],
+        opinions: [
+          probable,
+          { position: 'justified', basis: [2], support_count: 1, supporting_models: ['model-c'], status: 'edge_grey' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    });
+
+    const printed = [];
+    const original = console.log;
+    console.log = (...args) => printed.push(args.map(String).join(' '));
+    let code;
+    try {
+      code = await pageCommand({
+        store,
+        args: ['--out', out],
+        now: () => new Date(when),
+        env: { OVERSEER_LEDGER: join(dir, 'attempts.json') },
+      });
+    } finally {
+      console.log = original;
+    }
+
+    const text = printed.join('\n');
+    assert.equal(code, 1, 'a stored grouping that disagrees with the record fails the command');
+    assert.match(text, /links:\s+every stored delivery still finds the seats it cites/, 'the link check itself passes');
+    assert.match(text, /grouping:\s+1 stored delivery no longer matches its seat reports/);
+    assert.match(text, /seq 5, move 1: the seat reports group differently today \(highest_probable\)/);
+    assert.match(await readFile(out, 'utf8'), /readout__kind readout__kind--probable">highest probable/, 'the page is still written');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
