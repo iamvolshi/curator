@@ -573,6 +573,49 @@ test('a consolidated move reads out its delivery, and its gray box is labelled a
   assert.doesNotMatch(printed.join('\n'), /edge grey:\s+"the reply supports the claim"/);
 });
 
+test('a stored opinion still finds its seats after a cited basis is read differently', () => {
+  // The report recorded "entries 7\u20139" as the two numbers an older read made of it.
+  // The span now reads as the three entries inside it, so matching on the basis alone
+  // would find no seat, and the page would print an opinion with no text and nobody
+  // behind it. The report cites its sources by model ID, which no parse can change.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entries 7\u20139', 'the approval entry covers the deed'),
+    seated(3, 2, 'model-b', 'entry 12', 'a dissent from another basis'),
+    {
+      seq: 4,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-b'],
+        opinions: [
+          { position: 'justified', basis: [7, 9], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+          { position: 'justified', basis: [12], support_count: 1, supporting_models: ['model-b'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const readout = readPanel(entries);
+
+  assert.deepEqual(
+    readout.moves[0].edgeGreys.map((opinion) => opinion.text),
+    ['the approval entry covers the deed', 'a dissent from another basis'],
+    'each stored opinion is read with the seat that wrote it',
+  );
+  assert.deepEqual(
+    readout.moves[0].edgeGreys.map((opinion) => opinion.seats),
+    [[1], [2]],
+    'the seats are the ones the report cites, not an empty row',
+  );
+  assert.deepEqual(readout.moves[0].edgeGreys.map((opinion) => opinion.support), [1, 1], 'the counts still come from the report');
+});
+
 test('the readout is counted against the seats the record shows, never a panel it never held', () => {
   const entries = [
     fact(1),

@@ -188,16 +188,37 @@ export function readPanel(entries) {
 }
 
 /**
+ * The seats behind one opinion of a stored report.
+ *
+ * The basis is tried first, because it is what the report grouped on: the seats
+ * whose cited entries are the ones the report recorded. But a report's basis is
+ * fixed when it is written, and how a cited Q2 is read is not — a span read as the
+ * entries inside it changed what a pool parses to. A report written before such a
+ * change must still find the seats it cites, or the page shows an opinion with no
+ * one behind it. The report also names its sources by model ID, and a model ID does
+ * not depend on how Q2 parses, so that is the fallback.
+ */
+function sourcesOf(about, opinion) {
+  const basis = (opinion.basis ?? []).join(',');
+  const held = about.filter(
+    (other) => other.label === 'judgment' && citedEntries(other.what?.numbered?.pool).join(',') === basis,
+  );
+  if (held.length > 0) return held;
+
+  const cited = new Set(
+    (opinion.supporting_models ?? []).map((id) => String(id ?? '').trim()).filter((id) => id !== ''),
+  );
+  return about.filter((other) => other.label === 'judgment' && cited.has(String(other.what?.model ?? '').trim()));
+}
+
+/**
  * One move's readout taken from its stored delivery report. Each reported opinion
- * is matched back to the judgments that cite the same basis, so the text and the
- * seats come from the seats' own entries and the counts come from the report.
+ * is matched back to the judgments it cites, so the text and the seats come from the
+ * seats' own entries and the counts come from the report.
  */
 function consolidatedMove(seq, seats, majority, about, report) {
   const opinions = report.opinions.map((opinion) => {
-    const basis = opinion.basis.join(',');
-    const held = about.filter(
-      (other) => other.label === 'judgment' && citedEntries(other.what?.numbered?.pool).join(',') === basis,
-    );
+    const held = sourcesOf(about, opinion);
     return {
       text: String(held[0]?.what?.observation ?? ''),
       seats: held.map((other) => other.what.seat).filter((seat, index, all) => all.indexOf(seat) === index),

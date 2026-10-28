@@ -131,6 +131,56 @@ test('a consolidated move reads out its delivery report, and the gray box is lab
   assert.doesNotMatch(html, /edge grey[\s\S]{0,240}the reply supports the claim/, 'non-convergence is not called a dissent');
 });
 
+test('the page reads a stored delivery with the seats it cites, even when its basis re-parses differently', () => {
+  // A report's basis is fixed when it is written; how a cited Q2 is read is not. The
+  // stored basis here is the two numbers an older read made of "entries 7\u20139", which
+  // today reads as three entries \u2014 so the basis alone matches no seat.
+  const seat = (seq, seatNumber, model, pool, observation) => ({
+    seq,
+    when,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat: seatNumber,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  });
+
+  const html = buildPage(
+    [
+      call(1),
+      seat(2, 1, 'model-a', 'entries 7\u20139', 'the approval entry covers the deed'),
+      seat(3, 2, 'model-b', 'entry 12', 'a dissent from another basis'),
+      {
+        seq: 4,
+        when,
+        label: 'delivery',
+        what: {
+          kind: 'delivery',
+          move: 1,
+          mmrc_model_id: 'model-m',
+          seats: ['model-a', 'model-b'],
+          opinions: [
+            { position: 'justified', basis: [7, 9], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+            { position: 'justified', basis: [12], support_count: 1, supporting_models: ['model-b'], status: 'gray_box' },
+          ],
+          highest_probable: null,
+          questions: [],
+          derived: true,
+        },
+      },
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.match(html, /readout__text">the approval entry covers the deed</, 'the opinion is shown with the seat that wrote it');
+  assert.match(html, /1 seat \u00b7 1 independent judge \(model-a\)/, 'and counted against that seat, not against nobody');
+});
+
 test('a record no panel wrote carries no readout, because no panel sat', () => {
   // The single judge's judgment carries no seat. A page that read it out would say
   // "no opinion reached 2 independent judges" about a move one judge answered — a
