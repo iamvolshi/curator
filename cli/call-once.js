@@ -14,9 +14,36 @@ import { plugForSlot } from '../provider/routing.js';
 import { wrapCall } from '../wrapper/wrap.js';
 import { runWorkerCall } from '../worker/index.js';
 import { runPlugCall } from './plug-call.js';
+import { heading, line, note } from './output.js';
 
 /** The plug the Worker agent routes to. Its calls keep the worker's own path. */
 export const WORKER_PLUG = plugForSlot('worker');
+
+const HANDY =
+  'put what it needs in a file named .env next to this repo; the npm scripts read it, and it stays out of git';
+
+/**
+ * The one place a refusal to call is reported. Every command that stops before a
+ * call says the same things in the same order, so a reader learns the shape once.
+ *
+ * What the plug itself says it needs comes first, because a slot waiting on a
+ * decision is blocked by the decision, not by its key. Both are the plug's own
+ * words: composing a list of variables here would be a second copy to drift.
+ *
+ * @param {object} plug   the resolved plug
+ * @param {object} ready  the result of preflight for that plug
+ * @param {string} lead   the sentence that says what was and was not done
+ */
+export function reportNotReady(plug, ready, lead) {
+  heading('Stopped before the call');
+  note(lead);
+
+  const { primary, keyProblem } = notReadyReport(plug, ready);
+  line('status:', plug.status);
+  line('missing:', primary);
+  if (keyProblem) line('also:', keyProblem);
+  line('handy:', HANDY);
+}
 
 /**
  * Resolve a plug name to the route it takes.
@@ -58,6 +85,3 @@ export async function callOnce({ route, prompt, env = process.env, fetchImpl = f
   });
 }
 
-// Shared with the judge and every other command that refuses an unready plug, so
-// the refusal reads the same wherever it is made.
-export { notReadyReport };

@@ -1,10 +1,10 @@
+# Every text file is stored and checked out with LF, whatever the machine's autocrlf says.
+* text=auto eol=lf
+
 # The blessed output is compared byte for byte, so git must not rewrite its line
 # endings to suit the machine that checks it out. Without this, the same commit is
 # green on one machine and red on the next, and the failure looks like a change to
 # what the record shows when nothing about it moved.
-# Every text file is stored and checked out with LF, whatever the machine's autocrlf says.
-* text=auto eol=lf
-
 test/fixtures/*.html -text
 test/fixtures/records/*.txt -text
 test/fixtures/judge/*.txt -text

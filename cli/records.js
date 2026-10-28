@@ -9,6 +9,14 @@ import { heading, line, note } from './output.js';
 // read a fixed record back without a file on disk and without this printing
 // whatever the machine happens to hold. The default is the real one.
 export async function recordsCommand({ args = [], store = createStore() } = {}) {
+  // Only these flags exist. Anything else is refused, not silently dropped: a
+  // typo like "--last 2" would otherwise read as a plain "--last".
+  const unknown = args.filter((arg) => arg !== '--last' && arg !== '--json');
+  if (unknown.length > 0) {
+    note(`records: unknown option ${unknown.map((arg) => JSON.stringify(arg)).join(', ')}. Use --last and/or --json.`);
+    return 2;
+  }
+
   const entries = await store.readAll();
   const wanted = args.includes('--last') ? entries.slice(-1) : entries;
 

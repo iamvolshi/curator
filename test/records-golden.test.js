@@ -171,6 +171,22 @@ const FIXTURES = [
   { name: 'nothing-recorded', args: [], entries: [] },
 ];
 
+test('an unknown option is refused with exit 2, not silently dropped', async () => {
+  // "--last 2" once read as a plain "--last": the 2 was ignored and the last entry printed.
+  const lines = [];
+  const original = console.log;
+  console.log = (...values) => lines.push(values.map(String).join(' '));
+  try {
+    const code = await recordsCommand({ args: ['--last', '2'], store: storeOver(ENTRIES) });
+    assert.equal(code, 2);
+  } finally {
+    console.log = original;
+  }
+
+  assert.match(lines.join('\n'), /unknown option "2"/);
+  assert.doesNotMatch(lines.join('\n'), /Records \(/);
+});
+
 test('every fixed record reads back as exactly the output that was blessed', async () => {
   const seen = [];
 

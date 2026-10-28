@@ -16,11 +16,10 @@
 import { createStore } from '../record/store.js';
 import { renderEntry } from '../record/render.js';
 import { buildChatRequest, describeFailure, describeRequest } from '../worker/index.js';
-// The seam's preflight, not the worker's: the worker's always answers for the
-// Worker's plug, which would name the wrong environment variable for any other.
+// The one owner of the can-this-plug-be-called check.
 import { describeKeyPresence, preflight } from '../provider/index.js';
 import { readOption } from './args.js';
-import { WORKER_PLUG, callOnce, notReadyReport, resolveRoute } from './call-once.js';
+import { WORKER_PLUG, callOnce, reportNotReady, resolveRoute } from './call-once.js';
 import { PROVE_KIND, describePlugRequest } from './plug-call.js';
 import { heading, line, note, check } from './output.js';
 
@@ -71,17 +70,7 @@ export async function proveCommand({
   // Stopping here is not a failed call: nothing was attempted and nothing was
   // recorded, which is a different fact from "the call did not work".
   if (!ready.ready) {
-    heading('Stopped before the call');
-    note(`The ${plug.name} plug is not ready, so no call was made and nothing was recorded.`);
-    // What the plug itself says it needs comes first, because a slot waiting on a
-    // decision is blocked by the decision, not by its key. Both are the plug's own
-    // words: composing a list of variables here would be a second copy to drift.
-    const { primary, keyProblem } = notReadyReport(plug, ready);
-
-    line('status:', plug.status);
-    line('missing:', primary);
-    if (keyProblem) line('also:', keyProblem);
-    line('handy:', 'put what it needs in a file named .env next to this repo; the npm scripts read it, and it stays out of git');
+    reportNotReady(plug, ready, `The ${plug.name} plug is not ready, so no call was made and nothing was recorded.`);
     return 3;
   }
 
