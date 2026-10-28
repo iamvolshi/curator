@@ -47,8 +47,8 @@ The readout — highest probable, and the edge greys (the seats the record shows
 seq 1
   highest probable: none declared — no opinion reached 2 independent judge(s), the majority of the 3 seat(s) this move shows
   edge grey:        "the reply supports the claim about Ada"
-    1 seat(s) held it, 1 independent: muse-spark-1.3
+    1 seat · 1 independent judge (muse-spark-1.3)
   edge grey:        "the reply restates the prompt without evidence"
-    2 seat(s) held it, 0 independent: no model ID, so it counts as no independent judge
+    2 seats · 0 independent judges
 
 result: clean

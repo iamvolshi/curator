@@ -165,7 +165,9 @@ words for a stored opinion the record cannot fully link: **unbacked** (no seat a
 all), **ambiguous** (one model on two seats that disagree), or **partly placed**
 (some cited source the basis no longer places), with the report's own count shown
 beside the seats the record does place rather than a smaller count printed without
-explanation. The panel exits 0 clean, 3 on
+explanation. A linked opinion is counted the same way on both surfaces —
+`2 seats · 2 independent judges (muse-spark-1.3, free-a)` — so the terminal and
+the page state one number for it, never two. The panel exits 0 clean, 3 on
 a seat that is not seated, 4 when a call did not work and the bank could not fill
 the seat, 5 when a reply could not be read or a reading directed the agent and the
 bank could not fill the seat, and 2 on an unusable option or a move the record

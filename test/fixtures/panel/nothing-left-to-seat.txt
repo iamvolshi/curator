@@ -24,6 +24,6 @@ The readout — highest probable, and the edge greys (the seats the record shows
 -------------------------------------------------------------------------------
 seq 1
   highest probable: "the reply supports the claim about Ada"
-    3 seat(s) held it, 3 independent: a-model-1, a-model-2, a-model-3
+    3 seats · 3 independent judges (a-model-1, a-model-2, a-model-3)
 
 result: clean

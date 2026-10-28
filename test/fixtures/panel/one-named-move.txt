@@ -47,6 +47,6 @@ The readout — highest probable, and the edge greys (the seats the record shows
 -------------------------------------------------------------------------------
 seq 2
   highest probable: "the reply supports the claim about Ada"
-    3 seat(s) held it, 3 independent: muse-spark-1.3, free-a, free-b
+    3 seats · 3 independent judges (muse-spark-1.3, free-a, free-b)
 
 result: clean

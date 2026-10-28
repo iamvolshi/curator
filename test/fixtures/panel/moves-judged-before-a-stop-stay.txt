@@ -54,8 +54,8 @@ The readout — highest probable, and the edge greys (the seats the record shows
 -------------------------------------------------------------------------------
 seq 1
   highest probable: "the reply supports the claim about Ada"
-    2 seat(s) held it, 2 independent: muse-spark-1.3, free-a
+    2 seats · 2 independent judges (muse-spark-1.3, free-a)
   edge grey:        "the reply restates the prompt without evidence"
-    1 seat(s) held it, 1 independent: free-b
+    1 seat · 1 independent judge (free-b)
 
 result: the panel could not be completed
