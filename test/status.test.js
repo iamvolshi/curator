@@ -103,6 +103,17 @@ test('status reports every plug wired or not, and which can be called now', asyn
   assert.match(text, /1 can be called now \(meta\)/);
 });
 
+test('status does not count a ready plug as callable when it has no key', async () => {
+  // Meta is ready by its static status, but without a key it cannot be called.
+  const { text } = await runStatus({
+    env: {},
+    fetchImpl: ANSWERING,
+  });
+
+  assert.match(text, /0 can be called now \(none\)/);
+  assert.doesNotMatch(text, /can be called now \(meta\)/);
+});
+
 test('status fails, and says where to look, when the host does not answer', async () => {
   const { code, text } = await runStatus({
     env: { MODEL_API_KEY: 'LLM_test_key' },
