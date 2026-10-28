@@ -198,24 +198,51 @@ export function readPanel(entries) {
  * one behind it. The report also names its sources by model ID, and a model ID does
  * not depend on how Q2 parses, so that is the fallback.
  *
- * @returns {{held: Array, reason: string|null, models: Array}} the seats behind the
- *   opinion; or none, with the reason — 'absent' when the record holds no such seat,
- *   'ambiguous' when it holds seats on one model that disagree, naming that model
+ * @returns {{held: Array, reason: string|null, models: Array, partial: object|null}}
+ *   the seats behind the opinion; or none, with the reason — 'absent' when the
+ *   record holds no such seat, 'ambiguous' when it holds seats on one model that
+ *   disagree, naming that model. When some seats are placed but not every source
+ *   the report names is on them, 'partial' names the models left out, split into
+ *   those the record seats with another basis ('reparse') and those it does not
+ *   seat at all ('missing')
  */
 function sourcesOf(about, opinion) {
   const basis = (opinion.basis ?? []).join(',');
-  const byBasis = about.filter(
-    (other) => other.label === 'judgment' && citedEntries(other.what?.numbered?.pool).join(',') === basis,
-  );
-  if (byBasis.length > 0) return { held: byBasis, reason: null, models: [] };
-
   const cited = new Set(
     (opinion.supporting_models ?? []).map((id) => String(id ?? '').trim()).filter((id) => id !== ''),
   );
+  const byBasis = about.filter(
+    (other) => other.label === 'judgment' && citedEntries(other.what?.numbered?.pool).join(',') === basis,
+  );
+  if (byBasis.length > 0) {
+    // The basis placed some seats, so the opinion has words behind it — but it has to
+    // place every source the report names, or the row shows a seat count below the
+    // report's own count with nothing saying why, which reads as a panel that shrank.
+    // A cited model the basis misses is two different facts: the record seats it and
+    // its cited entries are not this basis (the report's basis and this record's
+    // reading of it disagree), or the record shows no seat on it at all (a gap).
+    const placed = new Set(byBasis.map((other) => String(other.what?.model ?? '').trim()));
+    const unplaced = [...cited].filter((id) => !placed.has(id));
+    if (unplaced.length === 0) return { held: byBasis, reason: null, models: [], partial: null };
+
+    const seatedModels = new Set(
+      about.filter((other) => other.label === 'judgment').map((other) => String(other.what?.model ?? '').trim()),
+    );
+    return {
+      held: byBasis,
+      reason: null,
+      models: [],
+      partial: {
+        reparse: unplaced.filter((id) => seatedModels.has(id)),
+        missing: unplaced.filter((id) => !seatedModels.has(id)),
+      },
+    };
+  }
+
   const candidates = about.filter(
     (other) => other.label === 'judgment' && cited.has(String(other.what?.model ?? '').trim()),
   );
-  if (candidates.length === 0) return { held: [], reason: 'absent', models: [] };
+  if (candidates.length === 0) return { held: [], reason: 'absent', models: [], partial: null };
 
   // Two seats can carry one model ID — a bank that filled a failed seat with the
   // model already seated. One judge twice is stacking, not two judges, and its two
@@ -235,9 +262,9 @@ function sourcesOf(about, opinion) {
     readings.get(id).add(`${candidate.label}|${citedEntries(candidate.what?.numbered?.pool).join(',')}`);
   }
   const split = [...readings].filter(([, said]) => said.size > 1).map(([id]) => id);
-  if (split.length > 0) return { held: [], reason: 'ambiguous', models: split };
+  if (split.length > 0) return { held: [], reason: 'ambiguous', models: split, partial: null };
 
-  return { held: candidates, reason: null, models: [] };
+  return { held: candidates, reason: null, models: [], partial: null };
 }
 
 /**
@@ -247,7 +274,7 @@ function sourcesOf(about, opinion) {
  */
 function consolidatedMove(seq, seats, majority, about, report) {
   const opinions = report.opinions.map((opinion) => {
-    const { held, reason, models } = sourcesOf(about, opinion);
+    const { held, reason, models, partial } = sourcesOf(about, opinion);
     return {
       text: String(held[0]?.what?.observation ?? ''),
       seats: held.map((other) => other.what.seat).filter((seat, index, all) => all.indexOf(seat) === index),
@@ -263,6 +290,11 @@ function consolidatedMove(seq, seats, majority, about, report) {
       unbacked: held.length === 0,
       unbackedReason: reason,
       ambiguousModels: models,
+      // Some seats are behind the opinion, but not every source the report names is
+      // on them. The row keeps the words it can read and says which cited source the
+      // basis leaves out, so a seat count below the report's count is explained
+      // rather than left to look like a smaller panel.
+      partial,
       // The status the report decided, carried so the readout can say "gray box"
       // for a move no opinion carried, instead of calling every dissent an edge grey.
       status: opinion.status,

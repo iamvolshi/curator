@@ -147,6 +147,21 @@ export function renderReadout(readout) {
     const unbacked = opinion.unbacked === true;
     const ambiguous = unbacked && opinion.unbackedReason === 'ambiguous';
     const contested = (opinion.ambiguousModels ?? []).join(', ') || 'one model';
+    // The opinion has seats behind it, but the report named more sources than this
+    // basis places. The row keeps the words it can read and says which source is
+    // left out, so a seat count below the report's own count is explained instead
+    // of reading as a panel that shrank.
+    const partial = unbacked ? null : (opinion.partial ?? null);
+    const leftOut = partial
+      ? [
+          partial.reparse.length
+            ? `${partial.reparse.join(', ')} ${partial.reparse.length === 1 ? 'is' : 'are'} not placed by this basis`
+            : '',
+          partial.missing.length ? `no seat in this record holds ${partial.missing.join(', ')}` : '',
+        ]
+          .filter((part) => part !== '')
+          .join('; ')
+      : '';
     const text = ambiguous
       ? `ambiguous: this record shows more than one seat with ${contested} holding different opinions, so no seat is attached`
       : unbacked
@@ -156,7 +171,11 @@ export function renderReadout(readout) {
       ? ambiguous
         ? 'no seat attached'
         : 'no seat in this record'
-      : `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`;
+      : partial
+        ? `${count(opinion.judges, 'seat')} attached \u00b7 the report counts ${count(opinion.support, 'independent judge')}${
+            opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''
+          } \u2014 ${leftOut}`
+        : `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`;
     return `      <li class="readout__row">
         <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(label)}</span>
         <span class="readout__text">${esc(text)}</span>

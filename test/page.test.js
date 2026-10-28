@@ -291,6 +291,61 @@ test('a stored opinion the record seats twice with two readings is shown as ambi
   assert.match(html, /readout__text">the approval entry names another basis</, 'the opinion the basis still places reads with its seat');
 });
 
+test('a stored opinion only some of its cited seats place says which one is missing', () => {
+  // The report counted two models under one basis; this record's reading of that
+  // basis places one. The row keeps the seat it can name and says the other is not
+  // placed, so the short seat count is explained instead of reading as a panel that
+  // shrank. The report's own count is repeated exactly as stored.
+  const seat = (seq, seatNumber, model, pool, observation) => ({
+    seq,
+    when,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat: seatNumber,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  });
+
+  const html = buildPage(
+    [
+      call(1),
+      seat(2, 1, 'model-a', 'entry 1', 'the reply supports the claim'),
+      seat(3, 2, 'model-b', 'entry 2', 'the reply restates the prompt'),
+      {
+        seq: 4,
+        when,
+        label: 'delivery',
+        what: {
+          kind: 'delivery',
+          move: 1,
+          mmrc_model_id: 'model-m',
+          seats: ['model-a', 'model-b'],
+          opinions: [
+            { position: 'justified', basis: [1], support_count: 2, supporting_models: ['model-a', 'model-b'], status: 'gray_box' },
+          ],
+          highest_probable: null,
+          questions: [],
+          derived: true,
+        },
+      },
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.match(
+    html,
+    /readout__count">1 seat attached \u00b7 the report counts 2 independent judges \(model-a, model-b\) \u2014 model-b is not placed by this basis</,
+    'the row names the cited seat the basis does not place',
+  );
+  assert.doesNotMatch(html, /readout__count">1 seat \u00b7 2 independent judges/, 'and not the bare short count it used to print');
+  assert.match(html, /readout__text">the reply supports the claim</, 'the words of the seat it does place are still shown');
+});
+
 test('a record no panel wrote carries no readout, because no panel sat', () => {
   // The single judge's judgment carries no seat. A page that read it out would say
   // "no opinion reached 2 independent judges" about a move one judge answered — a

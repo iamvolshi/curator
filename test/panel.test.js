@@ -694,6 +694,79 @@ test('a model the record seats twice with two readings is ambiguous, and no seat
   assert.deepEqual(placed.seats, [2]);
 });
 
+test('an opinion the basis only partly places says so, instead of a seat count below the report\u2019s', () => {
+  // The report grouped two models under one basis, and this record's reading of that
+  // basis now places one of them. The row still shows the seat it can name, but it
+  // has to say the second is not placed: otherwise it reads "1 seat" beside the
+  // report's own count of 2, with nothing saying why the panel appears to have
+  // shrunk. The report is not corrected and no words are borrowed from the seat it
+  // could not place.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entry 1', 'the reply supports the claim'),
+    seated(3, 2, 'model-b', 'entry 2', 'the reply restates the prompt'),
+    {
+      seq: 4,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-b'],
+        opinions: [
+          { position: 'justified', basis: [1], support_count: 2, supporting_models: ['model-a', 'model-b'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const [opinion] = readPanel(entries).moves[0].edgeGreys;
+
+  assert.equal(opinion.unbacked, false, 'the basis places one seat, so the opinion has words');
+  assert.equal(opinion.text, 'the reply supports the claim', 'the words come from the seat it did place');
+  assert.deepEqual(opinion.seats, [1], 'and only that seat is attached');
+  assert.equal(opinion.support, 2, 'the report count is carried unchanged');
+  assert.deepEqual(
+    opinion.partial,
+    { reparse: ['model-b'], missing: [] },
+    'the model the basis no longer places is named, so the short seat count is explained',
+  );
+});
+
+test('an opinion citing a model the record does not seat at all says that, not just a short count', () => {
+  // The other way a cited source goes unplaced: the basis finds a seat, and the
+  // report also names a model this record has no seat on. That is a gap, not a
+  // disagreement about a basis, and the row says which it is.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entry 1', 'the reply supports the claim'),
+    {
+      seq: 3,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-z'],
+        opinions: [
+          { position: 'justified', basis: [1], support_count: 2, supporting_models: ['model-a', 'model-z'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const [opinion] = readPanel(entries).moves[0].edgeGreys;
+
+  assert.deepEqual(opinion.seats, [1]);
+  assert.deepEqual(opinion.partial, { reparse: [], missing: ['model-z'] }, 'the absent model is named as absent');
+});
+
 test('one model on two seats citing one basis is one opinion, however the words differ', () => {
   // The guard must not over-refuse: an opinion is position + basis, and the spec says
   // wording is not the grouping rule. Two seats on one model that cite the same
