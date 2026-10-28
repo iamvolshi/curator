@@ -220,15 +220,19 @@ function sourcesOf(about, opinion) {
   // Two seats can carry one model ID — a bank that filled a failed seat with the
   // model already seated. One judge twice is stacking, not two judges, and its two
   // seats are not interchangeable: when the basis cannot place them and they do not
-  // say the same thing, nothing in the record says which of them the report meant.
+  // hold the same opinion, nothing in the record says which of them the report meant.
   // Attaching both would hand one opinion a seat that holds another, so the link
   // refuses rather than guessing. There is no partial list either: a half-known set
   // of seats is not a readout.
+  //
+  // An opinion is its position and cited basis, never its wording: two seats that
+  // said the same thing about different entries hold different opinions, so the
+  // comparison is the basis they cite, not the sentence around it.
   const readings = new Map();
   for (const candidate of candidates) {
     const id = String(candidate.what?.model ?? '').trim();
     if (!readings.has(id)) readings.set(id, new Set());
-    readings.get(id).add(sameOpinion(candidate.what?.observation));
+    readings.get(id).add(`${candidate.label}|${citedEntries(candidate.what?.numbered?.pool).join(',')}`);
   }
   const split = [...readings].filter(([, said]) => said.size > 1).map(([id]) => id);
   if (split.length > 0) return { held: [], reason: 'ambiguous', models: split };

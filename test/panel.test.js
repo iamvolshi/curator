@@ -694,6 +694,40 @@ test('a model the record seats twice with two readings is ambiguous, and no seat
   assert.deepEqual(placed.seats, [2]);
 });
 
+test('one model on two seats citing one basis is one opinion, however the words differ', () => {
+  // The guard must not over-refuse: an opinion is position + basis, and the spec says
+  // wording is not the grouping rule. Two seats on one model that cite the same
+  // entries hold the same opinion even when they phrased it differently, so the link
+  // is made, not refused.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entries 4\u20136', 'the approval entry covers the deed'),
+    seated(3, 2, 'model-a', 'entries 4, 5 and 6', 'the deed follows from those entries'),
+    {
+      seq: 4,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a'],
+        opinions: [
+          { position: 'justified', basis: [4, 6], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const [opinion] = readPanel(entries).moves[0].edgeGreys;
+
+  assert.equal(opinion.unbacked, false, 'the seats hold one opinion, so it is not ambiguous');
+  assert.deepEqual(opinion.seats, [1, 2], 'both seats are behind it');
+  assert.equal(opinion.support, 1, 'and the report still counts one model');
+});
+
 test('the readout is counted against the seats the record shows, never a panel it never held', () => {
   const entries = [
     fact(1),
