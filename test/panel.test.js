@@ -19,6 +19,7 @@ import { join } from 'node:path';
 
 import { panelCommand } from '../cli/panel.js';
 import { reportPanelRun } from '../cli/panel-report.js';
+import { buildPage } from '../cli/view.js';
 import { judgePanel } from '../judge/panel.js';
 import { majorityFor, readPanel } from '../judge/readout.js';
 import { panelConfig } from '../judge/seats.js';
@@ -799,6 +800,68 @@ test('one model on two seats citing one basis is one opinion, however the words 
   assert.equal(opinion.unbacked, false, 'the seats hold one opinion, so it is not ambiguous');
   assert.deepEqual(opinion.seats, [1, 2], 'both seats are behind it');
   assert.equal(opinion.support, 1, 'and the report still counts one model');
+});
+
+test('the panel report says about a marked opinion what the page says', () => {
+  // Three stored opinions the record cannot fully place: no seat at all, a model the
+  // record seats twice with different readings, and a cited source the basis leaves
+  // out. The terminal and the page print the same sentences, composed once — a
+  // terminal counting seats the page says are not attached would be a second
+  // readout of the same record, and the reader would have no way to tell which one
+  // the file backs.
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entries 7\u20139', 'the approval entry covers the deed'),
+    seated(3, 2, 'model-a', 'entry 12', 'the approval entry names another basis'),
+    seated(4, 3, 'model-b', 'entry 2', 'the reply restates the prompt'),
+    {
+      seq: 5,
+      when: WHEN,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-a', 'model-b'],
+        opinions: [
+          { position: 'justified', basis: [99], support_count: 1, supporting_models: ['model-z'], status: 'gray_box' },
+          { position: 'justified', basis: [98], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+          { position: 'justified', basis: [2], support_count: 2, supporting_models: ['model-a', 'model-b'], status: 'gray_box' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    },
+  ];
+  const { moves } = readPanel(entries);
+  const html = buildPage(entries, { source: 'records/k-record.jsonl', generatedAt: WHEN, env: {} });
+
+  const printed = [];
+  const original = console.log;
+  console.log = (...args) => printed.push(args.map(String).join(' '));
+  try {
+    reportPanelRun(
+      { refused: null, problem: null, waiting: 0, candidates: 0, outcomes: [], attempts: [], written: { judgments: 0, questions: 0 }, stopped: null, seats: [1, 2, 3] },
+      { readout: { moves } },
+    );
+  } finally {
+    console.log = original;
+  }
+  const text = printed.join('\n');
+
+  // Scoped to the readout: the seat-graph section reuses the row classes, and an
+  // edge's text is not an opinion.
+  const section = html.split('<section class="readout">')[1].split('</section>')[0];
+  const pageTexts = [...section.matchAll(/readout__text">([^<]*)</g)].map((found) => found[1]);
+  const pageCounts = [...section.matchAll(/readout__count">([^<]*)</g)].map((found) => found[1]);
+  assert.equal(pageTexts.length, 3, 'the page shows all three opinions');
+  for (const words of pageTexts) assert.ok(text.includes(words), `the report says what the page says: ${words}`);
+  for (const held of pageCounts) assert.ok(text.includes(held), `the report counts what the page counts: ${held}`);
+
+  assert.match(text, /unbacked: the report cites model-z/, 'and does not print an opinion it has no words for');
+  assert.doesNotMatch(text, /0 seat\(s\) held it/, 'no opinion is printed as held by nobody');
+  assert.doesNotMatch(text, /1 seat\(s\) held it, 2 independent/, 'and no short count is printed without the report\u2019s own');
 });
 
 test('the readout is counted against the seats the record shows, never a panel it never held', () => {

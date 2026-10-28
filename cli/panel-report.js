@@ -18,6 +18,7 @@ import { SEAT_STATES } from '../judge/panel.js';
 import { describeSeat } from '../judge/seats.js';
 import { heading, line, note } from './output.js';
 import { graphOf } from '../judge/graph.js';
+import { opinionHeldBy, opinionText } from '../record/readout-words.js';
 
 /** How one seat's attempt reads in the run's own list. Exported so a test can hold
  * it to the states the panel can actually come to. */
@@ -82,6 +83,17 @@ function printGraph(seq, held) {
 
 /** One opinion as the readout shows it: its words, and who held it. */
 function printOpinion(prefix, opinion) {
+  // A stored opinion the record cannot link is printed as the page prints it: the
+  // marker where words nobody wrote would go, and the reason where a count that
+  // disagrees with the report would go. Both sentences come from the same module
+  // the page uses, so the terminal and the page cannot drift apart.
+  if (opinion.unbacked === true || Boolean(opinion.partial)) {
+    const words = opinion.unbacked === true ? opinionText(opinion) : JSON.stringify(opinion.text);
+    note(`${prefix}${words}`);
+    note(`    ${opinionHeldBy(opinion)}`);
+    return;
+  }
+
   // Support is counted by ID, so an opinion held by two seats that named none is
   // reported as held by two seats and supported by nobody — the two numbers are
   // different facts and the readout keeps them apart.

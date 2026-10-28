@@ -7,6 +7,7 @@
 // that assembles the page should not also have to hold every one of them.
 
 import { callOutcome, clip, count, esc } from './markup.js';
+import { opinionHeldBy, opinionText } from './readout-words.js';
 import { seatGraph } from '../judge/graph.js';
 
 /**
@@ -144,38 +145,11 @@ export function renderReadout(readout) {
     // behind it rather than "0 seats" beside a count. A seat that is missing and a
     // model the record seats twice with different readings are told apart: the
     // first is a gap, the second is a link this view refuses to guess.
-    const unbacked = opinion.unbacked === true;
-    const ambiguous = unbacked && opinion.unbackedReason === 'ambiguous';
-    const contested = (opinion.ambiguousModels ?? []).join(', ') || 'one model';
-    // The opinion has seats behind it, but the report named more sources than this
-    // basis places. The row keeps the words it can read and says which source is
-    // left out, so a seat count below the report's own count is explained instead
-    // of reading as a panel that shrank.
-    const partial = unbacked ? null : (opinion.partial ?? null);
-    const leftOut = partial
-      ? [
-          partial.reparse.length
-            ? `${partial.reparse.join(', ')} ${partial.reparse.length === 1 ? 'is' : 'are'} not placed by this basis`
-            : '',
-          partial.missing.length ? `no seat in this record holds ${partial.missing.join(', ')}` : '',
-        ]
-          .filter((part) => part !== '')
-          .join('; ')
-      : '';
-    const text = ambiguous
-      ? `ambiguous: this record shows more than one seat with ${contested} holding different opinions, so no seat is attached`
-      : unbacked
-        ? `unbacked: the report cites ${opinion.ids.length ? opinion.ids.join(', ') : 'no model'}, and no seat in this record holds this opinion`
-        : opinion.text;
-    const heldBy = unbacked
-      ? ambiguous
-        ? 'no seat attached'
-        : 'no seat in this record'
-      : partial
-        ? `${count(opinion.judges, 'seat')} attached \u00b7 the report counts ${count(opinion.support, 'independent judge')}${
-            opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''
-          } \u2014 ${leftOut}`
-        : `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`;
+    // The wording lives in one module, shared with the panel report on a terminal:
+    // an opinion marked here as unbacked or partly placed cannot be printed there as
+    // a seat count that disagrees with the report.
+    const text = opinionText(opinion);
+    const heldBy = opinionHeldBy(opinion);
     return `      <li class="readout__row">
         <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(label)}</span>
         <span class="readout__text">${esc(text)}</span>
