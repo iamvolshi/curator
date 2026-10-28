@@ -58,7 +58,10 @@ export function notReadyReport(plug, ready) {
   const says = plug.status === 'ready' ? null : plug.blockedReason;
   const primary = says ?? ready.problem ?? `the ${plug.name} plug is not ready`;
   const keyProblem = ready.problem && ready.problem !== primary ? ready.problem : null;
-  return { status: plug.status, primary, keyProblem };
+  // A plug can be ready in its own right and still have no key. Reporting its
+  // static status then would say "ready" about a seat that cannot be called.
+  const status = plug.status === 'ready' && !ready.keyPresent ? 'missing-key' : plug.status;
+  return { status, primary, keyProblem };
 }
 
 /**

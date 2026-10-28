@@ -12,7 +12,7 @@
 // always had: tell "the address is wrong" apart from "the key was rejected",
 // because those two need different fixes.
 
-import { PLUG_NAMES, describeKeyPresence, health, readKey, resolvePlug } from '../provider/index.js';
+import { PLUG_NAMES, describeKeyPresence, health, preflight, readKey, resolvePlug } from '../provider/index.js';
 import { ROUTES, ROUTE_SLOTS } from '../provider/routing.js';
 import { heading, line, note } from './output.js';
 
@@ -35,7 +35,7 @@ export async function statusCommand({ env = process.env, fetchImpl = fetch } = {
     line('key:', describeKey(plug, env));
     if (plug.blockedReason) line('blocked by:', plug.blockedReason);
 
-    if (plug.status === 'ready') callable++;
+    if (preflight(name, env).ready) callable++;
 
     // No declared health address means there is nothing honest to probe.
     if (!plug.statusUrl) {
@@ -96,5 +96,5 @@ function describeModel(plug) {
 }
 
 function readyNames(env) {
-  return PLUG_NAMES.filter((name) => resolvePlug(name, env).status === 'ready');
+  return PLUG_NAMES.filter((name) => preflight(name, env).ready);
 }
