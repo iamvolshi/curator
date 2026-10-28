@@ -355,7 +355,9 @@ or leaves one out, is named in the output and the command exits 1 — the page i
 still written with that row marked, because hiding the record is the worse
 answer. It also re-groups each delivery from the seat reports that precede it in
 the file: the opinions, support counts, statuses, and questions have to match what
-the code produces today, or that delivery is named too and the command exits 1.
+the code produces today — compared as sets, because a report lists them in the order
+the seat reports arrived, so a harmless reordering is not a changed grouping — or
+that delivery is named too and the command exits 1.
 The same checks run over the committed live record in `npm test`, so a reading
 change that stops a stored opinion linking, or that would group the seats
 differently, fails before a page is shared.

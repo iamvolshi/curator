@@ -365,6 +365,59 @@ test('a stored delivery whose grouping still matches its seat reports is not a p
   assert.deepEqual(storedGroupingProblems(entries), []);
 });
 
+test('a stored delivery that lists the same opinions in another order is not a problem', () => {
+  const entries = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
+  const report = assertValid(consolidateReports(entries, 1));
+  assert.equal(report.opinions.length, 2, 'the fixture has two opinions to reorder');
+
+  entries.push(stored(4, { ...report, opinions: [...report.opinions].reverse() }));
+
+  assert.deepEqual(storedGroupingProblems(entries), [], 'where an opinion sits in the list is not part of the grouping');
+});
+
+test('a delivery grouped from seat reports recorded out of seat order is not a problem', () => {
+  // The record keeps the order the reports arrived in, so a delivery can be written
+  // with seat 2's opinion first. Re-derived from the reports in seat order, the same
+  // opinions come out differently listed; that is not a changed grouping.
+  const entries = recorded([
+    judgment(2, 'model-b', 'entry 12'),
+    judgment(1, 'model-a', 'entry 4'),
+    judgment(3, 'model-c', 'entry 4'),
+  ]);
+  const report = assertValid(consolidateReports(entries, 1));
+  assert.deepEqual(report.opinions.map((opinion) => opinion.basis), [[12], [4]], 'the stored order followed the record, not the seats');
+  entries.push(stored(4, report));
+
+  assert.deepEqual(storedGroupingProblems(entries), []);
+});
+
+test('the same questions in another order are not a changed grouping', () => {
+  const entries = recorded([
+    judgment(1, 'model-a', 'entry 4'),
+    asked(2, 'model-b', 'what in the record shows the basis?'),
+    asked(3, 'model-c', 'where is the entry that shows it?'),
+  ]);
+  const report = assertValid(consolidateReports(entries, 1));
+  assert.equal(report.questions.length, 2);
+  entries.push(stored(4, { ...report, questions: [...report.questions].reverse() }));
+
+  assert.deepEqual(storedGroupingProblems(entries), []);
+});
+
+test('another order is not a licence to change what an opinion says', () => {
+  const entries = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
+  const report = assertValid(consolidateReports(entries, 1));
+  const opinions = report.opinions.map((opinion, index) =>
+    index === 1 ? { ...opinion, support_count: 2, supporting_models: [...opinion.supporting_models, 'model-a'] } : opinion,
+  );
+  entries.push(stored(4, { ...report, opinions }));
+
+  const problems = storedGroupingProblems(entries);
+  assert.equal(problems.length, 1);
+  assert.equal(problems[0].kind, 'grouping_mismatch');
+  assert.deepEqual(problems[0].fields, ['opinions'], 'a changed opinion is still named');
+});
+
 test('a stored delivery that no longer groups its seats the way the code does is a problem', () => {
   // The seats and their bases are unchanged, so every opinion still links; the stored
   // report simply declares a probable where the grouping declares none. That is the

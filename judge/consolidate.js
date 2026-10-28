@@ -239,6 +239,41 @@ export function consolidateReports(entries, move) {
 }
 
 /**
+ * One opinion's identity, for comparing two reports. Where it sits in the list is
+ * not part of it, and neither is the order of the models inside it: both followed
+ * the record, so both are compared as a set.
+ */
+function opinionIdentity(opinion) {
+  if (opinion === null || typeof opinion !== 'object') return JSON.stringify(opinion ?? null);
+  return JSON.stringify({
+    position: opinion.position ?? null,
+    basis: opinion.basis ?? null,
+    support_count: opinion.support_count ?? null,
+    supporting_models: [...(opinion.supporting_models ?? [])].sort(),
+    status: opinion.status ?? null,
+  });
+}
+
+/** An opinion list as a sorted set of identities, so its order cannot differ. */
+function opinionIdentities(opinions) {
+  if (!Array.isArray(opinions)) return JSON.stringify(opinions ?? null);
+  return JSON.stringify(opinions.map(opinionIdentity).sort());
+}
+
+/** The probable opinion compared by what it says, not by where it sat in the list. */
+function probableIdentity(opinion) {
+  return opinion === null || opinion === undefined ? 'null' : opinionIdentity(opinion);
+}
+
+/** A question list as a set, for the same reason as the opinions. */
+function questionIdentities(questions) {
+  if (!Array.isArray(questions)) return JSON.stringify(questions ?? null);
+  return JSON.stringify(
+    questions.map((question) => JSON.stringify([question?.seat_model_id ?? null, question?.question ?? null])).sort(),
+  );
+}
+
+/**
  * Every stored delivery in the record, checked against the grouping its seat
  * reports give today.
  *
@@ -252,6 +287,11 @@ export function consolidateReports(entries, move) {
  *
  * A move that no longer offers the three reports the delivery was written from is a
  * typed failure rather than a pass: nothing in the record can confirm the grouping.
+ *
+ * Order is not part of a grouping. The report lists opinions and questions in the
+ * order the seat reports arrived — the record's order, not the seats' — so the same
+ * opinions listed differently are the same grouping, and only a changed opinion,
+ * count, status or question is a problem.
  *
  * @param {Array} entries the record, oldest first
  * @returns {Array<object>} one entry per delivery that no longer matches — its seq,
@@ -280,9 +320,17 @@ export function storedGroupingProblems(entries) {
       continue;
     }
 
-    const fields = ['seats', 'opinions', 'highest_probable', 'questions'].filter(
-      (field) => JSON.stringify(grouped.body[field]) !== JSON.stringify(what[field]),
-    );
+    // The seats are positional — the first is seat 1 — so their order is compared.
+    // The opinions and questions are not: a report lists them in the order the seat
+    // reports arrived, so a harmless reordering is not a changed grouping.
+    const differs = {
+      seats: JSON.stringify(grouped.body.seats) !== JSON.stringify(what.seats),
+      opinions: opinionIdentities(grouped.body.opinions) !== opinionIdentities(what.opinions),
+      highest_probable:
+        probableIdentity(grouped.body.highest_probable) !== probableIdentity(what.highest_probable),
+      questions: questionIdentities(grouped.body.questions) !== questionIdentities(what.questions),
+    };
+    const fields = Object.keys(differs).filter((field) => differs[field]);
     if (fields.length > 0) {
       problems.push({
         seq: delivery.seq,
