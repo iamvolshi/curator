@@ -240,6 +240,38 @@ test('the live call sends the configured model and temperature and writes the mo
   assert.equal(result.report.mmrc_model_id, 'muse-spark-1.3');
 });
 
+test('a reply that lists the same grouping in another order, and its basis in another order, is not a change', async () => {
+  // Order is not part of a grouping: a report lists opinions in the record's arrival
+  // order, and a basis is a set of entries. The write path and the audit share one
+  // definition, so what this accepts the audit will not later call altered.
+  const entries = [
+    FACT,
+    judgment(1, 'model-a', 'entries 4 and 9'),
+    judgment(2, 'model-b', '9, 4', 'a different sentence about the same basis'),
+    judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
+  ];
+  const grouped = consolidateReports(entries, 1).body;
+  const reply = {
+    opinions: [...grouped.opinions].reverse().map((opinion) => ({ ...opinion, basis: [...opinion.basis].reverse() })),
+    highest_probable: grouped.highest_probable,
+    questions: [...grouped.questions].reverse(),
+  };
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ model: 'muse-spark-1.3', choices: [{ message: { content: JSON.stringify(reply) } }] }),
+    };
+  };
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, true, result.detail);
+  assert.equal(calls, 1, 'the reply is the same grouping, so it is not sent back for repair');
+});
+
 test('a reply that changes the grouping writes no report, after the repair cap', async () => {
   const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
   let calls = 0;
@@ -373,6 +405,26 @@ test('a stored delivery that lists the same opinions in another order is not a p
   entries.push(stored(4, { ...report, opinions: [...report.opinions].reverse() }));
 
   assert.deepEqual(storedGroupingProblems(entries), [], 'where an opinion sits in the list is not part of the grouping');
+});
+
+test('a stored basis that lists the same entries in another order is not a problem', () => {
+  // The basis is a set of entries. A report that wrote the same two entries in the
+  // other order grouped the same seats, and the live reply check accepts that reply,
+  // so the audit cannot call it changed.
+  const entries = recorded([
+    judgment(1, 'model-a', 'entries 4 and 9'),
+    judgment(2, 'model-b', '9, 4', 'a different sentence about the same basis'),
+    judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
+  ]);
+  const report = assertValid(consolidateReports(entries, 1));
+  assert.ok(
+    report.opinions.some((opinion) => opinion.basis.length > 1),
+    'the fixture needs a multi-entry basis to reverse',
+  );
+  const reversed = report.opinions.map((opinion) => ({ ...opinion, basis: [...opinion.basis].reverse() }));
+  entries.push(stored(4, { ...report, opinions: reversed }));
+
+  assert.deepEqual(storedGroupingProblems(entries), [], 'a basis is a set of entries, not a list');
 });
 
 test('a delivery grouped from seat reports recorded out of seat order is not a problem', () => {

@@ -108,11 +108,15 @@ export function fromASeat(entry) {
  * The readout for every move the record shows a panel read, in record order.
  *
  * @param {Array} entries   the record, oldest first
+ * @param {Array} [groupingProblems]  stored deliveries whose grouping no longer
+ *   matches the record, from storedGroupingProblems; a move is marked only when the
+ *   report shown for it is one of them, never because a superseded report drifted
  * @returns {{moves: Array}} one entry per move the record shows seats on, each with
  *   the seats it shows, the majority those seats need, the probable opinion (or
- *   null), every other opinion, and the seats that asked instead of taking a side
+ *   null), every other opinion, the seats that asked instead of taking a side, and
+ *   the grouping problem for the report shown (or null)
  */
-export function readPanel(entries) {
+export function readPanel(entries, groupingProblems = []) {
   const seen = new Set();
   const moves = [];
 
@@ -137,7 +141,8 @@ export function readPanel(entries) {
     // text here would only ever disagree with it.
     const delivered = entries.filter((other) => other.label === 'delivery' && other.what?.move === seq).pop();
     if (delivered) {
-      moves.push(consolidatedMove(seq, seats.length, majority, about, delivered.what));
+      const drift = groupingProblems.find((problem) => problem.seq === delivered.seq) ?? null;
+      moves.push(consolidatedMove(seq, seats.length, majority, about, delivered.what, drift));
       continue;
     }
 
@@ -272,7 +277,7 @@ function sourcesOf(about, opinion) {
  * is matched back to the judgments it cites, so the text and the seats come from the
  * seats' own entries and the counts come from the report.
  */
-function consolidatedMove(seq, seats, majority, about, report) {
+function consolidatedMove(seq, seats, majority, about, report, drift) {
   const opinions = report.opinions.map((opinion) => {
     const { held, reason, models, partial } = sourcesOf(about, opinion);
     return {
@@ -305,7 +310,10 @@ function consolidatedMove(seq, seats, majority, about, report) {
   const edgeGreys = opinions.filter((opinion) => opinion !== probable);
   const noPosition = about.filter((other) => other.label === 'question').map((other) => other.what.seat);
 
-  return { seq, seats, majority, probable, edgeGreys, noPosition };
+  // `drift` is set only when the report the page is showing is the one a stored
+  // grouping check named: the rows are the report's, and this code would group the
+  // same seat reports differently today.
+  return { seq, seats, majority, probable, edgeGreys, noPosition, drift };
 }
 
 /**

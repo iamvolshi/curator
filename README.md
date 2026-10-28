@@ -217,8 +217,12 @@ report carrying one is refused as a forbidden field rather than read.
 
 The model is asked only to hand the same form back, and its reply is checked
 against the form it was given — it may not regroup, reword, add or drop anything.
-A fenced reply is unwrapped locally; a reply that cannot be read, or that changes
-the grouping, is asked once more with the exact error; after two attempts it is a
+The comparison is the one the stored-report check uses: opinions, the probable
+opinion and questions are compared as sets, and a basis is a set of entries, so a
+reply that lists the same grouping, or the same cited entries, in another order is
+the form it was given rather than a change. A fenced reply is unwrapped locally; a
+reply that cannot be read, or that changes the grouping, is asked once more with
+the exact error; after two attempts it is a
 typed failure, never a readout. A move with fewer than three readable seat reports
 is `insufficient_reports` or `malformed_input`, and no partial consolidation is
 written. One report per judged move: re-running the panel on the same move writes
@@ -357,7 +361,14 @@ answer. It also re-groups each delivery from the seat reports that precede it in
 the file: the opinions, support counts, statuses, and questions have to match what
 the code produces today — compared as sets, because a report lists them in the order
 the seat reports arrived, so a harmless reordering is not a changed grouping — or
-that delivery is named too and the command exits 1.
+that delivery is named too and the command exits 1. The page also marks the move
+whose stored report no longer groups that way, under the readout heading: the rows
+below the mark are the report's, and the mark says what this code would group
+differently today, so a reader of the file sees it and not only the person who ran
+the command. Finally it names any stored opinion or question carrying a field the
+schema does not define: the write path
+refuses such a report, but the file is append-only, so one written by an older build
+is still there, and the command exits 1 rather than leave it for a reader to notice.
 The same checks run over the committed live record in `npm test`, so a reading
 change that stops a stored opinion linking, or that would group the seats
 differently, fails before a page is shared.

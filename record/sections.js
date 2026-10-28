@@ -8,6 +8,7 @@
 
 import { callOutcome, clip, count, esc } from './markup.js';
 import { opinionHeldBy, opinionText } from './readout-words.js';
+import { describeGroupingProblem } from '../judge/consolidate.js';
 import { seatGraph } from '../judge/graph.js';
 
 /**
@@ -171,6 +172,13 @@ export function renderReadout(readout) {
                 `none declared: no opinion reached ${count(move.majority, 'independent judge')}, the majority of the ${count(move.seats, 'seat')} this move shows`,
               )
       }</p>`;
+      // The rows below are the stored report's grouping, and they are shown as it
+      // wrote them. When the seat reports in this record no longer group that way,
+      // the move says so: the page must not present the report as what the code
+      // produces today, and it must not hide the report either.
+      const drift = move.drift
+        ? `    <p class="readout__drift">the rows below are what the stored report says; ${esc(describeGroupingProblem(move.drift))}</p>\n`
+        : '';
       const probable = move.probable ? opinionRow('probable', move.probable) : '';
       const greys = move.edgeGreys.map((opinion) => opinionRow('grey', opinion)).join('\n');
       const noPosition = move.noPosition
@@ -178,7 +186,7 @@ export function renderReadout(readout) {
         .join('\n');
 
       return `${head}
-    <ul class="readout__list">
+${drift}    <ul class="readout__list">
 ${[probable, greys, noPosition].filter((part) => part !== '').join('\n')}
     </ul>`;
     })

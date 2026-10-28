@@ -104,3 +104,42 @@ export function validateDelivery(report) {
 
   return { ok: true };
 }
+
+/**
+ * The fields a stored report's opinions and questions carry that the schema does
+ * not define.
+ *
+ * validateDelivery refuses such a report when it is written, so this is the check
+ * for what is already in the file: the record is append-only, so a report written
+ * by an older or a buggier build stays there, and a reader is shown a field the
+ * form has no place for without being told. Missing fields are not this check's
+ * business — it names only what is extra, which is the part the schema cannot show.
+ *
+ * @param {Array} entries the record, oldest first
+ * @returns {Array<object>} one entry per stored opinion or question that carries
+ *   extra fields — its seq, its move, where it sits ("opinion 0") and the fields
+ */
+export function storedSchemaProblems(entries) {
+  const problems = [];
+
+  for (const entry of entries) {
+    if (entry.label !== 'delivery') continue;
+    const what = entry.what ?? {};
+
+    for (const [noun, list, expected] of [
+      ['opinion', what.opinions, OPINION_KEYS],
+      ['question', what.questions, QUESTION_KEYS],
+    ]) {
+      if (!Array.isArray(list)) continue;
+      for (const [index, item] of list.entries()) {
+        if (!isPlainObject(item)) continue;
+        const { extra } = exactKeys(item, expected);
+        if (extra.length > 0) {
+          problems.push({ seq: entry.seq, move: what.move ?? null, where: `${noun} ${index}`, fields: extra });
+        }
+      }
+    }
+  }
+
+  return problems;
+}

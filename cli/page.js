@@ -7,7 +7,8 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { storedGroupingProblems } from '../judge/consolidate.js';
+import { describeGroupingProblem, storedGroupingProblems } from '../judge/consolidate.js';
+import { storedSchemaProblems } from '../judge/delivery.js';
 import { storedLinkProblems } from '../judge/readout.js';
 import { createStore } from '../record/store.js';
 import { readOption } from './args.js';
@@ -35,8 +36,12 @@ export async function pageCommand({
   // the code would produce today. That is the other half of the same guarantee, so it
   // is checked and reported beside the link, before the page is shared.
   const groupingProblems = storedGroupingProblems(entries);
+  // A stored report can also carry a field the form has no place for. The
+  // grouping check cannot see it — it compares what an opinion says, not what
+  // else it holds — so it is named here rather than left for a reader to notice.
+  const schemaProblems = storedSchemaProblems(entries);
 
-  const html = buildPage(entries, { source: store.path, generatedAt, env, parked });
+  const html = buildPage(entries, { source: store.path, generatedAt, env, parked, groupingProblems });
   await writeFile(outPath, html, 'utf8');
 
   heading('The record, as one page');
@@ -62,6 +67,15 @@ export async function pageCommand({
   for (const problem of groupingProblems) {
     note(`  seq ${problem.seq}, move ${problem.move}: ${describeGroupingProblem(problem)}`);
   }
+  line(
+    'schema:',
+    schemaProblems.length === 0
+      ? 'every stored opinion and question carries only fields the schema defines'
+      : `${schemaProblems.length} stored ${schemaProblems.length === 1 ? 'opinion or question carries a field' : 'opinions or questions carry fields'} the schema does not define`,
+  );
+  for (const problem of schemaProblems) {
+    note(`  seq ${problem.seq}, move ${problem.move}: ${problem.where} carries ${problem.fields.join(', ')}, which the schema does not define`);
+  }
   line('written to:', outPath);
 
   if (entries.length === 0) {
@@ -77,13 +91,7 @@ export async function pageCommand({
   // The page is still written, with the row marked: the record is not hidden from a
   // reader because a link broke. The non-zero code is the alarm, so a script or a
   // person building the page sees it before the page is shown to anyone.
-  return linkProblems.length === 0 && groupingProblems.length === 0 ? 0 : 1;
-}
-
-/** One line a reader can act on: which fields the seat reports no longer agree on. */
-function describeGroupingProblem(problem) {
-  if (problem.kind !== 'grouping_mismatch') return `${problem.kind}: ${problem.detail}`;
-  return `the seat reports group differently today (${problem.fields.join(', ')})`;
+  return linkProblems.length === 0 && groupingProblems.length === 0 && schemaProblems.length === 0 ? 0 : 1;
 }
 
 /** One line a reader can act on: what the basis no longer places, and why. */

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateDelivery } from '../judge/delivery.js';
+import { storedSchemaProblems, validateDelivery } from '../judge/delivery.js';
 
 const valid = () => ({
   move: 37,
@@ -76,4 +76,31 @@ test('a count that repeats one model is malformed', () => {
   r.opinions[0].supporting_models = ['model-a', 'model-a'];
   r.opinions[0].support_count = 2;
   assert.equal(validateDelivery(r).kind, 'malformed_report');
+});
+
+/** A stored record line for a report body, labelled the way the record labels it. */
+function stored(seq, report) {
+  return { seq, label: 'delivery', what: { kind: 'delivery', ...report } };
+}
+
+test('a stored report whose opinions and questions match the schema is not a problem', () => {
+  assert.deepEqual(storedSchemaProblems([stored(1, valid())]), []);
+});
+
+test('a stored opinion carrying a field the schema does not define is reported', () => {
+  const report = valid();
+  report.opinions[0].verdict = 'justified';
+
+  assert.deepEqual(storedSchemaProblems([stored(9, report)]), [
+    { seq: 9, move: 37, where: 'opinion 0', fields: ['verdict'] },
+  ]);
+});
+
+test('a stored question carrying a field the schema does not define is reported', () => {
+  const report = valid();
+  report.questions = [{ seat_model_id: 'model-c', question: 'what shows it?', observation: 'it is shown' }];
+
+  assert.deepEqual(storedSchemaProblems([stored(4, report)]), [
+    { seq: 4, move: 37, where: 'question 0', fields: ['observation'] },
+  ]);
 });

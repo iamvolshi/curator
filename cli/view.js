@@ -7,6 +7,7 @@
 import { isAbsolute, relative } from 'node:path';
 
 import { createLedger, resolveLedgerPath } from '../judge/attempts.js';
+import { storedGroupingProblems } from '../judge/consolidate.js';
 import { parkedMoves } from '../judge/judge.js';
 import { readPanel } from '../judge/readout.js';
 import { resolveAll } from '../provider/index.js';
@@ -64,8 +65,8 @@ export async function parkedFor(entries, env = process.env) {
  * carries no seat, so there is no panel to read out and the page says nothing about
  * one.
  */
-export function readoutFor(entries) {
-  return readPanel(entries);
+export function readoutFor(entries, groupingProblems = []) {
+  return readPanel(entries, groupingProblems);
 }
 
 /**
@@ -77,14 +78,20 @@ export function readoutFor(entries) {
  * @param {object} [options.env]          environment the plugs are resolved against
  * @param {{sig: string}} [options.live]  when set, the page watches the record and reloads itself
  * @param {Array} [options.parked]        moves the judge is skipping, still unjudged
+ * @param {Array} [options.groupingProblems]  stored deliveries whose grouping no
+ *   longer matches the record; computed here when the caller has not, so the static
+ *   file and the live viewer mark the same moves
  */
-export function buildPage(entries, { source, generatedAt, env = process.env, live = null, parked = [] } = {}) {
+export function buildPage(
+  entries,
+  { source, generatedAt, env = process.env, live = null, parked = [], groupingProblems = storedGroupingProblems(entries) } = {},
+) {
   return renderPage(entries, {
     source: showablePath(source),
     generatedAt,
     plugs: plugSummaries(env),
     live,
     parked,
-    readout: readoutFor(entries),
+    readout: readoutFor(entries, groupingProblems),
   });
 }

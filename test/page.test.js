@@ -862,7 +862,104 @@ test('the command reports a stored delivery that no longer groups as its seat re
     assert.match(text, /links:\s+every stored delivery still finds the seats it cites/, 'the link check itself passes');
     assert.match(text, /grouping:\s+1 stored delivery no longer matches its seat reports/);
     assert.match(text, /seq 5, move 1: the seat reports group differently today \(highest_probable\)/);
-    assert.match(await readFile(out, 'utf8'), /readout__kind readout__kind--probable">highest probable/, 'the page is still written');
+    const html = await readFile(out, 'utf8');
+    assert.match(html, /readout__kind readout__kind--probable">highest probable/, 'the page is still written');
+    assert.match(
+      html,
+      /readout__drift">the rows below are what the stored report says; the seat reports group differently today \(highest_probable\)</,
+      'the page itself marks the move whose stored grouping the record no longer produces',
+    );
+    // The live viewer builds the page without passing a problem list, so the default
+    // has to compute it: both ways of looking at the record mark the same move.
+    const live = buildPage(await store.readAll(), { source: 'records/k-record.jsonl', generatedAt: when, env: {} });
+    assert.match(live, /<p class="readout__drift">/, 'the live viewer marks it too');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('the command reports a stored opinion carrying a field the schema does not define', async () => {
+  // Every opinion still links and the grouping still matches, so the first two
+  // checks pass. The report itself carries a verdict on an opinion, which the form
+  // has no place for; the command has to name it, or a reader would never learn the
+  // stored report holds something this code would not write.
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-page-schema-'));
+  try {
+    const store = createStore(join(dir, 'records.jsonl'));
+    const out = join(dir, 'page.html');
+
+    await store.append(call(1));
+    const seat = (seq, seatNumber, model, pool) => ({
+      seq,
+      when,
+      label: 'judgment',
+      what: {
+        kind: 'seat-judgment',
+        move: 1,
+        subjects: [],
+        seat: seatNumber,
+        model,
+        observation: 'the move follows from the cited entries',
+        numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+      },
+    });
+    await store.append(seat(2, 1, 'model-a', 'entry 1'));
+    await store.append(seat(3, 2, 'model-b', 'entry 1'));
+    await store.append(seat(4, 3, 'model-c', 'entry 2'));
+
+    const probable = {
+      position: 'justified',
+      basis: [1],
+      support_count: 2,
+      supporting_models: ['model-a', 'model-b'],
+      status: 'highest_probable',
+      verdict: 'justified',
+    };
+    await store.append({
+      seq: 5,
+      when,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-b', 'model-c'],
+        opinions: [
+          probable,
+          { position: 'justified', basis: [2], support_count: 1, supporting_models: ['model-c'], status: 'edge_grey' },
+        ],
+        highest_probable: probable,
+        questions: [],
+        derived: true,
+      },
+    });
+
+    const printed = [];
+    const original = console.log;
+    console.log = (...args) => printed.push(args.map(String).join(' '));
+    let code;
+    try {
+      code = await pageCommand({
+        store,
+        args: ['--out', out],
+        now: () => new Date(when),
+        env: { OVERSEER_LEDGER: join(dir, 'attempts.json') },
+      });
+    } finally {
+      console.log = original;
+    }
+
+    const text = printed.join('\n');
+    assert.equal(code, 1, 'a stored field outside the schema fails the command');
+    assert.match(text, /links:\s+every stored delivery still finds the seats it cites/, 'the link check itself passes');
+    assert.match(text, /grouping:\s+every stored delivery still groups the way its seat reports do/, 'the grouping check itself passes');
+    assert.match(text, /schema:\s+1 stored opinion or question carries a field the schema does not define/);
+    assert.match(text, /seq 5, move 1: opinion 0 carries verdict, which the schema does not define/);
+    assert.equal(
+      (await readFile(out, 'utf8')).includes('<p class="readout__drift">'),
+      false,
+      'a delivery that still groups the way the record does is not marked',
+    );
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

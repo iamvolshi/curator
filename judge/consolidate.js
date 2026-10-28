@@ -89,24 +89,23 @@ function readMmrcReply(text) {
 /**
  * Check one reply against the grouping it was given.
  *
- * The grouping is decided in code; the model may only hand it back unchanged. A
- * reply that cannot be read, or that changes the form, is refused with the exact
- * reason, which the repair call carries back to the model.
+ * The grouping is decided in code; the model may only hand it back unchanged —
+ * where unchanged is the shared definition below, so a reply that lists the same
+ * opinions and questions in another order, or the same cited entries in another
+ * order, is the grouping it was given. A reply that cannot be read, or that changes
+ * what the grouping says, is refused with the exact reason, which the repair call
+ * carries back to the model.
  */
 function checkMmrcReply(text, body) {
   const read = readMmrcReply(text);
   if (read.error) return { ok: false, kind: MMRC_FAILURES.unreadableReply, detail: read.error };
 
-  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  if (
-    !same(read.reply.opinions, body.opinions) ||
-    !same(read.reply.highest_probable, body.highest_probable) ||
-    !same(read.reply.questions, body.questions)
-  ) {
+  const changed = groupingDifferences(read.reply, body);
+  if (changed.length > 0) {
     return {
       ok: false,
       kind: MMRC_FAILURES.alteredGrouping,
-      detail: 'the MMRC reply changed the grouping it was given',
+      detail: `the MMRC reply changed the grouping it was given (${changed.join(', ')})`,
     };
   }
   return { ok: true };
@@ -240,14 +239,15 @@ export function consolidateReports(entries, move) {
 
 /**
  * One opinion's identity, for comparing two reports. Where it sits in the list is
- * not part of it, and neither is the order of the models inside it: both followed
- * the record, so both are compared as a set.
+ * not part of it, and neither is the order of the entries it cites or of the models
+ * behind it: a basis is a set of entries and a support list is a set of judges, so
+ * both are compared as sets.
  */
 function opinionIdentity(opinion) {
   if (opinion === null || typeof opinion !== 'object') return JSON.stringify(opinion ?? null);
   return JSON.stringify({
     position: opinion.position ?? null,
-    basis: opinion.basis ?? null,
+    basis: Array.isArray(opinion.basis) ? [...opinion.basis].sort((a, b) => a - b) : (opinion.basis ?? null),
     support_count: opinion.support_count ?? null,
     supporting_models: [...(opinion.supporting_models ?? [])].sort(),
     status: opinion.status ?? null,
@@ -274,6 +274,30 @@ function questionIdentities(questions) {
 }
 
 /**
+ * The fields on which two reports' groupings differ, if any.
+ *
+ * One definition, used by the live reply check and the stored-report check, so a
+ * reply the write path accepts is one the audit will not later call changed. A
+ * grouping is what its opinions, its probable opinion and its questions say — not
+ * the order they were written in, which follows the record rather than the seats.
+ * The report's seats are positional and are compared by the caller.
+ *
+ * @param {object} a  a report body, or an MMRC reply carrying the same three fields
+ * @param {object} b  the report body it is compared against
+ * @returns {Array<string>} the grouping fields that differ, in report order
+ */
+export function groupingDifferences(a, b) {
+  const parts = (report) => ({
+    opinions: opinionIdentities(report?.opinions),
+    highest_probable: probableIdentity(report?.highest_probable),
+    questions: questionIdentities(report?.questions),
+  });
+  const left = parts(a);
+  const right = parts(b);
+  return Object.keys(left).filter((field) => left[field] !== right[field]);
+}
+
+/**
  * Every stored delivery in the record, checked against the grouping its seat
  * reports give today.
  *
@@ -289,9 +313,10 @@ function questionIdentities(questions) {
  * typed failure rather than a pass: nothing in the record can confirm the grouping.
  *
  * Order is not part of a grouping. The report lists opinions and questions in the
- * order the seat reports arrived — the record's order, not the seats' — so the same
- * opinions listed differently are the same grouping, and only a changed opinion,
- * count, status or question is a problem.
+ * order the seat reports arrived — the record's order, not the seats' — and a basis
+ * is a set of entries, so the same entries cited in another order are the same
+ * basis. Only a changed opinion, count, status or question is a problem, decided by
+ * the same definition the live reply check uses.
  *
  * @param {Array} entries the record, oldest first
  * @returns {Array<object>} one entry per delivery that no longer matches — its seq,
@@ -321,16 +346,13 @@ export function storedGroupingProblems(entries) {
     }
 
     // The seats are positional — the first is seat 1 — so their order is compared.
-    // The opinions and questions are not: a report lists them in the order the seat
-    // reports arrived, so a harmless reordering is not a changed grouping.
-    const differs = {
-      seats: JSON.stringify(grouped.body.seats) !== JSON.stringify(what.seats),
-      opinions: opinionIdentities(grouped.body.opinions) !== opinionIdentities(what.opinions),
-      highest_probable:
-        probableIdentity(grouped.body.highest_probable) !== probableIdentity(what.highest_probable),
-      questions: questionIdentities(grouped.body.questions) !== questionIdentities(what.questions),
-    };
-    const fields = Object.keys(differs).filter((field) => differs[field]);
+    // The grouping itself is not positional: one shared definition decides that, the
+    // same one the live reply check uses, so the audit cannot flag a reply the write
+    // path would have accepted.
+    const fields = [
+      ...(JSON.stringify(grouped.body.seats) !== JSON.stringify(what.seats) ? ['seats'] : []),
+      ...groupingDifferences(what, grouped.body),
+    ];
     if (fields.length > 0) {
       problems.push({
         seq: delivery.seq,
@@ -343,6 +365,17 @@ export function storedGroupingProblems(entries) {
   }
 
   return problems;
+}
+
+/**
+ * One line a reader can act on: what a stored delivery no longer matches.
+ *
+ * Shared by the command's output and the page, so the terminal and the file cannot
+ * describe one record differently.
+ */
+export function describeGroupingProblem(problem) {
+  if (problem.kind !== 'grouping_mismatch') return `${problem.kind}: ${problem.detail}`;
+  return `the seat reports group differently today (${problem.fields.join(', ')})`;
 }
 
 /**
