@@ -14,8 +14,7 @@
 // The three parts of a prompt live apart so there is one copy of each: the opening
 // (who is reading), the choice (what to answer with), and the manner rule (how a
 // reading may be worded). The judge and a seat in the panel get the same CHOICE and
-// the same MANNER: the contract is one contract, and a seat that answered in a
-// different shape would not be readable by the same reader.
+// the same MANNER rule. Each answers in its own shape, and is read by its own reader.
 
 /** The two-way choice, and what each answer means. */
 const CHOICE = [
@@ -71,13 +70,12 @@ export const JUDGE_SYSTEM = [
  * The framing is what the panel is for: a model offers its best reading when it is
  * trying to win one, and three judges hedging to the same safe middle would leave
  * the readout nothing to read. The contest changes the effort, not the job — the
- * choice, the manner rule and the reply reader are the judge's own, unchanged.
+ * manner rule is the judge's own, unchanged. A seat answers by number, read by readPanelReply.
  */
 export const PANEL_SYSTEM = [
   'You are one of three judges in an opinion contest. Each of you reads the same recorded move alone and gives its own reading; you cannot see the others’ answers, and they cannot see yours.',
   'You do not judge the agent, grade it, or tell it what to do. Your reading is compared with two others, so give the reading you would defend rather than the safe middle one.',
-  ...CHOICE,
-  ...MANNER,
+  NUMBERED_SYSTEM,
 ].join('\n');
 
 /**
@@ -120,7 +118,7 @@ export function judgeMessages(move) {
  */
 export function panelMessages(move) {
   return [
-    { role: 'system', content: PANEL_SYSTEM + '\n' + NUMBERED_SYSTEM },
+    { role: 'system', content: PANEL_SYSTEM },
     { role: 'user', content: describeMove(move) },
   ];
 }

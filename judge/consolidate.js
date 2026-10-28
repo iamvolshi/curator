@@ -42,16 +42,40 @@ export const MMRC_SYSTEM = [
   'questions. Copy them from the form you are given, unchanged.',
 ].join(' ');
 
-function mmrcMessages(body) {
-  return [
+/**
+ * How many times the MMRC model is asked for one move: the call, then at most one
+ * repair. The cap is what stops a model that will not format from being asked
+ * forever, and it keeps the repair from becoming a second opinion.
+ */
+export const MMRC_MAX_ATTEMPTS = 2;
+
+/**
+ * Ask for the same form back, and — on a repair — say exactly what was refused.
+ * The form is sent again with it, so the model has both sides of the complaint.
+ */
+function mmrcMessages(body, refused = null) {
+  const messages = [
     { role: 'system', content: MMRC_SYSTEM },
     { role: 'user', content: JSON.stringify(body) },
   ];
+  if (refused) {
+    messages.push({
+      role: 'user',
+      content: `Your previous reply was refused: ${refused.detail}. Return the form above unchanged, as one JSON object with exactly the keys opinions, highest_probable and questions.`,
+    });
+  }
+  return messages;
 }
 
-/** Read the JSON object the model returned, or say why it cannot be read. */
+/**
+ * Read the JSON object the model returned, or say why it cannot be read.
+ *
+ * Local repair first: a reply wrapped in a code fence still holds the form, so the
+ * fence is stripped here rather than spending a model call to strip it.
+ */
 function readMmrcReply(text) {
-  const raw = String(text ?? '');
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(String(text ?? ''));
+  const raw = fenced ? fenced[1] : String(text ?? '');
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start === -1 || end <= start) return { error: 'the reply carried no JSON object' };
@@ -60,6 +84,32 @@ function readMmrcReply(text) {
   } catch {
     return { error: 'the reply was not valid JSON' };
   }
+}
+
+/**
+ * Check one reply against the grouping it was given.
+ *
+ * The grouping is decided in code; the model may only hand it back unchanged. A
+ * reply that cannot be read, or that changes the form, is refused with the exact
+ * reason, which the repair call carries back to the model.
+ */
+function checkMmrcReply(text, body) {
+  const read = readMmrcReply(text);
+  if (read.error) return { ok: false, kind: MMRC_FAILURES.unreadableReply, detail: read.error };
+
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (
+    !same(read.reply.opinions, body.opinions) ||
+    !same(read.reply.highest_probable, body.highest_probable) ||
+    !same(read.reply.questions, body.questions)
+  ) {
+    return {
+      ok: false,
+      kind: MMRC_FAILURES.alteredGrouping,
+      detail: 'the MMRC reply changed the grouping it was given',
+    };
+  }
+  return { ok: true };
 }
 
 /** The two typed failures a consolidation can end in, besides a validation failure. */
@@ -216,6 +266,10 @@ export function deliveryFrom(body, mmrcModelId) {
  * hand the same form back, then check that it changed nothing before the report is
  * written. The model ID in the report is the one the response named, never config.
  *
+ * A reply that cannot be read or that changes the form is refused, and the model is
+ * asked once more with the exact error. After the cap it is a typed failure: a
+ * malformed delivery report is no readout, never a freeform one.
+ *
  * @param {Array} entries   the record, oldest first
  * @param {number} move     the move seq to consolidate
  * @param {object} [options]
@@ -227,31 +281,30 @@ export async function consolidateMove(entries, move, { env = process.env, fetchI
   const grouped = consolidateReports(entries, move);
   if (!grouped.ok) return grouped;
 
-  const sent = await call(MMRC_PLUG, {
-    messages: mmrcMessages(grouped.body),
-    model: MMRC_MODEL_ID,
-    temperature: MMRC_TEMPERATURE,
-    env,
-    fetchImpl,
-  });
-  if (!sent.ok) return failure(MMRC_FAILURES.callFailed, sent.error?.message ?? 'the MMRC call failed');
+  // The repair ladder: ask, check, and on a refusal ask once more with the exact
+  // error. A transport failure is not a formatting error, so it is not retried.
+  let refused = null;
+  for (let attempt = 1; attempt <= MMRC_MAX_ATTEMPTS; attempt += 1) {
+    const sent = await call(MMRC_PLUG, {
+      messages: mmrcMessages(grouped.body, refused),
+      model: MMRC_MODEL_ID,
+      temperature: MMRC_TEMPERATURE,
+      env,
+      fetchImpl,
+    });
+    if (!sent.ok) return failure(MMRC_FAILURES.callFailed, sent.error?.message ?? 'the MMRC call failed');
 
-  const read = readMmrcReply(sent.text);
-  if (read.error) return failure(MMRC_FAILURES.unreadableReply, read.error);
+    // Only the response can name who answered, and a repair cannot supply it, so
+    // an unnamed reply stops here rather than spending the second attempt.
+    if (!sent.reportedModel) {
+      return failure(MMRC_FAILURES.unnamedModel, 'the MMRC response named no model, so the report cannot say who answered');
+    }
 
-  // The grouping is decided in code. The model may only hand it back unchanged.
-  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  if (
-    !same(read.reply.opinions, grouped.body.opinions) ||
-    !same(read.reply.highest_probable, grouped.body.highest_probable) ||
-    !same(read.reply.questions, grouped.body.questions)
-  ) {
-    return failure(MMRC_FAILURES.alteredGrouping, 'the MMRC reply changed the grouping it was given, so no report is written');
+    const checked = checkMmrcReply(sent.text, grouped.body);
+    if (checked.ok) return deliveryFrom(grouped.body, sent.reportedModel);
+
+    refused = checked;
   }
 
-  if (!sent.reportedModel) {
-    return failure(MMRC_FAILURES.unnamedModel, 'the MMRC response named no model, so the report cannot say who answered');
-  }
-
-  return deliveryFrom(grouped.body, sent.reportedModel);
+  return failure(refused.kind, `${refused.detail} (after ${MMRC_MAX_ATTEMPTS} attempts, so no report is written)`);
 }

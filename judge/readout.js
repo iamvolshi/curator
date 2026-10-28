@@ -176,6 +176,8 @@ function consolidatedMove(seq, seats, majority, about, report) {
       ids: [...opinion.supporting_models],
       support: opinion.support_count,
       judges: held.length,
+      // The status the report decided, carried so the readout can say "gray box"
+      // for a move no opinion carried, instead of calling every dissent an edge grey.
       status: opinion.status,
     };
   });

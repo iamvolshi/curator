@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { consolidateReports, consolidateMove, deliveryFrom, MMRC_FAILURES } from '../judge/consolidate.js';
+import { consolidateReports, consolidateMove, deliveryFrom, MMRC_FAILURES, MMRC_MAX_ATTEMPTS } from '../judge/consolidate.js';
 import { MMRC_MODEL_ID, MMRC_TEMPERATURE } from '../worker/config.js';
 
 const MMRC = 'mmrc/model-under-test';
@@ -200,18 +200,83 @@ test('the live call sends the configured model and temperature and writes the mo
   assert.equal(result.report.mmrc_model_id, 'muse-spark-1.3');
 });
 
-test('a reply that changes the grouping writes no report', async () => {
+test('a reply that changes the grouping writes no report, after the repair cap', async () => {
   const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
-  const fetchImpl = async () => ({
-    ok: true,
-    status: 200,
-    text: async () => JSON.stringify({ model: 'muse-spark-1.3', choices: [{ message: { content: '{"opinions":[],"highest_probable":null,"questions":[]}' } }] }),
-  });
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ model: 'muse-spark-1.3', choices: [{ message: { content: '{"opinions":[],"highest_probable":null,"questions":[]}' } }] }),
+    };
+  };
 
   const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
 
   assert.equal(result.ok, false);
   assert.equal(result.kind, MMRC_FAILURES.alteredGrouping);
+  assert.equal(calls, MMRC_MAX_ATTEMPTS, 'the repair is capped, so a model that will not format is not asked forever');
+  assert.match(result.detail, /no report is written/);
+});
+
+test('a fenced reply is repaired locally, without spending a second call', async () => {
+  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const grouped = consolidateReports(entries, 1).body;
+  const form = JSON.stringify({ opinions: grouped.opinions, highest_probable: grouped.highest_probable, questions: grouped.questions });
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({ model: 'muse-spark-1.3', choices: [{ message: { content: `\u0060\u0060\u0060json\n${form}\n\u0060\u0060\u0060` } }] }),
+    };
+  };
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, true, result.detail);
+  assert.equal(calls, 1, 'the fence is stripped here, not by another model call');
+});
+
+test('a refused reply is asked once more with the exact error, and the repair is written', async () => {
+  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const grouped = consolidateReports(entries, 1).body;
+  const form = JSON.stringify({ opinions: grouped.opinions, highest_probable: grouped.highest_probable, questions: grouped.questions });
+  const bodies = [];
+  const fetchImpl = async (url, options) => {
+    bodies.push(JSON.parse(options.body));
+    const content = bodies.length === 1 ? '{"opinions":[],"highest_probable":null,"questions":[]}' : form;
+    return { ok: true, status: 200, text: async () => JSON.stringify({ model: 'muse-spark-1.3', choices: [{ message: { content } }] }) };
+  };
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, true, result.detail);
+  assert.equal(bodies.length, 2);
+  const repair = bodies[1].messages.at(-1).content;
+  assert.match(repair, /changed the grouping it was given/, 'the repair carries the exact refusal');
+});
+
+test('a response that names no model stops before the repair attempt', async () => {
+  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ choices: [{ message: { content: '{"opinions":[],"highest_probable":null,"questions":[]}' } }] }),
+    };
+  };
+
+  const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, MMRC_FAILURES.unnamedModel);
+  assert.equal(calls, 1, 'a repair cannot supply the missing model ID');
 });
 
 test('a failed call writes no report and names the failure', async () => {

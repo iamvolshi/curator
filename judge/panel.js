@@ -56,6 +56,15 @@ export const SEAT_FAIL_WORDS = Object.freeze({
   [SEAT_STATES.directed]: 'the reading directed the agent, so it was refused',
 });
 
+/** The first phrase in any of the prose a seat writes that directs, or null. */
+function directionIn(texts) {
+  for (const text of texts) {
+    const found = directs(text);
+    if (found) return found;
+  }
+  return null;
+}
+
 /**
  * One call through one plug, and what came back.
  *
@@ -85,13 +94,13 @@ async function ask({ plugName, model, env, move, fetchImpl }) {
   const id = sent.reportedModel ?? null;
   const numbered = { deed: read.deed, pool: read.pool, basis: read.basis, topics: read.topics, sitting: read.question || 'none' };
 
-  if (read.basis === 'not-shown') {
-    return { ...base, state: SEAT_STATES.asked, id, question: read.question, numbered };
-  }
-
-  const direction = directs(read.observation);
+  const direction = directionIn([read.deed, read.pool, ...read.topics, read.question]);
   if (direction) {
     return { ...base, state: SEAT_STATES.directed, id, detail: `the wording directed: ${direction}` };
+  }
+
+  if (read.basis === 'not-shown') {
+    return { ...base, state: SEAT_STATES.asked, id, question: read.question, numbered };
   }
 
   return { ...base, state: SEAT_STATES.opinion, id, observation: read.observation, numbered };

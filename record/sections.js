@@ -134,13 +134,18 @@ ${rows
 export function renderReadout(readout) {
   if (!readout || readout.moves.length === 0) return '';
 
-  const opinionRow = (kind, opinion) => `      <li class="readout__row">
-        <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(kind === 'probable' ? 'highest probable' : 'edge grey')}</span>
+  const opinionRow = (kind, opinion) => {
+    // A consolidated move's report names the box: gray box when no opinion reached
+    // a majority, so the page does not call non-convergence a dissent.
+    const label = kind === 'probable' ? 'highest probable' : opinion.status === 'gray_box' ? 'gray box' : 'edge grey';
+    return `      <li class="readout__row">
+        <span class="readout__kind ${kind === 'probable' ? 'readout__kind--probable' : ''}">${esc(label)}</span>
         <span class="readout__text">${esc(opinion.text)}</span>
         <span class="readout__count">${esc(
           `${count(opinion.judges, 'seat')} \u00b7 ${count(opinion.support, 'independent judge')}${opinion.ids.length ? ` (${opinion.ids.join(', ')})` : ''}`,
         )}</span>
       </li>`;
+  };
 
   const rows = readout.moves
     .map((move) => {

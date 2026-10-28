@@ -81,6 +81,56 @@ test('the page carries the panel\u2019s readout, counted from the seats the reco
   );
 });
 
+test('a consolidated move reads out its delivery report, and the gray box is labelled as one', () => {
+  // The delivery is the readout for a move it covers: the page takes the grouping
+  // and the statuses from it, and calls non-convergence the gray box rather than a
+  // dissent nobody declared.
+  const seat = (seq, seatNumber, model, pool, observation) => ({
+    seq,
+    when,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat: seatNumber,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  });
+
+  const html = buildPage(
+    [
+      call(1),
+      seat(2, 1, 'muse-spark-1.3', 'entry 1', 'the reply supports the claim'),
+      seat(3, 2, 'free-a', 'entry 2', 'the reply restates the prompt'),
+      {
+        seq: 4,
+        when,
+        label: 'delivery',
+        what: {
+          kind: 'delivery',
+          move: 1,
+          mmrc_model_id: 'muse-spark-1.3',
+          seats: ['muse-spark-1.3', 'free-a'],
+          opinions: [
+            { position: 'justified', basis: [1], support_count: 1, supporting_models: ['muse-spark-1.3'], status: 'gray_box' },
+            { position: 'justified', basis: [2], support_count: 1, supporting_models: ['free-a'], status: 'gray_box' },
+          ],
+          highest_probable: null,
+          questions: [],
+          derived: true,
+        },
+      },
+    ],
+    { source: 'records/k-record.jsonl', generatedAt: when, env: {} },
+  );
+
+  assert.match(html, /gray box[\s\S]{0,240}the reply supports the claim/, 'no opinion carried the move, so every reading stands in the gray box');
+  assert.doesNotMatch(html, /edge grey[\s\S]{0,240}the reply supports the claim/, 'non-convergence is not called a dissent');
+});
+
 test('a record no panel wrote carries no readout, because no panel sat', () => {
   // The single judge's judgment carries no seat. A page that read it out would say
   // "no opinion reached 2 independent judges" about a move one judge answered — a

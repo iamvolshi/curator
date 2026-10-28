@@ -33,7 +33,7 @@ Four small parts, one idea each.
 | `worker/` | The Worker agent's call path. It builds the Meta-shaped request and hands it to the seam — it is not a second way out. "Worker" here means this module: the thing that makes the model call. |
 | `cli/`, `bin/` | The command line that ties the three together. |
 
-### The two labels
+### The labels
 
 Every entry is labelled, so a reader always knows what kind of statement they
 are looking at:
@@ -46,9 +46,12 @@ subject's thread. It is not a fact and not a judgment, and it darkens nothing.
 When the move it is about names no subject, the question is written anyway and
 belongs to no folder: an entry filed nowhere still exists, whereas silence would
 leave the skipped move looking like one nobody looked at.
+- **`delivery`** — the MMRC consolidation of one move's three seat reports. It is
+derived from them and checked unchanged, so it is a view of the record, never a
+fact and never a judgment.
 
 A judgment never changes a fact, and a question never darkens a shade. The
-labels are what keep the three apart.
+labels are what keep the kinds apart.
 
 ### Folders, the judge, and shade
 
@@ -149,8 +152,11 @@ seats **the record shows** on that move — and then every other reading as an
 **edge grey**, the 2-1 dissent or the lone reading nobody shared. Nothing is merged,
 nothing is averaged into a sentence nobody said, and a minority reading is never
 dropped by the majority. With no majority, no probable is declared and every reading
-is surfaced; a move where every seat asked what shows the basis is read out with no
-readings and every seat named. The panel is counted from the entries, never from the
+is surfaced — in the **gray box**, labelled as one, not as a dissent. For a move
+with a stored delivery report the readout is that report's grouping and statuses,
+so the page and the run report cannot regroup a move the MMRC already consolidated.
+A move where every seat asked what shows the basis is read out with no readings and
+every seat named. The panel is counted from the entries, never from the
 panel this machine is configured with, so one record reads the same anywhere — and a
 record the single judge wrote carries no readout at all, because a judgment with no
 seat is one judge's reading and not a panel that agreed on nothing. The readout is
@@ -163,6 +169,51 @@ cannot judge.
 Each seat answers the same five numbered questions, in order, one line each: **Q1** the deed (what the worker did), **Q2** the basis in the record, **Q3** whether the basis is `justified` or `not shown`, **Q4** the other topics the basis touches, and **Q5** the question that would show the basis when it is not shown (`none` when it is justified). The prompt is defined in [`judge/prompt.js`](judge/prompt.js), and a seat's answers are read by number, so a reply that skips a number or adds one is not a reading. The same contract is shared with the single judge: a reply that does not follow it writes nothing.
 
 From those answers, [`judge/graph.js`](judge/graph.js) draws one graph per seat per move. The **nodes** are the move (Q1), its basis (Q2), each topic (Q4), and the question asked when the basis is not shown (Q5). The **edges** are the basis *justifies* the move (only when Q3 says `justified`), the move *touches* each topic, and the move *asks* the question (only when `not shown`). A seat with no numbered answers draws nothing. The panel report prints the numbered answers and the edges under each seat, and the graph is derived, never stored: it is rebuilt from the record, like every other view.
+
+### The delivery report (MMRC)
+
+After the three seats on a move have written, one more call consolidates them: the
+**MMRC**, the multi-model reasoning consolidator. It is a secretary with a form,
+not a fourth judge. Its input is exactly the three seat reports the record holds
+for that move — the model IDs the responses named, and the substitution label if
+the bank filled a seat — and nothing else: no worker conversation, no other move,
+no other record line. Its output is one `delivery` entry marked `derived: true`,
+because it is a view of the record like a folder or a graph, never a fact and
+never a judgment.
+
+The grouping is decided in code, not by the model. Two seats hold the same opinion
+when their **position** (Q3: `justified` or `not shown`) and their **basis** (the
+entries Q2 cited) agree. Wording is ignored: the same sentence citing a different
+basis is two opinions, and three different sentences citing the same basis are
+one. Support is counted by distinct model ID, so one model answering twice is
+stacking, not independent agreement. The opinion with the most independent
+support is the **highest probable**, and only when that support reaches a majority
+of the seats the record shows; otherwise no probable is declared and every opinion
+stands in the **gray box**. Every other opinion is an **edge grey**. Nothing is
+merged, averaged away or dropped — a seat that asked a question stays a question,
+labelled as one, and a move where every seat asked has no opinions at all.
+
+The report is one JSON object per move, and every field is a slot:
+
+```json
+{"move":37,"mmrc_model_id":"muse-spark-1.3","seats":["model-a","model-b","model-c"],"opinions":[{"position":"justified","basis":[12,14],"support_count":2,"supporting_models":["model-a","model-b"],"status":"highest_probable"},{"position":"justified","basis":[21],"support_count":1,"supporting_models":["model-c"],"status":"edge_grey"}],"highest_probable":{"position":"justified","basis":[12,14],"support_count":2,"supporting_models":["model-a","model-b"],"status":"highest_probable"},"questions":[],"derived":true}
+```
+
+`mmrc_model_id` is the ID the MMRC **response** named, never the configured one,
+so the report says who actually answered. There is no verdict field, no consensus
+field and no confidence field: the form has nowhere for a decision to hide, and a
+report carrying one is refused as a forbidden field rather than read.
+
+The model is asked only to hand the same form back, and its reply is checked
+against the form it was given — it may not regroup, reword, add or drop anything.
+A fenced reply is unwrapped locally; a reply that cannot be read, or that changes
+the grouping, is asked once more with the exact error; after two attempts it is a
+typed failure, never a readout. A move with fewer than three readable seat reports
+is `insufficient_reports` or `malformed_input`, and no partial consolidation is
+written. One report per judged move: re-running the panel on the same move writes
+a new derivation and never edits the old one. The report never goes back to the
+worker or to the seats, so there is no feedback loop — it is the readout, and the
+reader is the one who decides.
 
 **Shade** runs 0 (white) to 9 (black), and 8–9 is the black band. It is counted,
 not judged: each independent supporting fact about a subject darkens it by one,
@@ -412,6 +463,12 @@ The mapping follows Meta's published error reference, listed below.
 - The picture slot has no reader for an image reply. Every plug here reads the
   chat-completions shape; an image answer (bytes or a URL) needs its own reader
   before that slot can run.
+- The consolidation groups by position and cited basis, and by nothing else. It
+  cannot tell whether two seats cite the same entries for different reasons, and
+  it cannot catch a wrong citation: a basis is taken as the seat's report gave it.
+- The MMRC model and its temperature are set in `worker/config.js` and sent with
+  every consolidation call. They were filled in before this build order and are
+  Darren's to confirm or change; no new paid model is used for them.
 
 ## Where the API facts came from
 

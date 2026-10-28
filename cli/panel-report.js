@@ -112,7 +112,9 @@ function printReadout(readout) {
       );
     }
     for (const grey of move.edgeGreys) {
-      printOpinion('  edge grey:        ', grey);
+      // A consolidated move says which box the delivery put the opinion in: gray
+      // box when nothing reached a majority, edge grey for everything else.
+      printOpinion(grey.status === 'gray_box' ? '  gray box:         ' : '  edge grey:        ', grey);
     }
     for (const seat of move.noPosition) {
       note(`  seat ${seat === null ? '(unrecorded)' : seat} asked what shows the basis, so it took no position on this move`);

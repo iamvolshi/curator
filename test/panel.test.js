@@ -18,11 +18,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { panelCommand } from '../cli/panel.js';
+import { reportPanelRun } from '../cli/panel-report.js';
 import { judgePanel } from '../judge/panel.js';
 import { majorityFor, readPanel } from '../judge/readout.js';
 import { panelConfig } from '../judge/seats.js';
 import { createStore } from '../record/store.js';
-import { DIRECTING, NOT_SHOWN, OTHER, SAME, THIRD, fact } from '../checks/panel-fixtures.js';
+import { DIRECTING, NOT_SHOWN, OTHER, SAME, THIRD, fact, numbered } from '../checks/panel-fixtures.js';
 
 const WHEN = '2026-10-27T09:00:00.000Z';
 
@@ -300,6 +301,25 @@ test('a reading that directs is never written, and the seat is filled instead', 
   });
 });
 
+test('a directed question is refused too, not only a directed observation', async () => {
+  await withStore(async (store) => {
+    await store.append(fact(1));
+    const env = { ...PANEL, NVIDIA_MODEL: 'free-c', PANEL_BANK: 'nvidia' };
+
+    // Basis not shown, so the seat asks; the question itself tells the agent what to do.
+    const directedQuestion = numbered('the reply makes no claim', 'not shown', 'none', 'you should add a timing log next?');
+    const fetchImpl = seatReplies({ 'muse-spark-1.3': SAME, 'free-a': SAME, 'free-b': directedQuestion, 'free-c': SAME });
+    await judgePanel({ entries: await store.readAll(), env, store, fetchImpl, now: () => new Date(WHEN) });
+
+    const record = await store.readAll();
+    assert.doesNotMatch(JSON.stringify(record), /you should/i, 'the directed question is not in the record');
+    const filled = record.filter((entry) => entry.what.substitution);
+    assert.equal(filled.length, 1);
+    assert.equal(filled[0].what.substitution.plug, 'nvidia');
+    assert.match(filled[0].what.substitution.departedReason, /directed/);
+  });
+});
+
 test('a seat whose call fails is filled from the bank, and the entry says who left and who filled it', async () => {
   await withStore(async (store) => {
     await store.append(fact(1));
@@ -420,17 +440,22 @@ test('--retry-parked is refused as a judge option, not quietly ignored', async (
 });
 
 test('the panel reads the contest prompt, and the single judge reads its own', async () => {
-  const { JUDGE_SYSTEM, PANEL_SYSTEM } = await import('../judge/prompt.js');
+  const { JUDGE_SYSTEM, PANEL_SYSTEM, panelMessages } = await import('../judge/prompt.js');
 
   assert.match(PANEL_SYSTEM, /opinion contest/);
   assert.match(PANEL_SYSTEM, /cannot see the others/, 'a seat is told it is one of three, reading alone');
 
-  // Every line after the opening is the judge's own, word for word: one contract,
-  // one reply reader, and no second set of rules to drift from the first.
-  const [, ...shared] = JUDGE_SYSTEM.split('\n');
-  assert.equal(shared.length, 6);
-  for (const line of shared) {
-    assert.ok(PANEL_SYSTEM.includes(line), `a seat keeps the judge\u2019s own words: ${line.slice(0, 40)}\u2026`);
+  // One output contract per seat: the numbered one. The judge's JSON shape never reaches a seat.
+  assert.match(PANEL_SYSTEM, /Answer by number, in order/);
+  assert.doesNotMatch(PANEL_SYSTEM, /Answer with JSON only/);
+  assert.doesNotMatch(PANEL_SYSTEM, /in exactly this shape/);
+
+  // The manner rule is the judge's own, and each of its two lines is sent to a seat once.
+  const [system] = panelMessages({ what: {} });
+  const manner = JUDGE_SYSTEM.split('\n').slice(-2);
+  assert.equal(manner.length, 2);
+  for (const line of manner) {
+    assert.equal(system.content.split(line).length - 1, 1, `once, not twice: ${line.slice(0, 40)}\u2026`);
   }
   assert.equal(JUDGE_SYSTEM.includes('opinion contest'), false, 'the single judge is not told it is in a contest');
 });
@@ -475,6 +500,78 @@ function read(seq, move, seat, model, observation) {
     what: { kind: 'judgment', move, subjects: [], seat, model, observation },
   };
 }
+
+/** A seat's judgment carrying the numbered basis a stored delivery is matched by. */
+function seated(seq, seat, model, pool, observation) {
+  return {
+    seq,
+    when: WHEN,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  };
+}
+
+/** One stored delivery for move 1: two opinions, neither reaching a majority. */
+function delivery(seq) {
+  return {
+    seq,
+    when: WHEN,
+    label: 'delivery',
+    what: {
+      kind: 'delivery',
+      move: 1,
+      mmrc_model_id: 'model-m',
+      seats: ['model-a', 'model-b'],
+      opinions: [
+        { position: 'justified', basis: [1], support_count: 1, supporting_models: ['model-a'], status: 'gray_box' },
+        { position: 'justified', basis: [2], support_count: 1, supporting_models: ['model-b'], status: 'gray_box' },
+      ],
+      highest_probable: null,
+      questions: [],
+      derived: true,
+    },
+  };
+}
+
+test('a consolidated move reads out its delivery, and its gray box is labelled as one', () => {
+  const entries = [
+    fact(1),
+    seated(2, 1, 'model-a', 'entry 1', 'the reply supports the claim'),
+    seated(3, 2, 'model-b', 'entry 2', 'the reply restates the prompt'),
+    delivery(4),
+  ];
+  const readout = readPanel(entries);
+
+  assert.equal(readout.moves[0].probable, null, 'no opinion reached a majority');
+  assert.deepEqual(readout.moves[0].edgeGreys.map((opinion) => opinion.text), [
+    'the reply supports the claim',
+    'the reply restates the prompt',
+  ]);
+  assert.deepEqual(readout.moves[0].edgeGreys.map((opinion) => opinion.status), ['gray_box', 'gray_box']);
+
+  const printed = [];
+  const original = console.log;
+  console.log = (...args) => printed.push(args.join(' '));
+  try {
+    reportPanelRun(
+      { refused: null, problem: null, waiting: 0, candidates: 0, outcomes: [], attempts: [], written: { judgments: 0, questions: 0 }, stopped: null, seats: [1, 2, 3] },
+      { readout },
+    );
+  } finally {
+    console.log = original;
+  }
+
+  assert.match(printed.join('\n'), /gray box:\s+"the reply supports the claim"/, 'non-convergence is the gray box, not a dissent');
+  assert.doesNotMatch(printed.join('\n'), /edge grey:\s+"the reply supports the claim"/);
+});
 
 test('the readout is counted against the seats the record shows, never a panel it never held', () => {
   const entries = [
