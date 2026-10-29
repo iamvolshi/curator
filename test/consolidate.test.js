@@ -468,6 +468,14 @@ const GROUPING_CASES = [
     edit: ({ highest_probable, ...rest }) => rest,
     fields: [],
   },
+  {
+    // The agreeing pair gives the code a probable, so leaving the key out says
+    // something the grouping does not — the absence is drift, not silence.
+    name: 'a dropped declared probable is named',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: ({ highest_probable, ...rest }) => rest,
+    fields: ['highest_probable'],
+  },
 ];
 
 test('the canonical grouping names a changed field and forgives a reordering', () => {
