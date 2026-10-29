@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { pageCommand } from '../cli/page.js';
+import { consolidateReports } from '../judge/consolidate.js';
 import { buildPage } from '../cli/view.js';
 import { PARK_AFTER, createLedger } from '../judge/attempts.js';
 import { renderPage } from '../record/html.js';
@@ -51,6 +52,29 @@ function held(seq, move, seat, model, observation) {
   };
 }
 
+/**
+ * One seat's judgment carrying the numbered answers a stored delivery is matched
+ * by: the seat number, the ID the reply named, and the pool its basis cites. Shared
+ * by every page fixture, so the panels these tests build cannot drift apart; the
+ * observation defaults to the sentence the command tests used.
+ */
+function seat(seq, seatNumber, model, pool, observation = 'the move follows from the cited entries') {
+  return {
+    seq,
+    when,
+    label: 'judgment',
+    what: {
+      kind: 'seat-judgment',
+      move: 1,
+      subjects: [],
+      seat: seatNumber,
+      model,
+      observation,
+      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
+    },
+  };
+}
+
 test('the page carries the panel\u2019s readout, counted from the seats the record shows', () => {
   // The readout is a view, so it is built where the page is built, from the entries
   // in hand — not handed to the renderer by whoever remembered to. The panel it is
@@ -85,21 +109,6 @@ test('a consolidated move reads out its delivery report, and the gray box is lab
   // The delivery is the readout for a move it covers: the page takes the grouping
   // and the statuses from it, and calls non-convergence the gray box rather than a
   // dissent nobody declared.
-  const seat = (seq, seatNumber, model, pool, observation) => ({
-    seq,
-    when,
-    label: 'judgment',
-    what: {
-      kind: 'seat-judgment',
-      move: 1,
-      subjects: [],
-      seat: seatNumber,
-      model,
-      observation,
-      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-    },
-  });
-
   const html = buildPage(
     [
       call(1),
@@ -135,21 +144,6 @@ test('the page reads a stored delivery with the seats it cites, even when its ba
   // A report's basis is fixed when it is written; how a cited Q2 is read is not. The
   // stored basis here is the two numbers an older read made of "entries 7\u20139", which
   // today reads as three entries \u2014 so the basis alone matches no seat.
-  const seat = (seq, seatNumber, model, pool, observation) => ({
-    seq,
-    when,
-    label: 'judgment',
-    what: {
-      kind: 'seat-judgment',
-      move: 1,
-      subjects: [],
-      seat: seatNumber,
-      model,
-      observation,
-      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-    },
-  });
-
   const html = buildPage(
     [
       call(1),
@@ -185,21 +179,6 @@ test('a stored opinion the record cannot back is marked unbacked on the page', (
   // The report cites a model and a basis the record does not hold. The row is shown
   // — a stored derivation is never dropped — but it says it is unbacked, and it does
   // not report itself as held by zero seats beside a count.
-  const seat = (seq, seatNumber, model, pool, observation) => ({
-    seq,
-    when,
-    label: 'judgment',
-    what: {
-      kind: 'seat-judgment',
-      move: 1,
-      subjects: [],
-      seat: seatNumber,
-      model,
-      observation,
-      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-    },
-  });
-
   const html = buildPage(
     [
       call(1),
@@ -240,21 +219,6 @@ test('a stored opinion the record seats twice with two readings is shown as ambi
   // One model on two seats that disagree, with a basis no longer read the way the
   // report read it: the page cannot say which seat the report meant, so the row says
   // the link is ambiguous instead of attaching either seat's words.
-  const seat = (seq, seatNumber, model, pool, observation) => ({
-    seq,
-    when,
-    label: 'judgment',
-    what: {
-      kind: 'seat-judgment',
-      move: 1,
-      subjects: [],
-      seat: seatNumber,
-      model,
-      observation,
-      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-    },
-  });
-
   const html = buildPage(
     [
       call(1),
@@ -296,21 +260,6 @@ test('a stored opinion only some of its cited seats place says which one is miss
   // basis places one. The row keeps the seat it can name and says the other is not
   // placed, so the short seat count is explained instead of reading as a panel that
   // shrank. The report's own count is repeated exactly as stored.
-  const seat = (seq, seatNumber, model, pool, observation) => ({
-    seq,
-    when,
-    label: 'judgment',
-    what: {
-      kind: 'seat-judgment',
-      move: 1,
-      subjects: [],
-      seat: seatNumber,
-      model,
-      observation,
-      numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-    },
-  });
-
   const html = buildPage(
     [
       call(1),
@@ -798,20 +747,6 @@ test('the command reports a stored delivery that no longer groups as its seat re
     const out = join(dir, 'page.html');
 
     await store.append(call(1));
-    const seat = (seq, seatNumber, model, pool) => ({
-      seq,
-      when,
-      label: 'judgment',
-      what: {
-        kind: 'seat-judgment',
-        move: 1,
-        subjects: [],
-        seat: seatNumber,
-        model,
-        observation: 'the move follows from the cited entries',
-        numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-      },
-    });
     await store.append(seat(2, 1, 'model-a', 'entry 1'));
     await store.append(seat(3, 2, 'model-b', 'entry 1'));
     await store.append(seat(4, 3, 'model-c', 'entry 2'));
@@ -872,7 +807,8 @@ test('the command reports a stored delivery that no longer groups as its seat re
     // The live viewer builds the page without passing a problem list, so the default
     // has to compute it: both ways of looking at the record mark the same move.
     const live = buildPage(await store.readAll(), { source: 'records/k-record.jsonl', generatedAt: when, env: {} });
-    assert.match(live, /<p class="readout__drift">/, 'the live viewer marks it too');
+    assert.match(live, /<p class="readout__drift">/, 'the live viewer marks the readout too');
+    assert.match(live, /<p class="entry__drift">/, 'and the delivery card');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -889,20 +825,6 @@ test('the command reports a stored opinion carrying a field the schema does not 
     const out = join(dir, 'page.html');
 
     await store.append(call(1));
-    const seat = (seq, seatNumber, model, pool) => ({
-      seq,
-      when,
-      label: 'judgment',
-      what: {
-        kind: 'seat-judgment',
-        move: 1,
-        subjects: [],
-        seat: seatNumber,
-        model,
-        observation: 'the move follows from the cited entries',
-        numbered: { deed: 'the move', pool, basis: 'shown', topics: [], sitting: 'none' },
-      },
-    });
     await store.append(seat(2, 1, 'model-a', 'entry 1'));
     await store.append(seat(3, 2, 'model-b', 'entry 1'));
     await store.append(seat(4, 3, 'model-c', 'entry 2'));
@@ -960,6 +882,133 @@ test('the command reports a stored opinion carrying a field the schema does not 
       false,
       'a delivery that still groups the way the record does is not marked',
     );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('the command marks a superseded drifted delivery on its own card', async () => {
+  // The readout shows the newest report for the move, and that one is clean. The
+  // older report is still in the record and still drifted, so its own card says so:
+  // the page must not leave a stored drift unmarked just because it was superseded.
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-page-card-older-'));
+  try {
+    const store = createStore(join(dir, 'records.jsonl'));
+    const out = join(dir, 'page.html');
+    await store.append(seat(1, 1, 'model-a', 'entry 1'));
+    await store.append(seat(2, 2, 'model-b', 'entry 1'));
+    await store.append(seat(3, 3, 'model-c', 'entry 2'));
+    await store.append({
+      seq: 4,
+      when,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-b', 'model-c'],
+        opinions: [
+          { position: 'justified', basis: [1], support_count: 2, supporting_models: ['model-a', 'model-b'], status: 'highest_probable' },
+          { position: 'justified', basis: [2], support_count: 1, supporting_models: ['model-c'], status: 'edge_grey' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    });
+    const grouped = consolidateReports(await store.readAll(), 1).body;
+    await store.append({
+      seq: 5,
+      when,
+      label: 'delivery',
+      what: { kind: 'delivery', move: 1, mmrc_model_id: 'model-m', ...grouped, derived: true },
+    });
+
+    const printed = [];
+    const original = console.log;
+    console.log = (...args) => printed.push(args.map(String).join(' '));
+    let code;
+    try {
+      code = await pageCommand({
+        store,
+        args: ['--out', out],
+        now: () => new Date(when),
+        env: { OVERSEER_LEDGER: join(dir, 'attempts.json') },
+      });
+    } finally {
+      console.log = original;
+    }
+
+    const text = printed.join('\n');
+    const html = await readFile(out, 'utf8');
+    assert.equal(code, 1, 'the superseded drift still fails the command');
+    assert.match(text, /seq 4, move 1: the seat reports group differently today \(highest_probable\)/);
+    assert.equal((html.match(/<p class="entry__drift">/g) ?? []).length, 1, 'only the drifted report is marked');
+    assert.match(
+      html,
+      /id="entry-4"[\s\S]*?<p class="entry__drift">this stored report no longer matches the record: the seat reports group differently today \(highest_probable\)<\/p>/,
+      'the mark sits on the card of the report that drifted',
+    );
+    assert.equal(
+      html.includes('<p class="readout__drift">'),
+      false,
+      'the readout shows the clean report, so the readout is not marked',
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('the command marks a drifted delivery whose move has no seat reports at all', async () => {
+  // Nothing in the record can confirm this grouping, and there is no readout to mark:
+  // the delivery is the only entry, so the card is the only place the page can say so.
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-page-card-lone-'));
+  try {
+    const store = createStore(join(dir, 'records.jsonl'));
+    const out = join(dir, 'page.html');
+    await store.append({
+      seq: 1,
+      when,
+      label: 'delivery',
+      what: {
+        kind: 'delivery',
+        move: 1,
+        mmrc_model_id: 'model-m',
+        seats: ['model-a', 'model-b', 'model-c'],
+        opinions: [
+          { position: 'justified', basis: [1], support_count: 2, supporting_models: ['model-a', 'model-b'], status: 'highest_probable' },
+        ],
+        highest_probable: null,
+        questions: [],
+        derived: true,
+      },
+    });
+
+    const printed = [];
+    const original = console.log;
+    console.log = (...args) => printed.push(args.map(String).join(' '));
+    let code;
+    try {
+      code = await pageCommand({
+        store,
+        args: ['--out', out],
+        now: () => new Date(when),
+        env: { OVERSEER_LEDGER: join(dir, 'attempts.json') },
+      });
+    } finally {
+      console.log = original;
+    }
+
+    const text = printed.join('\n');
+    const html = await readFile(out, 'utf8');
+    assert.equal(code, 1, 'a delivery nothing can confirm fails the command');
+    assert.match(text, /seq 1, move 1: insufficient_reports: this move has 0 of 3 seat reports/);
+    assert.match(
+      html,
+      /<p class="entry__drift">this stored report no longer matches the record: this move has 0 of 3 seat reports, so no consolidation is written<\/p>/,
+      'the card says why the record cannot confirm the grouping',
+    );
+    assert.equal(html.includes('<section class="readout">'), false, 'there is no panel to read out');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

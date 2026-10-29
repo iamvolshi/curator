@@ -93,5 +93,6 @@ export function buildPage(
     live,
     parked,
     readout: readoutFor(entries, groupingProblems),
+    groupingProblems,
   });
 }

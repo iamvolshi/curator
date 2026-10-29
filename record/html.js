@@ -224,6 +224,7 @@ const STYLE = `
     overflow-wrap: anywhere;
   }
   .entry__body dd:last-child { margin-bottom: 0; }
+  .entry__drift { margin: .7rem 0 0 2.2rem; font-size: .82rem; font-weight: 600; color: var(--judgment); }
   .foot {
     margin-top: 3rem; padding-top: 1.2rem;
     border-top: 1px solid var(--rule);
@@ -241,10 +242,14 @@ const STYLE = `
 /**
  * Render the whole page.
  * @param {Array} entries   the record as read from the file, oldest first
- * @param {{source?: string, generatedAt?: string, parked?: Array}} meta  where it came from, when, and what is parked
+ * @param {{source?: string, generatedAt?: string, parked?: Array, groupingProblems?: Array}} meta
+ *   where it came from, when, what is parked, and which stored deliveries have drifted
  * @returns {string} a complete, self-contained HTML document
  */
-export function renderPage(entries, { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [], readout = null } = {}) {
+export function renderPage(
+  entries,
+  { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [], readout = null, groupingProblems = [] } = {},
+) {
   const stats = measure(entries);
   // The total is entries, not calls. A judgment and a question are entries and no
   // call was made for either, so "N calls" over a record that holds them said
@@ -263,8 +268,11 @@ export function renderPage(entries, { source = 'the record file', generatedAt = 
 
   const models = stats.models.length ? stats.models.join(', ') : 'no model recorded yet';
 
+  // A drifted delivery is marked on its own card, so every one in the record is
+  // marked — the readout only ever shows the newest report for a move.
+  const problemsBySeq = new Map(groupingProblems.map((problem) => [problem.seq, problem]));
   const body = entries.length
-    ? entries.map(entryCard).join('\n')
+    ? entries.map((entry) => entryCard(entry, problemsBySeq.get(entry.seq) ?? null)).join('\n')
     : '<p class="empty">Nothing has been recorded yet. The page is empty because the file is.</p>';
 
   return `<!doctype html>

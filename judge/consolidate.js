@@ -238,62 +238,50 @@ export function consolidateReports(entries, move) {
 }
 
 /**
- * One opinion's identity, for comparing two reports. Where it sits in the list is
- * not part of it, and neither is the order of the entries it cites or of the models
- * behind it: a basis is a set of entries and a support list is a set of judges, so
- * both are compared as sets.
+ * One report's grouping, reduced to a comparable string per field.
+ *
+ * Order is not part of a grouping: opinions and questions are listed in the order
+ * the seat reports arrived, a basis is a set of entries, and a support list is a
+ * set of judges, so each is sorted before it is written down. Where an opinion sits
+ * in the list is not part of what it says either; the sorted list of opinions is.
  */
-function opinionIdentity(opinion) {
-  if (opinion === null || typeof opinion !== 'object') return JSON.stringify(opinion ?? null);
-  return JSON.stringify({
-    position: opinion.position ?? null,
-    basis: Array.isArray(opinion.basis) ? [...opinion.basis].sort((a, b) => a - b) : (opinion.basis ?? null),
-    support_count: opinion.support_count ?? null,
-    supporting_models: [...(opinion.supporting_models ?? [])].sort(),
-    status: opinion.status ?? null,
-  });
-}
+function canonicalGrouping(report) {
+  const opinionKey = (opinion) => {
+    if (opinion === null || typeof opinion !== 'object') return JSON.stringify(opinion ?? null);
+    return JSON.stringify({
+      position: opinion.position ?? null,
+      basis: Array.isArray(opinion.basis) ? [...opinion.basis].sort((a, b) => a - b) : (opinion.basis ?? null),
+      support_count: opinion.support_count ?? null,
+      supporting_models: [...(opinion.supporting_models ?? [])].sort(),
+      status: opinion.status ?? null,
+    });
+  };
+  const listKey = (items, key) =>
+    Array.isArray(items) ? JSON.stringify(items.map(key).sort()) : JSON.stringify(items ?? null);
 
-/** An opinion list as a sorted set of identities, so its order cannot differ. */
-function opinionIdentities(opinions) {
-  if (!Array.isArray(opinions)) return JSON.stringify(opinions ?? null);
-  return JSON.stringify(opinions.map(opinionIdentity).sort());
-}
-
-/** The probable opinion compared by what it says, not by where it sat in the list. */
-function probableIdentity(opinion) {
-  return opinion === null || opinion === undefined ? 'null' : opinionIdentity(opinion);
-}
-
-/** A question list as a set, for the same reason as the opinions. */
-function questionIdentities(questions) {
-  if (!Array.isArray(questions)) return JSON.stringify(questions ?? null);
-  return JSON.stringify(
-    questions.map((question) => JSON.stringify([question?.seat_model_id ?? null, question?.question ?? null])).sort(),
-  );
+  return {
+    opinions: listKey(report?.opinions, opinionKey),
+    highest_probable: opinionKey(report?.highest_probable ?? null),
+    questions: listKey(report?.questions, (question) =>
+      JSON.stringify([question?.seat_model_id ?? null, question?.question ?? null]),
+    ),
+  };
 }
 
 /**
  * The fields on which two reports' groupings differ, if any.
  *
  * One definition, used by the live reply check and the stored-report check, so a
- * reply the write path accepts is one the audit will not later call changed. A
- * grouping is what its opinions, its probable opinion and its questions say — not
- * the order they were written in, which follows the record rather than the seats.
- * The report's seats are positional and are compared by the caller.
+ * reply the write path accepts is one the audit will not later call changed. The
+ * report's seats are positional and are compared by the caller.
  *
  * @param {object} a  a report body, or an MMRC reply carrying the same three fields
  * @param {object} b  the report body it is compared against
  * @returns {Array<string>} the grouping fields that differ, in report order
  */
-export function groupingDifferences(a, b) {
-  const parts = (report) => ({
-    opinions: opinionIdentities(report?.opinions),
-    highest_probable: probableIdentity(report?.highest_probable),
-    questions: questionIdentities(report?.questions),
-  });
-  const left = parts(a);
-  const right = parts(b);
+function groupingDifferences(a, b) {
+  const left = canonicalGrouping(a);
+  const right = canonicalGrouping(b);
   return Object.keys(left).filter((field) => left[field] !== right[field]);
 }
 

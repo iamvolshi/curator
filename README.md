@@ -361,12 +361,13 @@ answer. It also re-groups each delivery from the seat reports that precede it in
 the file: the opinions, support counts, statuses, and questions have to match what
 the code produces today — compared as sets, because a report lists them in the order
 the seat reports arrived, so a harmless reordering is not a changed grouping — or
-that delivery is named too and the command exits 1. The page also marks the move
-whose stored report no longer groups that way, under the readout heading: the rows
-below the mark are the report's, and the mark says what this code would group
-differently today, so a reader of the file sees it and not only the person who ran
-the command. Finally it names any stored opinion or question carrying a field the
-schema does not define: the write path
+that delivery is named too and the command exits 1. The page also marks drift: the
+move whose stored report no longer groups that way carries a note under the readout
+heading (the rows below it are the report's), and every drifted delivery's own card
+says the same — including one a later run superseded and one whose move has no
+readout at all, which the readout cannot show. So a reader of the file sees it, not
+only the person who ran the command. Finally it names any stored opinion or
+question carrying a field the schema does not define: the write path
 refuses such a report, but the file is append-only, so one written by an older build
 is still there, and the command exits 1 rather than leave it for a reader to notice.
 The same checks run over the committed live record in `npm test`, so a reading

@@ -6,6 +6,7 @@
 // not know still shows what it actually holds, rather than an empty card that reads
 // like a missing record.
 
+import { describeGroupingProblem } from '../judge/consolidate.js';
 import { esc } from './markup.js';
 
 /**
@@ -28,7 +29,7 @@ function kindChip(what) {
   return `\n        <span class="chip chip--kind">${esc(words + plug)}</span>`;
 }
 
-export function entryCard(entry) {
+export function entryCard(entry, problem = null) {
   const what = entry.what ?? {};
   // The label is the difference between the three kinds of entry, so it is taken
   // from the entry rather than guessed: a question shown under a fact chip would
@@ -79,6 +80,21 @@ export function entryCard(entry) {
   if (what.usage?.total_tokens !== undefined) facts.push(`${what.usage.total_tokens} tokens`);
   if (what.durationMs !== undefined) facts.push(`${what.durationMs} ms`);
 
+  // A stored delivery whose grouping no longer matches the record is marked here,
+  // on the card that holds it. Every drifted report appears on the page this way —
+  // including one a later run superseded and one whose move has no readout at all,
+  // which the readout cannot show. A typed failure has no fields to name, so its
+  // detail is said instead of the kind token a reader cannot use.
+  const driftSaid = problem
+    ? problem.kind === 'grouping_mismatch'
+      ? describeGroupingProblem(problem)
+      : problem.detail
+    : '';
+  const drift =
+    label === 'delivery' && problem
+      ? `\n      <p class="entry__drift">this stored report no longer matches the record: ${esc(driftSaid)}</p>`
+      : '';
+
   return `
     <article class="entry ${bad ? 'entry--bad' : ''}" id="entry-${esc(entry.seq)}">
       <div class="entry__head">
@@ -94,6 +110,6 @@ export function entryCard(entry) {
               `<dt>${esc(term)}</dt><dd>${term === 'Body' ? `<em>${esc(value)}</em>` : esc(value)}</dd>`,
           )
           .join('\n        ')}
-      </dl>
+      </dl>${drift}
     </article>`;
 }
