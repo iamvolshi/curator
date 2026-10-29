@@ -504,6 +504,25 @@ const GROUPING_CASES = [
     fields: ['opinions'],
   },
   {
+    name: 'a dropped opinion list is named',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: ({ opinions, ...rest }) => rest,
+    fields: ['opinions'],
+  },
+  {
+    // An all-question move leaves the report no opinions. Unlike an empty question
+    // list, the absence is named: the card renders "Opinions 0" from this list, so a
+    // report that never wrote it is missing part of what the page shows.
+    name: 'a dropped empty opinion list is named',
+    reports: [
+      asked(1, 'model-a', 'what shows entry six?'),
+      asked(2, 'model-b', 'who wrote the first line?'),
+      asked(3, 'model-c', 'where is the approval?'),
+    ],
+    edit: ({ opinions, ...rest }) => rest,
+    fields: ['opinions'],
+  },
+  {
     // An older build wrote a report without the field; the questions it was written
     // from are still in the record, so the absence is a changed grouping, not an empty one.
     name: 'a dropped question list is named',
