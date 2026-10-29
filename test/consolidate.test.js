@@ -397,34 +397,90 @@ test('a stored delivery whose grouping still matches its seat reports is not a p
   assert.deepEqual(storedGroupingProblems(entries), []);
 });
 
-test('a stored delivery that lists the same opinions in another order is not a problem', () => {
-  const entries = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
-  const report = assertValid(consolidateReports(entries, 1));
-  assert.equal(report.opinions.length, 2, 'the fixture has two opinions to reorder');
+/**
+ * One deviation from the grouping the code produces, and the fields the audit must
+ * name for it — none where the deviation only reorders something a grouping holds
+ * as a set. A changed support count or probable is a changed grouping even when
+ * every seat still links to its opinion, which is why the link check cannot stand
+ * in for this one.
+ */
+const GROUPING_CASES = [
+  {
+    name: 'a reordered opinion list is the same grouping',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: (report) => ({ ...report, opinions: [...report.opinions].reverse() }),
+    fields: [],
+  },
+  {
+    name: 'a reversed basis is the same grouping',
+    reports: [
+      judgment(1, 'model-a', 'entries 4 and 9'),
+      judgment(2, 'model-b', '9, 4', 'a different sentence about the same basis'),
+      judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
+    ],
+    edit: (report) => ({ ...report, opinions: report.opinions.map((opinion) => ({ ...opinion, basis: [...opinion.basis].reverse() })) }),
+    fields: [],
+  },
+  {
+    name: 'reordered questions are the same grouping',
+    reports: [
+      judgment(1, 'model-a', 'entry 4'),
+      asked(2, 'model-b', 'what in the record shows the basis?'),
+      asked(3, 'model-c', 'where is the entry that shows it?'),
+    ],
+    edit: (report) => ({ ...report, questions: [...report.questions].reverse() }),
+    fields: [],
+  },
+  {
+    name: 'a changed support count is named',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: (report) => ({
+      ...report,
+      opinions: report.opinions.map((opinion, index) =>
+        index === 1 ? { ...opinion, support_count: 2, supporting_models: [...opinion.supporting_models, 'model-a'] } : opinion,
+      ),
+    }),
+    fields: ['opinions'],
+  },
+  {
+    name: 'a changed probable is named',
+    reports: [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')],
+    edit: (report) => ({ ...report, highest_probable: report.opinions[0] }),
+    fields: ['highest_probable'],
+  },
+  {
+    // An older build wrote a report without the field; the questions it was written
+    // from are still in the record, so the absence is a changed grouping, not an empty one.
+    name: 'a dropped question list is named',
+    reports: [
+      judgment(1, 'model-a', 'entry 4'),
+      asked(2, 'model-b', 'what in the record shows the basis?'),
+      asked(3, 'model-c', 'where is the entry that shows it?'),
+    ],
+    edit: ({ questions, ...rest }) => rest,
+    fields: ['questions'],
+  },
+];
 
-  entries.push(stored(4, { ...report, opinions: [...report.opinions].reverse() }));
+test('the canonical grouping names a changed field and forgives a reordering', () => {
+  for (const row of GROUPING_CASES) {
+    const entries = recorded(row.reports);
+    const report = assertValid(consolidateReports(entries, 1));
+    const kept = row.edit(report);
+    // Every row has to depart from the report, or it proves nothing: a row that only
+    // reorders still changes the stored bytes, so a silent no-op edit would pass a
+    // row whose fields say nothing changed.
+    assert.notEqual(JSON.stringify(kept), JSON.stringify(report), `${row.name}: the fixture does not deviate`);
+    entries.push(stored(4, kept));
 
-  assert.deepEqual(storedGroupingProblems(entries), [], 'where an opinion sits in the list is not part of the grouping');
-});
-
-test('a stored basis that lists the same entries in another order is not a problem', () => {
-  // The basis is a set of entries. A report that wrote the same two entries in the
-  // other order grouped the same seats, and the live reply check accepts that reply,
-  // so the audit cannot call it changed.
-  const entries = recorded([
-    judgment(1, 'model-a', 'entries 4 and 9'),
-    judgment(2, 'model-b', '9, 4', 'a different sentence about the same basis'),
-    judgment(3, 'model-c', 'entry 12', 'a dissent from another basis'),
-  ]);
-  const report = assertValid(consolidateReports(entries, 1));
-  assert.ok(
-    report.opinions.some((opinion) => opinion.basis.length > 1),
-    'the fixture needs a multi-entry basis to reverse',
-  );
-  const reversed = report.opinions.map((opinion) => ({ ...opinion, basis: [...opinion.basis].reverse() }));
-  entries.push(stored(4, { ...report, opinions: reversed }));
-
-  assert.deepEqual(storedGroupingProblems(entries), [], 'a basis is a set of entries, not a list');
+    const problems = storedGroupingProblems(entries);
+    assert.equal(problems.length, row.fields.length > 0 ? 1 : 0, row.name);
+    if (row.fields.length === 0) continue;
+    assert.equal(problems[0].kind, 'grouping_mismatch', row.name);
+    assert.equal(problems[0].seq, 4, row.name);
+    assert.equal(problems[0].move, 1, row.name);
+    assert.deepEqual(problems[0].fields, row.fields, row.name);
+  }
 });
 
 test('a delivery grouped from seat reports recorded out of seat order is not a problem', () => {
@@ -441,49 +497,6 @@ test('a delivery grouped from seat reports recorded out of seat order is not a p
   entries.push(stored(4, report));
 
   assert.deepEqual(storedGroupingProblems(entries), []);
-});
-
-test('the same questions in another order are not a changed grouping', () => {
-  const entries = recorded([
-    judgment(1, 'model-a', 'entry 4'),
-    asked(2, 'model-b', 'what in the record shows the basis?'),
-    asked(3, 'model-c', 'where is the entry that shows it?'),
-  ]);
-  const report = assertValid(consolidateReports(entries, 1));
-  assert.equal(report.questions.length, 2);
-  entries.push(stored(4, { ...report, questions: [...report.questions].reverse() }));
-
-  assert.deepEqual(storedGroupingProblems(entries), []);
-});
-
-test('another order is not a licence to change what an opinion says', () => {
-  const entries = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
-  const report = assertValid(consolidateReports(entries, 1));
-  const opinions = report.opinions.map((opinion, index) =>
-    index === 1 ? { ...opinion, support_count: 2, supporting_models: [...opinion.supporting_models, 'model-a'] } : opinion,
-  );
-  entries.push(stored(4, { ...report, opinions }));
-
-  const problems = storedGroupingProblems(entries);
-  assert.equal(problems.length, 1);
-  assert.equal(problems[0].kind, 'grouping_mismatch');
-  assert.deepEqual(problems[0].fields, ['opinions'], 'a changed opinion is still named');
-});
-
-test('a stored delivery that no longer groups its seats the way the code does is a problem', () => {
-  // The seats and their bases are unchanged, so every opinion still links; the stored
-  // report simply declares a probable where the grouping declares none. That is the
-  // grouping check's case, and the link check cannot see it.
-  const entries = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')]);
-  const report = assertValid(consolidateReports(entries, 1));
-  entries.push(stored(4, { ...report, highest_probable: report.opinions[0] }));
-
-  const problems = storedGroupingProblems(entries);
-  assert.equal(problems.length, 1);
-  assert.equal(problems[0].seq, 4);
-  assert.equal(problems[0].move, 1);
-  assert.equal(problems[0].kind, 'grouping_mismatch');
-  assert.deepEqual(problems[0].fields, ['highest_probable'], 'only the field that changed is named');
 });
 
 test('a delivery with fewer than three reports before it is a typed problem, never a pass', () => {
