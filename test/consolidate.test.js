@@ -476,6 +476,18 @@ const GROUPING_CASES = [
     edit: ({ highest_probable, ...rest }) => rest,
     fields: ['highest_probable'],
   },
+  {
+    // An agreeing pair gives the code a probable and the third seat a question, so
+    // both absences are drift, named in the order the report lists them.
+    name: 'a dropped probable and question list name both fields',
+    reports: [
+      judgment(1, 'model-a', 'entry 4'),
+      judgment(2, 'model-b', 'entry 4'),
+      asked(3, 'model-c', 'where is the entry that shows it?'),
+    ],
+    edit: ({ highest_probable, questions, ...rest }) => rest,
+    fields: ['highest_probable', 'questions'],
+  },
 ];
 
 test('the canonical grouping names a changed field and forgives a reordering', () => {
