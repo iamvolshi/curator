@@ -244,6 +244,11 @@ export function consolidateReports(entries, move) {
  * the seat reports arrived, a basis is a set of entries, and a support list is a
  * set of judges, so each is sorted before it is written down. Where an opinion sits
  * in the list is not part of what it says either; the sorted list of opinions is.
+ *
+ * An absent question list is read as an empty one: when no seat asked anything, a
+ * report that never wrote the key says what the empty list says, so the absence is
+ * not a changed grouping. Whether the key is there is the schema's business; this
+ * comparison asks only what the grouping says.
  */
 function canonicalGrouping(report) {
   const opinionKey = (opinion) => {
@@ -262,7 +267,7 @@ function canonicalGrouping(report) {
   return {
     opinions: listKey(report?.opinions, opinionKey),
     highest_probable: opinionKey(report?.highest_probable ?? null),
-    questions: listKey(report?.questions, (question) =>
+    questions: listKey(report?.questions ?? [], (question) =>
       JSON.stringify([question?.seat_model_id ?? null, question?.question ?? null]),
     ),
   };

@@ -400,9 +400,10 @@ test('a stored delivery whose grouping still matches its seat reports is not a p
 /**
  * One deviation from the grouping the code produces, and the fields the audit must
  * name for it — none where the deviation only reorders something a grouping holds
- * as a set, or drops a field that had nothing to say. A changed support count or
- * probable is a changed grouping even when every seat still links to its opinion,
- * which is why the link check cannot stand in for this one.
+ * as a set, or drops a field the grouping has nothing to say for: the probable when
+ * no opinion is highest, and the question list when no seat asked anything. A
+ * changed support count or probable is a changed grouping even when every seat still
+ * links to its opinion, which is why the link check cannot stand in for this one.
  */
 const GROUPING_CASES = [
   {
@@ -432,6 +433,27 @@ const GROUPING_CASES = [
     fields: [],
   },
   {
+    name: 'reordered support lists are the same grouping',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: (report) => ({
+      ...report,
+      opinions: report.opinions.map((opinion) =>
+        opinion.supporting_models.length > 1
+          ? { ...opinion, supporting_models: [...opinion.supporting_models].reverse() }
+          : opinion,
+      ),
+    }),
+    fields: [],
+  },
+  {
+    // Seats are positional — the first is seat 1 — so unlike an opinion list this
+    // is not a set: the same three models in another order name another seat.
+    name: 'reordered seats are named',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: (report) => ({ ...report, seats: [...report.seats].reverse() }),
+    fields: ['seats'],
+  },
+  {
     name: 'a changed support count is named',
     reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
     edit: (report) => ({
@@ -449,6 +471,39 @@ const GROUPING_CASES = [
     fields: ['highest_probable'],
   },
   {
+    name: 'a changed question is named',
+    reports: [
+      judgment(1, 'model-a', 'entry 4'),
+      asked(2, 'model-b', 'what in the record shows the basis?'),
+      asked(3, 'model-c', 'where is the entry that shows it?'),
+    ],
+    edit: (report) => ({
+      ...report,
+      questions: report.questions.map((question, index) =>
+        index === 0 ? { ...question, question: 'what in the record supports the basis?' } : question,
+      ),
+    }),
+    fields: ['questions'],
+  },
+  {
+    name: 'a changed position is named',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: (report) => ({
+      ...report,
+      opinions: report.opinions.map((opinion, index) => (index === 0 ? { ...opinion, position: 'not_shown' } : opinion)),
+    }),
+    fields: ['opinions'],
+  },
+  {
+    name: 'a changed status is named',
+    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    edit: (report) => ({
+      ...report,
+      opinions: report.opinions.map((opinion, index) => (index === 0 ? { ...opinion, status: 'edge_grey' } : opinion)),
+    }),
+    fields: ['opinions'],
+  },
+  {
     // An older build wrote a report without the field; the questions it was written
     // from are still in the record, so the absence is a changed grouping, not an empty one.
     name: 'a dropped question list is named',
@@ -459,6 +514,15 @@ const GROUPING_CASES = [
     ],
     edit: ({ questions, ...rest }) => rest,
     fields: ['questions'],
+  },
+  {
+    // An all-judgment move asks nothing, so a report that never wrote the key says
+    // what the empty list says. A list with questions in it still has to be there:
+    // the row above covers that, and the empty case is not drift.
+    name: 'a dropped empty question list is the same grouping',
+    reports: [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')],
+    edit: ({ questions, ...rest }) => rest,
+    fields: [],
   },
   {
     // Three distinct opinions leave no probable, so the field has nothing to say:
