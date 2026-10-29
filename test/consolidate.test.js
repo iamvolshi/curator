@@ -400,9 +400,9 @@ test('a stored delivery whose grouping still matches its seat reports is not a p
 /**
  * One deviation from the grouping the code produces, and the fields the audit must
  * name for it — none where the deviation only reorders something a grouping holds
- * as a set. A changed support count or probable is a changed grouping even when
- * every seat still links to its opinion, which is why the link check cannot stand
- * in for this one.
+ * as a set, or drops a field that had nothing to say. A changed support count or
+ * probable is a changed grouping even when every seat still links to its opinion,
+ * which is why the link check cannot stand in for this one.
  */
 const GROUPING_CASES = [
   {
@@ -459,6 +459,14 @@ const GROUPING_CASES = [
     ],
     edit: ({ questions, ...rest }) => rest,
     fields: ['questions'],
+  },
+  {
+    // Three distinct opinions leave no probable, so the field has nothing to say:
+    // a report that never wrote the key grouped the same seats as one that wrote null.
+    name: 'a dropped empty probable is the same grouping',
+    reports: [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')],
+    edit: ({ highest_probable, ...rest }) => rest,
+    fields: [],
   },
 ];
 
