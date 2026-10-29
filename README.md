@@ -1,3 +1,33 @@
+## For the hackathon submission — what is pre-existing, and what was built here
+
+**Built during the hackathon, and only here:** everything in this repository.
+
+This repo was created on 26 October 2026. Every commit in it is from 26–29 October 2026, during the event. No pre-hackathon code and no pre-hackathon git history was copied into it.
+
+That includes: the wrapper that sees every worker call, the append-only K-record store, the provider seam and its plugs, the Worker call path, the judge, the three-seat panel, the MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page.
+
+**Pre-existing, and not in this repo:** the idea behind it.
+
+The K-record accountability idea — an append-only record of what an agent believed, when, and why it acted, with labelled facts, judgments, questions, and deliveries — existed before the event, in published work and in a filed provisional patent. It is the concept this repo implements. None of that older project's code is in this repo.
+
+The older work stays separate: the VOLSHi engines, including the KATIE kernel, live in their own private repositories. They are named here for context only, with no code, history, or setup from them copied in.
+
+**Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Overseer code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
+
+## Setup
+
+Needs Node 22.9 or newer. There are no dependencies to install.
+
+```bash
+cp .env.example .env   # then fill in MODEL_API_KEY, and the plug keys you use
+npm test               # offline checks, no key and no network needed
+npm run prove          # one real call on the Worker's plug (meta), recorded, read back
+npm run panel          # three seats judge a move, and one readout is printed
+npm run page           # write the record out as one readable page
+```
+
+Full running instructions, plug table, and proven/blocked status are in the sections below, unchanged.
+
 # Overseer
 
 The K-record accountability layer for agent calls. This repository is the floor
