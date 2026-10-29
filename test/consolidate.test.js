@@ -2,12 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   consolidateReports,
-  consolidateMove,
   deliveryFrom,
-  MMRC_FAILURES,
-  MMRC_MAX_ATTEMPTS,
   storedGroupingProblems,
 } from '../judge/consolidate.js';
+import { consolidateMove, MMRC_FAILURES, MMRC_MAX_ATTEMPTS } from '../judge/mmrc.js';
 import { citedEntries } from '../judge/readout.js';
 import { MMRC_MODEL_ID, MMRC_TEMPERATURE } from '../worker/config.js';
 
@@ -40,6 +38,39 @@ function asked(seat, model, question = 'what in the record shows the basis?') {
       numbered: { deed: 'the move', pool: 'none', basis: 'not-shown', topics: [], sitting: question },
     },
   };
+}
+
+/** Two seats justified from entry 4 and a dissent from entry 12: the panel's favorite shape. */
+function pairPlusDissent() {
+  return [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+}
+
+/** Three seats, three bases: no majority, so no probable. */
+function allDissent() {
+  return [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')];
+}
+
+/** Three seats asking: no opinions, no probable, and the questions stand. */
+function allQuestions() {
+  return [
+    asked(1, 'model-a', 'what shows entry six?'),
+    asked(2, 'model-b', 'who wrote the first line?'),
+    asked(3, 'model-c', 'where is the approval?'),
+  ];
+}
+
+/** One judgment from entry 4 and two questions: the mixed move. */
+function judgmentPlusQuestions() {
+  return [
+    judgment(1, 'model-a', 'entry 4'),
+    asked(2, 'model-b', 'what in the record shows the basis?'),
+    asked(3, 'model-c', 'where is the entry that shows it?'),
+  ];
+}
+
+/** Three seats agreed on one pool: a single unanimous opinion. */
+function allAgree(pool) {
+  return [judgment(1, 'model-a', pool), judgment(2, 'model-b', pool), judgment(3, 'model-c', pool)];
 }
 
 const FACT = { label: 'fact', what: { kind: 'fact', move: 1, note: 'not a seat' } };
@@ -75,11 +106,7 @@ test('an agreeing pair with a dissent consolidates to one highest probable and o
 });
 
 test('an all-dissent move consolidates to the gray box with no highest probable', () => {
-  const entries = [
-    judgment(1, 'model-a', 'entry 1'),
-    judgment(2, 'model-b', 'entry 2'),
-    judgment(3, 'model-c', 'entry 3'),
-  ];
+  const entries = allDissent();
   const report = assertValid(consolidateReports(entries, 1));
 
   assert.equal(report.highest_probable, null);
@@ -88,11 +115,7 @@ test('an all-dissent move consolidates to the gray box with no highest probable'
 });
 
 test('an all-questions move has no opinions, no highest probable, and the questions stand', () => {
-  const entries = [
-    asked(1, 'model-a', 'what shows entry six?'),
-    asked(2, 'model-b', 'who wrote the first line?'),
-    asked(3, 'model-c', 'where is the approval?'),
-  ];
+  const entries = allQuestions();
   const report = assertValid(consolidateReports(entries, 1));
 
   assert.deepEqual(report.opinions, []);
@@ -273,7 +296,7 @@ test('a reply that lists the same grouping in another order, and its basis in an
 });
 
 test('a reply that changes the grouping writes no report, after the repair cap', async () => {
-  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const entries = [FACT, ...pairPlusDissent()];
   let calls = 0;
   const fetchImpl = async () => {
     calls += 1;
@@ -293,7 +316,7 @@ test('a reply that changes the grouping writes no report, after the repair cap',
 });
 
 test('a fenced reply is repaired locally, without spending a second call', async () => {
-  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const entries = [FACT, ...pairPlusDissent()];
   const grouped = consolidateReports(entries, 1).body;
   const form = JSON.stringify({ opinions: grouped.opinions, highest_probable: grouped.highest_probable, questions: grouped.questions });
   let calls = 0;
@@ -314,7 +337,7 @@ test('a fenced reply is repaired locally, without spending a second call', async
 });
 
 test('a refused reply is asked once more with the exact error, and the repair is written', async () => {
-  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const entries = [FACT, ...pairPlusDissent()];
   const grouped = consolidateReports(entries, 1).body;
   const form = JSON.stringify({ opinions: grouped.opinions, highest_probable: grouped.highest_probable, questions: grouped.questions });
   const bodies = [];
@@ -333,7 +356,7 @@ test('a refused reply is asked once more with the exact error, and the repair is
 });
 
 test('a response that names no model stops before the repair attempt', async () => {
-  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const entries = [FACT, ...pairPlusDissent()];
   let calls = 0;
   const fetchImpl = async () => {
     calls += 1;
@@ -352,7 +375,7 @@ test('a response that names no model stops before the repair attempt', async () 
 });
 
 test('a failed call writes no report and names the failure', async () => {
-  const entries = [FACT, judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')];
+  const entries = [FACT, ...pairPlusDissent()];
   const fetchImpl = async () => ({ ok: false, status: 500, text: async () => '' });
 
   const result = await consolidateMove(entries, 1, { env: { MODEL_API_KEY: 'LLM_test_key' }, fetchImpl });
@@ -390,7 +413,7 @@ function stored(seq, report) {
 }
 
 test('a stored delivery whose grouping still matches its seat reports is not a problem', () => {
-  const entries = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
+  const entries = recorded(pairPlusDissent());
   const report = assertValid(consolidateReports(entries, 1));
   entries.push(stored(4, report));
 
@@ -406,9 +429,11 @@ test('a stored delivery whose grouping still matches its seat reports is not a p
  * links to its opinion, which is why the link check cannot stand in for this one.
  */
 const GROUPING_CASES = [
+
+
   {
     name: 'a reordered opinion list is the same grouping',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: (report) => ({ ...report, opinions: [...report.opinions].reverse() }),
     fields: [],
   },
@@ -424,17 +449,13 @@ const GROUPING_CASES = [
   },
   {
     name: 'reordered questions are the same grouping',
-    reports: [
-      judgment(1, 'model-a', 'entry 4'),
-      asked(2, 'model-b', 'what in the record shows the basis?'),
-      asked(3, 'model-c', 'where is the entry that shows it?'),
-    ],
+    reports: judgmentPlusQuestions(),
     edit: (report) => ({ ...report, questions: [...report.questions].reverse() }),
     fields: [],
   },
   {
     name: 'reordered support lists are the same grouping',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: (report) => ({
       ...report,
       opinions: report.opinions.map((opinion) =>
@@ -449,13 +470,21 @@ const GROUPING_CASES = [
     // Seats are positional — the first is seat 1 — so unlike an opinion list this
     // is not a set: the same three models in another order name another seat.
     name: 'reordered seats are named',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: (report) => ({ ...report, seats: [...report.seats].reverse() }),
     fields: ['seats'],
   },
   {
+    // Seats name each judge, so unlike an empty question list the absent key is
+    // drift: a report that never wrote it is missing who sat in each seat.
+    name: 'a dropped seats list is named',
+    reports: pairPlusDissent(),
+    edit: ({ seats, ...rest }) => rest,
+    fields: ['seats'],
+  },
+  {
     name: 'a changed support count is named',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: (report) => ({
       ...report,
       opinions: report.opinions.map((opinion, index) =>
@@ -466,17 +495,13 @@ const GROUPING_CASES = [
   },
   {
     name: 'a changed probable is named',
-    reports: [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')],
+    reports: allDissent(),
     edit: (report) => ({ ...report, highest_probable: report.opinions[0] }),
     fields: ['highest_probable'],
   },
   {
     name: 'a changed question is named',
-    reports: [
-      judgment(1, 'model-a', 'entry 4'),
-      asked(2, 'model-b', 'what in the record shows the basis?'),
-      asked(3, 'model-c', 'where is the entry that shows it?'),
-    ],
+    reports: judgmentPlusQuestions(),
     edit: (report) => ({
       ...report,
       questions: report.questions.map((question, index) =>
@@ -487,7 +512,7 @@ const GROUPING_CASES = [
   },
   {
     name: 'a changed position is named',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: (report) => ({
       ...report,
       opinions: report.opinions.map((opinion, index) => (index === 0 ? { ...opinion, position: 'not_shown' } : opinion)),
@@ -496,7 +521,7 @@ const GROUPING_CASES = [
   },
   {
     name: 'a changed status is named',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: (report) => ({
       ...report,
       opinions: report.opinions.map((opinion, index) => (index === 0 ? { ...opinion, status: 'edge_grey' } : opinion)),
@@ -505,8 +530,17 @@ const GROUPING_CASES = [
   },
   {
     name: 'a dropped opinion list is named',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: ({ opinions, ...rest }) => rest,
+    fields: ['opinions'],
+  },
+
+  {
+    // An explicit null says the same as the absent key: the schema wants a list,
+    // so either way the report carries no opinions to compare by.
+    name: 'an explicit null opinion list is named',
+    reports: pairPlusDissent(),
+    edit: (report) => ({ ...report, opinions: null }),
     fields: ['opinions'],
   },
   {
@@ -514,11 +548,7 @@ const GROUPING_CASES = [
     // list, the absence is named: the card renders "Opinions 0" from this list, so a
     // report that never wrote it is missing part of what the page shows.
     name: 'a dropped empty opinion list is named',
-    reports: [
-      asked(1, 'model-a', 'what shows entry six?'),
-      asked(2, 'model-b', 'who wrote the first line?'),
-      asked(3, 'model-c', 'where is the approval?'),
-    ],
+    reports: allQuestions(),
     edit: ({ opinions, ...rest }) => rest,
     fields: ['opinions'],
   },
@@ -526,11 +556,7 @@ const GROUPING_CASES = [
     // An older build wrote a report without the field; the questions it was written
     // from are still in the record, so the absence is a changed grouping, not an empty one.
     name: 'a dropped question list is named',
-    reports: [
-      judgment(1, 'model-a', 'entry 4'),
-      asked(2, 'model-b', 'what in the record shows the basis?'),
-      asked(3, 'model-c', 'where is the entry that shows it?'),
-    ],
+    reports: judgmentPlusQuestions(),
     edit: ({ questions, ...rest }) => rest,
     fields: ['questions'],
   },
@@ -539,15 +565,24 @@ const GROUPING_CASES = [
     // what the empty list says. A list with questions in it still has to be there:
     // the row above covers that, and the empty case is not drift.
     name: 'a dropped empty question list is the same grouping',
-    reports: [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')],
+    reports: allDissent(),
     edit: ({ questions, ...rest }) => rest,
     fields: [],
+  },
+
+  {
+    // Unlike the absent key, an explicit null is not the empty list: the report
+    // writes a value the grouping never produces, so it is drift.
+    name: 'an explicit null question list is named',
+    reports: allDissent(),
+    edit: (report) => ({ ...report, questions: null }),
+    fields: ['questions'],
   },
   {
     // Three distinct opinions leave no probable, so the field has nothing to say:
     // a report that never wrote the key grouped the same seats as one that wrote null.
     name: 'a dropped empty probable is the same grouping',
-    reports: [judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')],
+    reports: allDissent(),
     edit: ({ highest_probable, ...rest }) => rest,
     fields: [],
   },
@@ -555,7 +590,7 @@ const GROUPING_CASES = [
     // The agreeing pair gives the code a probable, so leaving the key out says
     // something the grouping does not — the absence is drift, not silence.
     name: 'a dropped declared probable is named',
-    reports: [judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')],
+    reports: pairPlusDissent(),
     edit: ({ highest_probable, ...rest }) => rest,
     fields: ['highest_probable'],
   },
@@ -633,12 +668,12 @@ test('a delivery is checked against the reports before it, not a later run\u2019
   // The record is append-only, so a later panel run on the same move writes its three
   // reports after the delivery. That delivery was grouped from the reports in force
   // when it was written, and those are the ones the check must use.
-  const first = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 1'), judgment(3, 'model-c', 'entry 1')]);
+  const first = recorded(allAgree('entry 1'));
   const firstReport = assertValid(consolidateReports(first, 1));
   const entries = [...first, stored(4, firstReport)];
 
   const later = recorded(
-    [judgment(1, 'model-a', 'entry 2'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 2')],
+    allAgree('entry 2'),
     entries.length + 1,
   );
   entries.push(...later);
@@ -652,14 +687,14 @@ test('every drifted delivery is reported, not only the first', () => {
   // Every other record here holds at most one drifted delivery, so a check that
   // stopped at its first problem would pass them all. Two moves each get a delivery
   // that no longer groups the way its seat reports do, and both have to be named.
-  const first = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
+  const first = recorded(pairPlusDissent());
   const firstDrift = assertValid(consolidateReports(first, 1));
   firstDrift.opinions = firstDrift.opinions.map((opinion, index) =>
     index === 1 ? { ...opinion, support_count: 2, supporting_models: [...opinion.supporting_models, 'model-a'] } : opinion,
   );
 
   const secondFrom = first.length + 2;
-  const second = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')], secondFrom);
+  const second = recorded(allDissent(), secondFrom);
   for (const entry of second) entry.what.move = 2;
   const secondDrift = assertValid(consolidateReports(second, 2));
   secondDrift.highest_probable = secondDrift.opinions[0];
