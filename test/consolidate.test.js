@@ -564,3 +564,27 @@ test('a delivery is checked against the reports before it, not a later run\u2019
 
   assert.deepEqual(storedGroupingProblems(entries), [], 'each delivery is checked against the reports in force when it was written');
 });
+
+test('every drifted delivery is reported, not only the first', () => {
+  // Every other record here holds at most one drifted delivery, so a check that
+  // stopped at its first problem would pass them all. Two moves each get a delivery
+  // that no longer groups the way its seat reports do, and both have to be named.
+  const first = recorded([judgment(1, 'model-a', 'entry 4'), judgment(2, 'model-b', 'entry 4'), judgment(3, 'model-c', 'entry 12')]);
+  const firstDrift = assertValid(consolidateReports(first, 1));
+  firstDrift.opinions = firstDrift.opinions.map((opinion, index) =>
+    index === 1 ? { ...opinion, support_count: 2, supporting_models: [...opinion.supporting_models, 'model-a'] } : opinion,
+  );
+
+  const secondFrom = first.length + 2;
+  const second = recorded([judgment(1, 'model-a', 'entry 1'), judgment(2, 'model-b', 'entry 2'), judgment(3, 'model-c', 'entry 3')], secondFrom);
+  for (const entry of second) entry.what.move = 2;
+  const secondDrift = assertValid(consolidateReports(second, 2));
+  secondDrift.highest_probable = secondDrift.opinions[0];
+
+  const entries = [...first, stored(first.length + 1, firstDrift), ...second, stored(secondFrom + second.length, secondDrift)];
+
+  const problems = storedGroupingProblems(entries);
+  assert.deepEqual(problems.map((problem) => problem.seq), [first.length + 1, secondFrom + second.length]);
+  assert.deepEqual(problems.map((problem) => problem.move), [1, 2], 'each problem is reported against its own move');
+  assert.deepEqual(problems.map((problem) => problem.fields), [['opinions'], ['highest_probable']], 'each delivery names its own drift');
+});
