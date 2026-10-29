@@ -30,7 +30,7 @@
 import { call } from '../provider/index.js';
 import { makeEntry } from '../record/entry.js';
 import { normalizeSubjectList } from '../record/folders.js';
-import { consolidateMove } from './consolidate.js';
+import { consolidateMove } from './mmrc.js';
 import { DELIVERY_KIND } from './delivery.js';
 import { JUDGMENT_KIND, QUESTION_KIND, moveBySeq, movesToJudge } from './judge.js';
 import { panelMessages, readPanelReply } from './prompt.js';

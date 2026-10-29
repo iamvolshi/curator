@@ -1,4 +1,4 @@
-// The MMRC consolidation: one move's three seat reports, grouped into the strict
+// The pure grouping: one move's three seat reports, grouped into the strict
 // delivery form.
 //
 // Grouping is by position and cited basis, never by wording. Two seats that
@@ -7,109 +7,16 @@
 // Support is counted by distinct model ID, so one model speaking twice is stacking,
 // not independent agreement.
 //
-// This module judges nothing. It reads the three reports the record holds for the
-// move, groups them, and says what the form would show. A move without three seat
-// reports, or a report that cannot be read, is a typed failure and never a partial
-// readout. Dissent is never averaged or merged: it stands as an edge grey, or as the
-// gray box when nothing reaches a majority.
+// This module judges nothing and calls nothing. It reads the three reports the
+// record holds for the move, groups them, and says what the form would show. A
+// move without three seat reports, or a report that cannot be read, is a typed
+// failure and never a partial readout. Dissent is never averaged or merged: it
+// stands as an edge grey, or as the gray box when nothing reaches a majority.
+// The live MMRC call lives in mmrc.js and borrows this module's grouping.
 
-import { call } from '../provider/index.js';
-import { plugForSlot } from '../provider/routing.js';
-import { MMRC_MODEL_ID, MMRC_TEMPERATURE } from '../worker/config.js';
 import { citedEntries, fromASeat, majorityFor } from './readout.js';
 import { SEATS } from './seats.js';
 import { validateDelivery } from './delivery.js';
-
-/** The Muse plug the MMRC call runs on: the worker slot, which routes to meta. */
-const MMRC_PLUG = plugForSlot('worker');
-
-/** The typed failure a live MMRC call can end in, besides the ones above. */
-export const MMRC_FAILURES = Object.freeze({
-  callFailed: 'call_failed',
-  unreadableReply: 'unreadable_reply',
-  alteredGrouping: 'altered_grouping',
-  unnamedModel: 'unnamed_model',
-});
-
-/**
- * The MMRC instruction. The grouping is already decided in code, so the model is
- * asked only to hand the same form back as JSON, and to change nothing in it.
- */
-export const MMRC_SYSTEM = [
-  'You are the MMRC consolidator for one move. Three seat reports have already been',
-  'grouped by position and cited basis. Do not regroup, reword, add, or drop anything.',
-  'Reply with one JSON object only, with exactly these keys: opinions, highest_probable,',
-  'questions. Copy them from the form you are given, unchanged.',
-].join(' ');
-
-/**
- * How many times the MMRC model is asked for one move: the call, then at most one
- * repair. The cap is what stops a model that will not format from being asked
- * forever, and it keeps the repair from becoming a second opinion.
- */
-export const MMRC_MAX_ATTEMPTS = 2;
-
-/**
- * Ask for the same form back, and — on a repair — say exactly what was refused.
- * The form is sent again with it, so the model has both sides of the complaint.
- */
-function mmrcMessages(body, refused = null) {
-  const messages = [
-    { role: 'system', content: MMRC_SYSTEM },
-    { role: 'user', content: JSON.stringify(body) },
-  ];
-  if (refused) {
-    messages.push({
-      role: 'user',
-      content: `Your previous reply was refused: ${refused.detail}. Return the form above unchanged, as one JSON object with exactly the keys opinions, highest_probable and questions.`,
-    });
-  }
-  return messages;
-}
-
-/**
- * Read the JSON object the model returned, or say why it cannot be read.
- *
- * Local repair first: a reply wrapped in a code fence still holds the form, so the
- * fence is stripped here rather than spending a model call to strip it.
- */
-function readMmrcReply(text) {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(String(text ?? ''));
-  const raw = fenced ? fenced[1] : String(text ?? '');
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  if (start === -1 || end <= start) return { error: 'the reply carried no JSON object' };
-  try {
-    return { reply: JSON.parse(raw.slice(start, end + 1)) };
-  } catch {
-    return { error: 'the reply was not valid JSON' };
-  }
-}
-
-/**
- * Check one reply against the grouping it was given.
- *
- * The grouping is decided in code; the model may only hand it back unchanged —
- * where unchanged is the shared definition below, so a reply that lists the same
- * opinions and questions in another order, or the same cited entries in another
- * order, is the grouping it was given. A reply that cannot be read, or that changes
- * what the grouping says, is refused with the exact reason, which the repair call
- * carries back to the model.
- */
-function checkMmrcReply(text, body) {
-  const read = readMmrcReply(text);
-  if (read.error) return { ok: false, kind: MMRC_FAILURES.unreadableReply, detail: read.error };
-
-  const changed = groupingDifferences(read.reply, body);
-  if (changed.length > 0) {
-    return {
-      ok: false,
-      kind: MMRC_FAILURES.alteredGrouping,
-      detail: `the MMRC reply changed the grouping it was given (${changed.join(', ')})`,
-    };
-  }
-  return { ok: true };
-}
 
 /** The two typed failures a consolidation can end in, besides a validation failure. */
 export const CONSOLIDATION_FAILURES = Object.freeze({
@@ -117,7 +24,7 @@ export const CONSOLIDATION_FAILURES = Object.freeze({
   malformedInput: 'malformed_input',
 });
 
-function failure(kind, detail) {
+export function failure(kind, detail) {
   return { ok: false, kind, detail };
 }
 
@@ -237,40 +144,98 @@ export function consolidateReports(entries, move) {
   };
 }
 
-/**
- * One report's grouping, reduced to a comparable string per field.
- *
- * Order is not part of a grouping: opinions and questions are listed in the order
- * the seat reports arrived, a basis is a set of entries, and a support list is a
- * set of judges, so each is sorted before it is written down. Where an opinion sits
- * in the list is not part of what it says either; the sorted list of opinions is.
- *
- * An absent question list is read as an empty one: when no seat asked anything, a
- * report that never wrote the key says what the empty list says, so the absence is
- * not a changed grouping. Whether the key is there is the schema's business; this
- * comparison asks only what the grouping says.
- */
-function canonicalGrouping(report) {
-  const opinionKey = (opinion) => {
-    if (opinion === null || typeof opinion !== 'object') return JSON.stringify(opinion ?? null);
-    return JSON.stringify({
-      position: opinion.position ?? null,
-      basis: Array.isArray(opinion.basis) ? [...opinion.basis].sort((a, b) => a - b) : (opinion.basis ?? null),
-      support_count: opinion.support_count ?? null,
-      supporting_models: [...(opinion.supporting_models ?? [])].sort(),
-      status: opinion.status ?? null,
-    });
-  };
-  const listKey = (items, key) =>
-    Array.isArray(items) ? JSON.stringify(items.map(key).sort()) : JSON.stringify(items ?? null);
+/** One opinion, reduced to a comparable string: basis and support are sets. */
+function opinionKey(opinion) {
+  if (opinion === null || typeof opinion !== 'object') return JSON.stringify(opinion ?? null);
+  return JSON.stringify({
+    position: opinion.position ?? null,
+    basis: Array.isArray(opinion.basis) ? [...opinion.basis].sort((a, b) => a - b) : (opinion.basis ?? null),
+    support_count: opinion.support_count ?? null,
+    supporting_models: [...(opinion.supporting_models ?? [])].sort(),
+    status: opinion.status ?? null,
+  });
+}
 
-  return {
-    opinions: listKey(report?.opinions, opinionKey),
-    highest_probable: opinionKey(report?.highest_probable ?? null),
-    questions: listKey(report?.questions ?? [], (question) =>
-      JSON.stringify([question?.seat_model_id ?? null, question?.question ?? null]),
-    ),
-  };
+/** One question, reduced to a comparable string. */
+function questionKey(question) {
+  return JSON.stringify([question?.seat_model_id ?? null, question?.question ?? null]);
+}
+
+/** A set-valued list, reduced to a comparable string: arrival order is not grouping. */
+function setListKey(items, key) {
+  return Array.isArray(items) ? JSON.stringify(items.map(key).sort()) : JSON.stringify(items ?? null);
+}
+
+/**
+ * The grouping policy, one row per field, in report order.
+ *
+ * positional: whether list order is part of what the field says. Seats are
+ * positional — the first entry is seat 1 — while opinions, bases, support lists
+ * and questions are sets, so each is sorted before it is written down.
+ *
+ * absentEqualsEmpty: whether a report that never wrote the key says what the
+ * empty value says. An absent question list reads as empty (no seat asked
+ * anything) and an absent probable reads as null (no opinion is highest); an
+ * absent opinion or seat list stays drift, because the page renders "Opinions 0"
+ * from the list and seats name each judge. Absent is the only forgiven absence:
+ * an explicit null is a value the grouping never produces, so it is drift even
+ * where the absent key reads as empty. Whether the key is there is the
+ * schema's business; this comparison asks only what the grouping says.
+ *
+ * inReply: whether the MMRC reply carries the field. The reply hands back only
+ * opinions, highest_probable and questions; seats are checked on the stored path
+ * alone, through this same table.
+ */
+const GROUPING_FIELDS = Object.freeze([
+  {
+    name: 'seats',
+    positional: true,
+    absentEqualsEmpty: false,
+    inReply: false,
+    emptyValue: [],
+    canonical: (value) => (value === undefined ? undefined : JSON.stringify(value)),
+  },
+  {
+    name: 'opinions',
+    positional: false,
+    absentEqualsEmpty: false,
+    inReply: true,
+    emptyValue: [],
+    canonical: (value) => setListKey(value, opinionKey),
+  },
+  {
+    name: 'highest_probable',
+    positional: false,
+    absentEqualsEmpty: true,
+    inReply: true,
+    emptyValue: null,
+    canonical: (value) => opinionKey(value ?? null),
+  },
+  {
+    name: 'questions',
+    positional: false,
+    absentEqualsEmpty: true,
+    inReply: true,
+    emptyValue: [],
+    canonical: (value) => setListKey(value, questionKey),
+  },
+]);
+
+/**
+ * One report's grouping, reduced to a comparable string per field, as the
+ * policy table above decides: absent keys read as the table's empty value only
+ * where absentEqualsEmpty says so.
+ */
+function canonicalGrouping(report, { includeSeats = false } = {}) {
+  const source = report ?? {};
+  const out = {};
+  for (const field of GROUPING_FIELDS) {
+    if (field.name === 'seats' && !includeSeats) continue;
+    const raw = source[field.name];
+    const value = raw === undefined && field.absentEqualsEmpty ? field.emptyValue : raw;
+    out[field.name] = field.canonical(value);
+  }
+  return out;
 }
 
 /**
@@ -278,15 +243,16 @@ function canonicalGrouping(report) {
  *
  * One definition, used by the live reply check and the stored-report check, so a
  * reply the write path accepts is one the audit will not later call changed. The
- * report's seats are positional and are compared by the caller.
+ * live reply carries no seats, so it is compared without them; the stored check
+ * passes includeSeats and gets all four fields from this same table.
  *
- * @param {object} a  a report body, or an MMRC reply carrying the same three fields
+ * @param {object} a  a report body, or an MMRC reply carrying the reply fields
  * @param {object} b  the report body it is compared against
  * @returns {Array<string>} the grouping fields that differ, in report order
  */
-function groupingDifferences(a, b) {
-  const left = canonicalGrouping(a);
-  const right = canonicalGrouping(b);
+export function groupingDifferences(a, b, { includeSeats = false } = {}) {
+  const left = canonicalGrouping(a, { includeSeats });
+  const right = canonicalGrouping(b, { includeSeats });
   return Object.keys(left).filter((field) => left[field] !== right[field]);
 }
 
@@ -305,11 +271,8 @@ function groupingDifferences(a, b) {
  * A move that no longer offers the three reports the delivery was written from is a
  * typed failure rather than a pass: nothing in the record can confirm the grouping.
  *
- * Order is not part of a grouping. The report lists opinions and questions in the
- * order the seat reports arrived — the record's order, not the seats' — and a basis
- * is a set of entries, so the same entries cited in another order are the same
- * basis. Only a changed opinion, count, status or question is a problem, decided by
- * the same definition the live reply check uses.
+ * What counts as a changed grouping is the policy table above, shared with the
+ * live reply check.
  *
  * @param {Array} entries the record, oldest first
  * @returns {Array<object>} one entry per delivery that no longer matches — its seq,
@@ -338,14 +301,10 @@ export function storedGroupingProblems(entries) {
       continue;
     }
 
-    // The seats are positional — the first is seat 1 — so their order is compared.
-    // The grouping itself is not positional: one shared definition decides that, the
-    // same one the live reply check uses, so the audit cannot flag a reply the write
-    // path would have accepted.
-    const fields = [
-      ...(JSON.stringify(grouped.body.seats) !== JSON.stringify(what.seats) ? ['seats'] : []),
-      ...groupingDifferences(what, grouped.body),
-    ];
+    // Every field, seats included, through the one policy table above — the same
+    // definition the live reply check uses, so the audit cannot flag a reply the
+    // write path would have accepted.
+    const fields = groupingDifferences(what, grouped.body, { includeSeats: true });
     if (fields.length > 0) {
       problems.push({
         seq: delivery.seq,
@@ -392,52 +351,4 @@ export function deliveryFrom(body, mmrcModelId) {
   const checked = validateDelivery(report);
   if (!checked.ok) return failure(checked.kind, checked.detail);
   return { ok: true, report };
-}
-
-/**
- * Consolidate one move live: group the seat reports in code, have the MMRC model
- * hand the same form back, then check that it changed nothing before the report is
- * written. The model ID in the report is the one the response named, never config.
- *
- * A reply that cannot be read or that changes the form is refused, and the model is
- * asked once more with the exact error. After the cap it is a typed failure: a
- * malformed delivery report is no readout, never a freeform one.
- *
- * @param {Array} entries   the record, oldest first
- * @param {number} move     the move seq to consolidate
- * @param {object} [options]
- * @param {object} [options.env]       environment for the key lookup
- * @param {Function} [options.fetchImpl]
- * @returns {Promise<{ok: true, report: object} | {ok: false, kind: string, detail: string}>}
- */
-export async function consolidateMove(entries, move, { env = process.env, fetchImpl = fetch } = {}) {
-  const grouped = consolidateReports(entries, move);
-  if (!grouped.ok) return grouped;
-
-  // The repair ladder: ask, check, and on a refusal ask once more with the exact
-  // error. A transport failure is not a formatting error, so it is not retried.
-  let refused = null;
-  for (let attempt = 1; attempt <= MMRC_MAX_ATTEMPTS; attempt += 1) {
-    const sent = await call(MMRC_PLUG, {
-      messages: mmrcMessages(grouped.body, refused),
-      model: MMRC_MODEL_ID,
-      temperature: MMRC_TEMPERATURE,
-      env,
-      fetchImpl,
-    });
-    if (!sent.ok) return failure(MMRC_FAILURES.callFailed, sent.error?.message ?? 'the MMRC call failed');
-
-    // Only the response can name who answered, and a repair cannot supply it, so
-    // an unnamed reply stops here rather than spending the second attempt.
-    if (!sent.reportedModel) {
-      return failure(MMRC_FAILURES.unnamedModel, 'the MMRC response named no model, so the report cannot say who answered');
-    }
-
-    const checked = checkMmrcReply(sent.text, grouped.body);
-    if (checked.ok) return deliveryFrom(grouped.body, sent.reportedModel);
-
-    refused = checked;
-  }
-
-  return failure(refused.kind, `${refused.detail} (after ${MMRC_MAX_ATTEMPTS} attempts, so no report is written)`);
 }
