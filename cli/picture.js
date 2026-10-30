@@ -22,6 +22,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import { makerLabel, parseMaker, shapePrompt } from './maker-style.js';
 import { callImage, preflight, resolvePlug } from '../provider/index.js';
 import { subjectsOf } from '../record/folders.js';
 import { folderNameForSubject, mimeForBuffer, resolvePicturesPath, savePicture } from '../record/pictures.js';
@@ -31,7 +32,7 @@ import { createStore } from '../record/store.js';
 export const DEFAULT_PICTURE_PROMPT = 'a simple flat folder icon, plain background';
 
 function parseArgs(args) {
-  const out = { prompt: null, out: null, subject: null, dryRun: false, bad: null };
+  const out = { prompt: null, out: null, subject: null, age: null, skill: null, dryRun: false, bad: null };
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--prompt' && i + 1 < args.length) {
       out.prompt = args[i + 1];
@@ -41,6 +42,12 @@ function parseArgs(args) {
       i += 1;
     } else if (args[i] === '--subject' && i + 1 < args.length) {
       out.subject = args[i + 1];
+      i += 1;
+    } else if (args[i] === '--age' && i + 1 < args.length) {
+      out.age = args[i + 1];
+      i += 1;
+    } else if (args[i] === '--skill' && i + 1 < args.length) {
+      out.skill = args[i + 1];
       i += 1;
     } else if (args[i] === '--dry-run') {
       out.dryRun = true;
@@ -57,11 +64,11 @@ function parseArgs(args) {
  * 3 the plug is not ready so nothing was attempted, 4 the call did not work.
  */
 export async function pictureCommand({ args = [], env = process.env, fetchImpl = fetch, store = createStore() } = {}) {
-  const { prompt, out, subject, dryRun, bad } = parseArgs(args);
+  const { prompt, out, subject, age, skill, dryRun, bad } = parseArgs(args);
 
   if (bad) {
     console.error(`Unknown option: ${bad}`);
-    console.error('Usage: picture --prompt "..." [--out PATH] [--subject "..."] [--dry-run]');
+    console.error('Usage: picture --prompt "..." [--out PATH] [--subject "..."] [--age N|adult] [--skill beginner|learning|confident|skilled|master] [--dry-run]');
     return 2;
   }
 
@@ -70,6 +77,17 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
     console.error('A prompt is required: picture --prompt "..."');
     return 2;
   }
+
+  const maker = parseMaker({ age, skill });
+  if (maker.problem) {
+    console.error(maker.problem);
+    return 2;
+  }
+  // The prompt that actually goes to the model: the maker's hand first,
+  // then the subject. The shelf keeps the user's own prompt, and the
+  // maker's age and skill beside it, so the page can say who drew it.
+  const sent = shapePrompt(text, maker);
+  const label = makerLabel(maker);
 
   const ready = preflight('picture', env);
   if (!ready.ready) {
@@ -84,11 +102,12 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
     console.log('Would send (sends nothing):');
     console.log(`POST ${plug.imageUrl}`);
     console.log(`Authorization: Bearer <${ready.envVar}>`);
-    console.log(JSON.stringify({ model: plug.model, prompt: text }, null, 2));
+    console.log(JSON.stringify({ model: plug.model, prompt: sent }, null, 2));
+    if (label) console.log(label);
     return 0;
   }
 
-  const result = await callImage('picture', { prompt: text, env, fetchImpl });
+  const result = await callImage('picture', { prompt: sent, env, fetchImpl });
 
   if (!result.ok) {
     console.error('The picture call did not work.');
@@ -127,6 +146,8 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
       prompt: text,
       model: result.model,
       when: new Date().toISOString(),
+      ...(maker.age !== null ? { makerAge: maker.age } : {}),
+      ...(maker.skill !== null ? { makerSkill: maker.skill } : {}),
     });
     console.log(`Shelved as the folder picture for "${subject}" (${shelfPath})`);
     // And put the same bytes in a real folder with that subject's name, so

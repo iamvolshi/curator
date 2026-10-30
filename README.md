@@ -368,6 +368,7 @@ npm run live            # serve that page on 127.0.0.1 and keep it up to date
 npm run status          # every plug: wiring, and whether its address answers; no key needed
 npm run picture -- --prompt "..."   # one picture from the picture kid (Muse Image), saved to a file; writes nothing to the record
 npm run picture -- --prompt "..." --subject "Ada Okafor"   # ...and shelved as that subject's folder picture, on the folder on the next page build, and in a real folder under records/folders/ for Windows Explorer
+npm run picture -- --prompt "..." --subject "Ada Okafor" --age 7 --skill beginner   # ...drawn like a 7-year-old beginner; --age 5|12|adult, --skill beginner|learning|confident|skilled|master
 ```
 
 `page` builds a single self-contained HTML file from the record as it is at that

@@ -12,6 +12,7 @@ import { describeGroupingProblem } from '../judge/consolidate.js';
 import { seatGraph } from '../judge/graph.js';
 import { foldersFrom } from './folders.js';
 import { dataUriFor } from './pictures.js';
+import { makerLabel } from '../cli/maker-style.js';
 
 /**
  * A row of entry numbers, each one a link to its own entry.
@@ -233,10 +234,12 @@ export function renderFolders(entries, pictures = {}) {
     .map((folder) => {
       const picture = pictures[folder.name];
       const uri = dataUriFor(picture);
+      const maker = picture ? makerLabel({ age: picture.makerAge ?? null, skill: picture.makerSkill ?? null }) : null;
+      const caption = [picture?.prompt, maker].filter(Boolean).map((line) => esc(line)).join('<br>');
       const face = uri
         ? `<figure class="folder__figure">
           <img class="folder__image" src="${esc(uri)}" alt="${esc(`Picture for ${folder.name}`)}">
-          ${picture.prompt ? `<figcaption class="folder__caption">${esc(picture.prompt)}</figcaption>` : ''}
+          ${caption ? `<figcaption class="folder__caption">${caption}</figcaption>` : ''}
         </figure>`
         : '<p class="folder__nopicture">No picture yet.</p>';
       return `      <li class="folder${uri ? ' folder--pictured' : ''}">

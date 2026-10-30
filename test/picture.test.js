@@ -148,6 +148,17 @@ test('the picture command dry run sends nothing', async () => {
   assert.equal(called, false);
 });
 
+test('the picture command refuses a bad maker age or skill, sending nothing', async () => {
+  let called = false;
+  const fetchImpl = async () => {
+    called = true;
+    return reply({})() ;
+  };
+  assert.equal(await pictureCommand({ args: ['--prompt', 'a red circle', '--age', '2'], env: ENV, fetchImpl }), 2);
+  assert.equal(await pictureCommand({ args: ['--prompt', 'a red circle', '--skill', 'godlike'], env: ENV, fetchImpl }), 2);
+  assert.equal(called, false);
+});
+
 test('the pictures shelf holds one picture per subject, beside the record, and only safe images embed', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'overseer-shelf-'));
   const shelf = join(dir, 'pictures.json');
@@ -182,15 +193,26 @@ test('a picture with --subject is shelved, put in a real folder for Explorer, an
     ],
   };
   try {
+    let sentBody;
     const code = await pictureCommand({
-      args: ['--prompt', 'a red circle', '--out', out, '--subject', 'Ada Okafor'],
+      args: ['--prompt', 'a red circle', '--out', out, '--subject', 'Ada Okafor', '--age', '7', '--skill', 'beginner'],
       env: { ...ENV, OVERSEER_PICTURES: shelf },
-      fetchImpl: reply({ data: [{ b64_json: PNG_B64 }] }),
+      fetchImpl: async (url, options) => {
+        sentBody = JSON.parse(options.body);
+        return reply({ data: [{ b64_json: PNG_B64 }] })();
+      },
       store,
     });
     assert.equal(code, 0);
+    // The maker's hand goes in the prompt the model actually sees, and
+    // the user's own prompt stays the one recorded on the shelf.
+    assert.match(sentBody.prompt, /7-year-old's coloured-pencil drawing/);
+    assert.match(sentBody.prompt, /a red circle$/);
     const shelved = await readPictures(shelf);
     assert.equal(shelved['Ada Okafor'].model, 'muse-image-1.0');
+    assert.equal(shelved['Ada Okafor'].prompt, 'a red circle');
+    assert.equal(shelved['Ada Okafor'].makerAge, 7);
+    assert.equal(shelved['Ada Okafor'].makerSkill, 'beginner');
     // The same bytes in a real folder, so Explorer has a folder with an
     // image in it to put on the folder itself.
     const explorerFile = await readFile(join(dir, 'folders', 'Ada Okafor', 'picture.png'));
@@ -201,6 +223,7 @@ test('a picture with --subject is shelved, put in a real folder for Explorer, an
     assert.match(html, /Folders — with a picture/);
     assert.match(html, new RegExp(`<img class="folder__image" src="data:image/png;base64,${PNG_B64}"`));
     assert.match(html, /Picture for Ada Okafor/);
+    assert.match(html, /Made like a 7-year-old, beginner/);
     // The picture is ON the folder tile, not a line underneath it: the
     // image comes before the folder's name in the tile.
     const tile = html.slice(html.indexOf('Folders —'));
