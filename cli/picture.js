@@ -6,9 +6,10 @@
 // can use it. It writes nothing to the K-record, because a picture is not
 // a fact entry and the record schema has no image entry to hold one. With
 // --subject the picture also goes on the shelf beside the record, so the
-// next page build shows it in that subject's folder — in a browser, where
-// a picture can actually be seen. A terminal cannot show a picture, and
-// this command does not pretend otherwise.
+// next page build shows it on that subject's folder — in a browser, where
+// a picture can actually be seen — and into a real folder of that subject's
+// name, so Windows Explorer shows it on the folder itself. A terminal cannot
+// show a picture, and this command does not pretend otherwise.
 //
 // Base64 replies are decoded and written as bytes, with the file extension
 // read from the bytes themselves where it can be: a PNG header writes .png,
@@ -18,11 +19,12 @@
 // kind of request, and this command does not invent one for it — and a URL
 // picture cannot be shelved either, because the shelf holds bytes.
 
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import { callImage, preflight, resolvePlug } from '../provider/index.js';
 import { subjectsOf } from '../record/folders.js';
-import { mimeForBuffer, resolvePicturesPath, savePicture } from '../record/pictures.js';
+import { folderNameForSubject, mimeForBuffer, resolvePicturesPath, savePicture } from '../record/pictures.js';
 import { createStore } from '../record/store.js';
 
 /** The default prompt when none is given: this command never invents work. */
@@ -127,6 +129,18 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
       when: new Date().toISOString(),
     });
     console.log(`Shelved as the folder picture for "${subject}" (${shelfPath})`);
+    // And put the same bytes in a real folder with that subject's name, so
+    // Windows Explorer can do what it does: a folder holding an image shows
+    // that image on the folder itself, in medium and large icon views.
+    // Explorer decides the thumbnail; this just gives it a folder with an
+    // image in it to work from. The shelf above stays the authority — the
+    // disk folder is a view for Explorer, not a second record.
+    const folderDir = join(dirname(shelfPath), 'folders', folderNameForSubject(subject));
+    await mkdir(folderDir, { recursive: true });
+    const folderFile = join(folderDir, `picture.${ext}`);
+    await writeFile(folderFile, buffer);
+    console.log(`Also in a real folder for Explorer: ${folderFile}`);
+    console.log('Open its parent folder in Explorer (medium or large icons) to see the image on the folder.');
     // A folder is a view of the record, so a picture for a subject no entry
     // names yet cannot appear on the page until one does. Saying so here
     // beats a builder wondering why the page shows no picture.

@@ -85,6 +85,24 @@ export async function savePicture(path, subject, picture) {
   return shelf[name];
 }
 
+/**
+ * A subject name made safe for a real folder on disk, Windows included.
+ *
+ * Windows forbids < > : " / \ | ? * in a folder name, and reserves CON, PRN,
+ * AUX, NUL, COM1–9 and LPT1–9. Those characters become '-', the name is
+ * trimmed and capped, and a reserved name gets an underscore. Two different
+ * subjects can still sanitise to the same folder name — on disk the last
+ * picture wins for that folder, while the shelf above stays exact per
+ * subject and is the authority. A disk folder is a view for Explorer, not
+ * a second record, so a collision there cannot rewrite what the shelf says.
+ */
+export function folderNameForSubject(subject) {
+  const raw = String(subject ?? '').trim().replace(/[<>:\"/\\|?*\u0000-\u001f]/g, '-').replace(/\s+/g, ' ').trim();
+  const capped = raw.slice(0, 100).trim() || 'unnamed';
+  const reserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+  return reserved.test(capped) ? `${capped}_` : capped;
+}
+
 /** The data URI for a shelved picture, or null when the entry is not a safe image. */
 export function dataUriFor(picture) {
   if (!picture || typeof picture !== 'object') return null;

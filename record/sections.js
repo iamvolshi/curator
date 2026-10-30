@@ -214,6 +214,13 @@ ${rows}
  * no entry names is not shown at all: a folder is a view of the record, and
  * a picture cannot conjure a folder into being.
  *
+ * The picture is ON the folder, the way Windows Explorer puts a folder's
+ * image on the folder itself — not a line underneath it. Each folder is a
+ * tile, and the picture is the tile's face: image first, name and count
+ * under it, the prompt as the caption. A folder with no picture yet is
+ * the same tile with no face, so the layout does not shift when a
+ * picture arrives.
+ *
  * The picture is embedded as a data URI, so the page stays self-contained:
  * no external image is referenced, and the file still opens anywhere.
  */
@@ -226,24 +233,25 @@ export function renderFolders(entries, pictures = {}) {
     .map((folder) => {
       const picture = pictures[folder.name];
       const uri = dataUriFor(picture);
-      const image = uri
-        ? `        <figure class="folder__figure">
+      const face = uri
+        ? `<figure class="folder__figure">
           <img class="folder__image" src="${esc(uri)}" alt="${esc(`Picture for ${folder.name}`)}">
           ${picture.prompt ? `<figcaption class="folder__caption">${esc(picture.prompt)}</figcaption>` : ''}
         </figure>`
-        : '        <p class="folder__nopicture">No picture yet.</p>';
-      return `      <li class="folder">
+        : '<p class="folder__nopicture">No picture yet.</p>';
+      return `      <li class="folder${uri ? ' folder--pictured' : ''}">
+${face}
         <span class="folder__name">${esc(folder.name)}</span>
         <span class="folder__count">${esc(count(folder.entries.length, 'entry', 'entries'))}${folder.firstSeq ? `, first seen seq ${esc(folder.firstSeq)}` : ''}</span>
-${image}
       </li>`;
     })
     .join('\n');
 
   return `  <section class="folders">
     <h2>Folders — with a picture</h2>
-    <p class="folders__note">One folder per subject the record names. A picture here was made
-    by the picture kid for that subject; it is a picture of the folder, not an entry in the record.</p>
+    <p class="folders__note">One folder per subject the record names. The picture on a folder
+    was made by the picture kid for that subject, the way Explorer puts a folder's image on
+    the folder itself. It is a picture of the folder, not an entry in the record.</p>
     <ul class="folders__list">
 ${rows}
     </ul>

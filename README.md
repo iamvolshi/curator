@@ -341,7 +341,7 @@ claim otherwise:
 | `baseten` | yes | **blocked** on `BASETEN_API_KEY` only; model is `meta-models/muse-spark-open-1026` — skipped for this submission |
 | `openrouter` | yes | **blocked** on `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` |
 | `nvidia` | yes | **blocked** on `NVIDIA_API_KEY`. The three model names the panel seats are in `.env.example`, each checked against the live endpoint — the address accepts the ID and rejects the key, which is as far as a check can go without one |
-| `picture` | yes | **not yet live-proven** — wired to `muse-image-1.0` on the Worker's key, reader built, mock-tested; a real call needs `MODEL_API_KEY` on the builder's box (see `npm run picture`). With `--subject`, the picture is shelved beside the record (`records/pictures.json`) and embedded as a data URI in that folder on the next page build — the page stays self-contained, and a terminal, which cannot show a picture, says one exists instead |
+| `picture` | yes | **not yet live-proven** — wired to `muse-image-1.0` on the Worker's key, reader built, mock-tested; a real call needs `MODEL_API_KEY` on the builder's box (see `npm run picture`). With `--subject`, the picture is shelved beside the record (`records/pictures.json`) and put on that folder two ways: as the folder tile's face on the next page build (embedded as a data URI, so the page stays self-contained), and as a real image inside `records/folders/<subject>/`, so Windows Explorer puts it on the folder itself in medium/large icon views. A terminal, which cannot show a picture, says one exists instead |
 
 ## Running it
 
@@ -367,7 +367,7 @@ npm run page            # write the record out as one readable page (record.html
 npm run live            # serve that page on 127.0.0.1 and keep it up to date
 npm run status          # every plug: wiring, and whether its address answers; no key needed
 npm run picture -- --prompt "..."   # one picture from the picture kid (Muse Image), saved to a file; writes nothing to the record
-npm run picture -- --prompt "..." --subject "Ada Okafor"   # ...and shelved as that subject's folder picture, shown on the next page build
+npm run picture -- --prompt "..." --subject "Ada Okafor"   # ...and shelved as that subject's folder picture, on the folder on the next page build, and in a real folder under records/folders/ for Windows Explorer
 ```
 
 `page` builds a single self-contained HTML file from the record as it is at that

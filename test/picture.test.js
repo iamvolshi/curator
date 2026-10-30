@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { callImage, readImageReply, resolvePlug } from '../provider/index.js';
 import { pictureCommand } from '../cli/picture.js';
 import { renderPage } from '../record/html.js';
-import { dataUriFor, mimeForBuffer, readPictures, resolvePicturesPath, savePicture } from '../record/pictures.js';
+import { dataUriFor, folderNameForSubject, mimeForBuffer, readPictures, resolvePicturesPath, savePicture } from '../record/pictures.js';
 
 const ENV = { MODEL_API_KEY: 'LLM_test_key' };
 
@@ -166,7 +166,13 @@ test('the pictures shelf holds one picture per subject, beside the record, and o
   }
 });
 
-test('a picture with --subject is shelved, and the page shows it in that folder only', async () => {
+test('a subject name is made safe for a real folder, Windows included', () => {
+  assert.equal(folderNameForSubject('Ada / Okafor: notes'), 'Ada - Okafor- notes');
+  assert.equal(folderNameForSubject('CON'), 'CON_');
+  assert.equal(folderNameForSubject('   '), 'unnamed');
+});
+
+test('a picture with --subject is shelved, put in a real folder for Explorer, and the page shows it on that folder only', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'overseer-folder-pic-'));
   const shelf = join(dir, 'pictures.json');
   const out = join(dir, 'folder-pic');
@@ -185,12 +191,20 @@ test('a picture with --subject is shelved, and the page shows it in that folder 
     assert.equal(code, 0);
     const shelved = await readPictures(shelf);
     assert.equal(shelved['Ada Okafor'].model, 'muse-image-1.0');
+    // The same bytes in a real folder, so Explorer has a folder with an
+    // image in it to put on the folder itself.
+    const explorerFile = await readFile(join(dir, 'folders', 'Ada Okafor', 'picture.png'));
+    assert.equal(explorerFile[0], 0x89);
 
     const entry = (seq, subjects) => ({ seq, label: 'fact', when: '2026-10-30', what: { kind: 'plug-prove', prompt: 'hello', subjects, ok: true } });
     const html = renderPage([entry(1, ['Ada Okafor']), entry(2, ['Other Subject'])], { pictures: shelved });
     assert.match(html, /Folders — with a picture/);
     assert.match(html, new RegExp(`<img class="folder__image" src="data:image/png;base64,${PNG_B64}"`));
     assert.match(html, /Picture for Ada Okafor/);
+    // The picture is ON the folder tile, not a line underneath it: the
+    // image comes before the folder's name in the tile.
+    const tile = html.slice(html.indexOf('Folders —'));
+    assert.ok(tile.indexOf('folder__image') < tile.indexOf('<span class="folder__name">Ada Okafor</span>'));
     assert.match(html, /Other Subject/);
     assert.match(html, /No picture yet\./, 'a folder without a picture says so');
 
