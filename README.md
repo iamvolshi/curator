@@ -12,6 +12,8 @@ The K-record accountability idea — an append-only record of what an agent beli
 
 The older work stays separate: the VOLSHi engines, including the KATIE kernel, live in their own private repositories. They are named here for context only, with no code, history, or setup from them copied in.
 
+**Submission wrap, 29 October 2026: Baseten is skipped for this submission.** The Baseten plug is wired, but its key was not available for a live prove, so the single-seat Overseer judge (`npm run judge`, Baseten) is not claimed as proven here. The submission core is what is proven: Worker via `meta`, the three-seat panel, MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page. Baseten's mandated model is `meta-models/muse-spark-open-1026`; the plug is blocked on the key only, not on a model pick.
+
 **Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Overseer code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
 
 ## Setup
@@ -307,7 +309,7 @@ a plain statement of where each of those values came from.
 | Plug | Serves | Address | Key variable | Model |
 | --- | --- | --- | --- | --- |
 | `meta` | the Worker agent | `https://api.meta.ai/v1` | `MODEL_API_KEY` | `muse-spark-1.3`, Meta's documented default |
-| `baseten` | the Overseer agent | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` | unset on purpose: `BASETEN_MODEL` is Darren's pick |
+| `baseten` | the Overseer agent | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` | `meta-models/muse-spark-open-1026` (Baseten's mandated hackathon model; skipped for this submission, blocked on the key only) |
 | `openrouter` | interim development path, in no routing slot | `OPENROUTER_BASE_URL` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL`, none assumed |
 | `nvidia` | the panel's free seats and bank | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` | `NVIDIA_MODEL`, none assumed |
 | `inception` | seat 3 (via `PANEL_SEAT3_PLUG`) | `https://api.inceptionlabs.ai/v1` | `INCEPTION_API_KEY` | `INCEPTION_MODEL`, none assumed |
@@ -332,7 +334,7 @@ claim otherwise:
 | Plug | Wired | Live call |
 | --- | --- | --- |
 | `meta` | yes | **proven** — `muse-spark-1.3` answered `"ready"` in 1443 ms (186 tokens), one `fact` entry at `seq` 1 |
-| `baseten` | yes | **blocked** on `BASETEN_API_KEY` and `BASETEN_MODEL` |
+| `baseten` | yes | **blocked** on `BASETEN_API_KEY` only; model is `meta-models/muse-spark-open-1026` — skipped for this submission |
 | `openrouter` | yes | **blocked** on `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` |
 | `nvidia` | yes | **blocked** on `NVIDIA_API_KEY`. The three model names the panel seats are in `.env.example`, each checked against the live endpoint — the address accepts the ID and rejects the key, which is as far as a check can go without one |
 | `picture` | slot only | **blocked** on the provider and model pick, and on an image reply reader |
