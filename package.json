@@ -20,6 +20,7 @@
     "records": "node --env-file-if-exists=.env bin/overseer.js records",
     "page": "node --env-file-if-exists=.env bin/overseer.js page",
     "live": "node --env-file-if-exists=.env bin/overseer.js live",
+    "picture": "node --env-file-if-exists=.env bin/overseer.js picture",
     "status": "node --env-file-if-exists=.env bin/overseer.js status",
     "test": "node --test"
   }

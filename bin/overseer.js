@@ -17,6 +17,7 @@ import { liveCommand } from '../cli/live.js';
 import { pageCommand } from '../cli/page.js';
 import { panelCommand } from '../cli/panel.js';
 import { proveCommand, DEFAULT_PROMPT } from '../cli/prove.js';
+import { pictureCommand } from '../cli/picture.js';
 import { recordsCommand } from '../cli/records.js';
 import { statusCommand } from '../cli/status.js';
 import { taskCommand } from '../cli/task.js';
@@ -80,6 +81,11 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       key. Reachability is only probed where a plug names a key-free health
       address; the rest say so rather than guessing at one.
 
+  node bin/overseer.js picture --prompt "..." [--out PATH] [--dry-run]
+      One picture from the picture kid (Muse Image), saved to a file.
+      This is the picture plug's live prove; it writes nothing to the
+      K-record, because a picture is not a fact entry.
+
   node bin/overseer.js help
       This text.
 
@@ -111,6 +117,7 @@ const commands = {
   records: () => recordsCommand({ args }),
   page: () => pageCommand({ args }),
   live: () => liveCommand({ args }),
+  picture: () => pictureCommand({ args }),
   status: () => statusCommand({ args }),
   help: async () => {
     console.log(USAGE);

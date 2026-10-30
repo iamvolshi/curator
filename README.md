@@ -313,18 +313,22 @@ a plain statement of where each of those values came from.
 | `openrouter` | interim development path, in no routing slot | `OPENROUTER_BASE_URL` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL`, none assumed |
 | `nvidia` | the panel's free seats and bank | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` | `NVIDIA_MODEL`, none assumed |
 | `inception` | seat 3 (via `PANEL_SEAT3_PLUG`) | `https://api.inceptionlabs.ai/v1` | `INCEPTION_API_KEY` | `INCEPTION_MODEL`, none assumed |
-| `picture` | the picture kid | — | — | — |
+| `picture` | the picture kid | `https://api.meta.ai/v1` | `MODEL_API_KEY` (the Worker's key) | `muse-image-1.0`, Meta's image model |
 
 Routing is fixed in `provider/routing.js`: Worker → `meta`, Overseer → `baseten`,
 picture kid → `picture`. A slot names a plug, never a URL or a model, so nothing
 routes around the seam. `openrouter` is wired as a plug but sits in no slot.
 
-The `picture` slot is wired but **empty on purpose**. The open-weights image
-provider and its model are Darren's decision, so no address and no model are
-filled in, and the slot refuses to call rather than sending a request to a model
-nobody chose. It also has no reader for an image reply yet — the text plugs all
-answer in the chat-completions shape, which carries no image. Both gaps are named
-in `provider/plugs/picture.js` rather than papered over.
+The `picture` slot is wired to **Muse Image** (`muse-image-1.0`), Darren's pick
+2026-10-30. One correction is baked into the plug and worth knowing: no Muse
+text model can fill this slot — Spark, Spark Open and Glimmer are all text-out
+only and cannot draw. Muse Image is the Muse model that makes pictures, on the
+same Meta Model API as the Worker, so it reuses the Worker's key. It is
+proprietary, not open weights, so it is a Meta-tooling leg, not the
+open-weights bonus leg. Its reply is read by its own reader in
+`provider/plugs/picture.js`: an images-generations reply carries `data` with
+`b64_json` or `url`, not a chat-completions choice. The text call refuses
+image plugs outright; pictures go through `callImage` only.
 
 ### Which plugs are proven
 
@@ -337,7 +341,7 @@ claim otherwise:
 | `baseten` | yes | **blocked** on `BASETEN_API_KEY` only; model is `meta-models/muse-spark-open-1026` — skipped for this submission |
 | `openrouter` | yes | **blocked** on `OPENROUTER_BASE_URL`, `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` |
 | `nvidia` | yes | **blocked** on `NVIDIA_API_KEY`. The three model names the panel seats are in `.env.example`, each checked against the live endpoint — the address accepts the ID and rejects the key, which is as far as a check can go without one |
-| `picture` | slot only | **blocked** on the provider and model pick, and on an image reply reader |
+| `picture` | yes | **not yet live-proven** — wired to `muse-image-1.0` on the Worker's key, reader built, mock-tested; a real call needs `MODEL_API_KEY` on the builder's box (see `npm run picture`) |
 
 ## Running it
 
@@ -362,6 +366,7 @@ npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date
 npm run status          # every plug: wiring, and whether its address answers; no key needed
+npm run picture -- --prompt "..."   # one picture from the picture kid (Muse Image), saved to a file; writes nothing to the record
 ```
 
 `page` builds a single self-contained HTML file from the record as it is at that
@@ -528,9 +533,10 @@ The mapping follows Meta's published error reference, listed below.
   run in a loop; one call per plug is the intention, not an enforcement.
 - The record file is tracked in git, so a live call leaves one uncommitted line
   in the working tree.
-- The picture slot has no reader for an image reply. Every plug here reads the
-  chat-completions shape; an image answer (bytes or a URL) needs its own reader
-  before that slot can run.
+- The picture slot's reader handles Muse Image's reply shape only
+  (`data` with `b64_json` or `url`). A URL reply is printed, not saved:
+  fetching a URL's bytes is a second kind of request this command does not
+  invent.
 - The consolidation groups by position and cited basis, and by nothing else. It
   cannot tell whether two seats cite the same entries for different reasons, and
   it cannot catch a wrong citation: a basis is taken as the seat's report gave it.

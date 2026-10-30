@@ -179,30 +179,32 @@ test('the routing table is the fixed one', () => {
   assert.throws(() => plugForSlot('something-else'), /no route/);
 });
 
-test('the picture slot is configured but empty, waiting on the provider pick', async () => {
+test('the picture slot is wired to Muse Image, not to a Muse text model', async () => {
   const plug = resolvePlug('picture', {});
 
   assert.equal(plug.kind, 'image');
-  assert.equal(plug.status, 'awaiting-pick');
-  assert.equal(plug.baseUrl, null);
-  assert.equal(plug.model, null);
-  assert.equal(plug.chatUrl, null);
-  assert.equal(plug.replyShape, null, 'how to read an image reply is not decided');
-  assert.match(plug.blockedReason, /Darren/);
+  assert.equal(plug.status, 'ready');
+  assert.equal(plug.baseUrl, 'https://api.meta.ai/v1');
+  assert.equal(plug.model, 'muse-image-1.0');
+  assert.equal(plug.imageUrl, 'https://api.meta.ai/v1/images/generations');
+  assert.equal(plug.replyShape, 'images-generations');
+  assert.equal(plug.keyEnvVar, 'MODEL_API_KEY', 'Muse Image shares the Worker key');
+  assert.equal(plug.blockedReason, null);
 
+  // A text call through an image plug sends nothing, whatever the prompt.
   let called = false;
   const result = await call('picture', {
     messages: [{ role: 'user', content: 'a picture' }],
-    env: {},
+    env: { MODEL_API_KEY: 'LLM_test_key' },
     fetchImpl: async () => {
       called = true;
       return { ok: true, status: 200, text: async () => '{}' };
     },
   });
 
-  assert.equal(called, false, 'an empty slot sends nothing');
+  assert.equal(called, false, 'a text call never reaches an images endpoint');
   assert.equal(result.ok, false);
-  assert.equal(result.error.kind, 'missing-config');
+  assert.equal(result.error.kind, 'bad-request');
   assert.equal(result.noCallMade, true);
 });
 

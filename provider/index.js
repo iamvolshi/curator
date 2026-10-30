@@ -18,7 +18,10 @@ import { fixedFailure } from '../worker/errors.js';
 import { describeKeyPresence, readKey } from './keys.js';
 import { checkPlugShape, describePlug } from './shape.js';
 import { resolvePlug } from './registry.js';
+import { readImageReply } from './plugs/picture.js';
 import { sendGet, sendJson } from './transport.js';
+
+export { readImageReply };
 
 export { PLUG_NAMES, resolveAll, resolvePlug } from './registry.js';
 export { ROUTES, ROUTE_SLOTS, plugForSlot } from './routing.js';
@@ -125,6 +128,20 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     };
   }
 
+  // An image plug is not a text plug with a different URL. Sending a chat
+  // body to an images endpoint would be a request nobody meant, so the
+  // text call refuses image plugs outright and points at callImage instead.
+  if (plug.kind === 'image') {
+    return {
+      ...base,
+      ok: false,
+      error: fixedFailure('bad-request', 'the picture plug makes images, not text: use callImage with a prompt', {
+        fix: 'callImage(name, { prompt }) — a text call cannot carry an image reply',
+      }),
+      noCallMade: true,
+    };
+  }
+
   if (!Array.isArray(messages) || messages.length === 0) {
     return {
       ...base,
@@ -202,6 +219,143 @@ export async function call(name, { messages, model, env = process.env, fetchImpl
     reportedModel: namedModel(sent.parsed),
     text,
     finishReason: choice?.finish_reason ?? null,
+    usage: sent.parsed?.usage ?? null,
+    error: null,
+  };
+}
+
+/**
+ * Make one image through an image plug.
+ *
+ * The same seam rules as a text call, in the same order: shape, ready,
+ * prompt, key, then exactly one request. The body is only model + prompt:
+ * nothing else is sent, because nothing else has been checked against
+ * this endpoint. The reply is read by the picture plug's reader, which
+ * knows what an images-generations reply actually carries.
+ *
+ * @param {string} name                    plug name, e.g. 'picture'
+ * @param {object} request
+ * @param {string} request.prompt          what the picture should show
+ * @param {string} [request.model]         model; defaults to the plug's resolved model
+ * @param {object} [request.env]           environment to read the key and config from
+ * @param {Function} [request.fetchImpl]   test seam; defaults to the global fetch
+ * @param {number} [request.timeoutMs]     overrides the plug's timeout
+ * @returns {Promise<object>} a result that never throws for a call that was tried
+ */
+export async function callImage(name, { prompt, model, env = process.env, fetchImpl = fetch, timeoutMs } = {}) {
+  const plug = resolvePlug(name, env);
+  const requestedModel = model ?? plug.model ?? null;
+
+  const base = {
+    plug: plug.name,
+    kind: plug.kind,
+    endpoint: plug.imageUrl ? `POST ${plug.imageUrl}` : null,
+    request: null,
+    model: requestedModel,
+    reportedModel: null,
+    image: null,
+    durationMs: 0,
+    warnings: [],
+  };
+
+  const shapeProblems = checkPlugShape(plug);
+  if (shapeProblems.length > 0) {
+    return {
+      ...base,
+      ok: false,
+      error: fixedFailure(
+        'missing-config',
+        `the ${plug.name} plug is not wired correctly: ${shapeProblems.join('; ')}`,
+      ),
+      noCallMade: true,
+    };
+  }
+
+  if (plug.status !== 'ready') {
+    return {
+      ...base,
+      ok: false,
+      error: fixedFailure('missing-config', plug.blockedReason, {
+        fix: 'this slot is waiting on a decision, not on a retry: name the provider and model for it, then call again',
+      }),
+      noCallMade: true,
+    };
+  }
+
+  if (plug.kind !== 'image') {
+    return {
+      ...base,
+      ok: false,
+      error: fixedFailure('bad-request', 'callImage is only for image plugs: a text plug answers through call', {
+        fix: 'use call(name, { messages }) for a text plug',
+      }),
+      noCallMade: true,
+    };
+  }
+
+  const text = typeof prompt === 'string' ? prompt.trim() : '';
+  if (text === '') {
+    return {
+      ...base,
+      ok: false,
+      error: fixedFailure('bad-request', 'an image call needs a prompt'),
+      noCallMade: true,
+    };
+  }
+
+  const { key, problem } = readKey(plug, env);
+  if (!key) {
+    return {
+      ...base,
+      ok: false,
+      error: fixedFailure('missing-key', problem, {
+        fix: `put the key in ${plug.keyEnvVar} — ${plug.sources.key}`,
+      }),
+      noCallMade: true,
+    };
+  }
+
+  const body = { model: requestedModel, prompt: text };
+  const url = plug.imageUrl ?? plug.chatUrl;
+
+  const sent = await sendJson({
+    url,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body,
+    timeoutMs: timeoutMs ?? plug.timeoutMs,
+    fetchImpl,
+  });
+
+  const request = { method: 'POST', url, body };
+
+  if (!sent.ok) {
+    return { ...base, request, ok: false, durationMs: sent.durationMs, error: sent.error };
+  }
+
+  const { image, problem: readProblem } = readImageReply(sent.parsed);
+  if (!image) {
+    return {
+      ...base,
+      request,
+      ok: false,
+      durationMs: sent.durationMs,
+      error: fixedFailure('bad-response', `the call was answered, but ${readProblem}`, {
+        httpStatus: sent.status,
+      }),
+    };
+  }
+
+  return {
+    ...base,
+    request,
+    ok: true,
+    durationMs: sent.durationMs,
+    model: sent.parsed?.model ?? requestedModel,
+    reportedModel: namedModel(sent.parsed),
+    image,
     usage: sent.parsed?.usage ?? null,
     error: null,
   };

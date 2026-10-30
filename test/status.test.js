@@ -96,11 +96,12 @@ test('status reports every plug wired or not, and which can be called now', asyn
   });
 
   // The values come from the plug configs, so a slot waiting on a decision reads
-  // as waiting on a decision, not as an error.
-  assert.match(text, /awaiting-pick/);
+  // as waiting on a decision, not as an error. The picture plug is ready on
+  // the same Meta key, so with that key set two plugs can be called now.
   assert.match(text, /needs-config/);
   assert.match(text, /muse-spark-1\.3/);
-  assert.match(text, /1 can be called now \(meta\)/);
+  assert.match(text, /muse-image-1\.0/);
+  assert.match(text, /2 can be called now \(meta, picture\)/);
 });
 
 test('status does not count a ready plug as callable when it has no key', async () => {
