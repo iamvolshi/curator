@@ -7,7 +7,9 @@
 // exists to prevent — so it is a view, and it says so.
 //
 // No external font, image or script is referenced: the file opens anywhere, and
-// nothing on the page can quietly change after it was made. The one piece of
+// nothing on the page can quietly change after it was made. Folder pictures
+// are embedded as data URIs, which are inline, not external references.
+// The one piece of
 // browser code this page can carry — the live badge and its poller — lives in
 // ./browser.js, so it is clear that it runs in the page and not in this process.
 //
@@ -20,7 +22,7 @@
 import { liveBadge, liveScript } from './browser.js';
 import { entryCard } from './cards.js';
 import { count, esc } from './markup.js';
-import { renderGraphs, renderIndex, renderParked, renderReadout, renderSocket } from './sections.js';
+import { renderFolders, renderGraphs, renderIndex, renderParked, renderReadout, renderSocket } from './sections.js';
 
 /** The numbers on the page, counted from the entries rather than assumed. */
 function measure(entries) {
@@ -167,6 +169,21 @@ const STYLE = `
   .readout__count { margin-left: auto; font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
   .readout__aside { padding: .45rem 0; border-bottom: 1px solid var(--rule); font-size: .82rem; color: var(--muted); }
   .readout__drift { margin: .1rem 0 .5rem; font-size: .82rem; font-weight: 600; color: var(--judgment); }
+  .folders { margin: 0 0 2.2rem; }
+  .folders h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .folders__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .folders__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .folder { padding: .8rem 0; border-bottom: 1px solid var(--rule); }
+  .folder__name { display: block; font-weight: 600; }
+  .folder__count { font-size: .82rem; color: var(--muted); }
+  .folder__figure { margin: .6rem 0 0; }
+  .folder__image { display: block; max-width: 100%; height: auto; border: 1px solid var(--rule); }
+  .folder__caption { margin-top: .4rem; font-size: .82rem; color: var(--muted); }
+  .folder__nopicture { margin: .4rem 0 0; font-size: .82rem; color: var(--muted); }
   .parked { margin: 0 0 2.2rem; }
   .parked h2 {
     margin: 0 0 .5rem;
@@ -248,7 +265,7 @@ const STYLE = `
  */
 export function renderPage(
   entries,
-  { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [], readout = null, groupingProblems = [] } = {},
+  { source = 'the record file', generatedAt = '', plugs = [], live = null, parked = [], readout = null, groupingProblems = [], pictures = {} } = {},
 ) {
   const stats = measure(entries);
   // The total is entries, not calls. A judgment and a question are entries and no
@@ -289,7 +306,7 @@ export function renderPage(
   <h1>A record of what actually happened</h1>
   <p class="deck"><strong>${esc(deck)}</strong> — ${esc(models)}</p>
 ${live ? liveBadge() : ''}  <hr class="rule">
-${renderIndex(entries)}${readout ? renderReadout(readout) : ''}${renderGraphs(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}${parked.length ? renderParked(parked) : ''}  <ul class="legend">
+${renderIndex(entries)}${renderFolders(entries, pictures)}${readout ? renderReadout(readout) : ''}${renderGraphs(entries)}${plugs.length ? renderSocket(entries, plugs) : ''}${parked.length ? renderParked(parked) : ''}  <ul class="legend">
     <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
     <li><span class="chip chip--judgment">judgment</span> the Overseer's assessment of an observed move, labelled as one</li>
     <li><span class="chip chip--question">question</span> an open question on a subject, sitting in its thread until the record answers it</li>

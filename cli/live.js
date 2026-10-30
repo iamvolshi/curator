@@ -19,7 +19,7 @@ import { stat } from 'node:fs/promises';
 
 import { createStore } from '../record/store.js';
 import { line, note } from './output.js';
-import { buildPage, ledgerPathFor, parkedFor } from './view.js';
+import { buildPage, ledgerPathFor, parkedFor, picturesFor, picturesPathFor } from './view.js';
 
 /** Loopback only, on purpose: this is a viewer for the person running the demo. */
 export const HOST = '127.0.0.1';
@@ -51,15 +51,17 @@ async function signature(path) {
 }
 
 /**
- * What the page watches: the record and the ledger beside it.
+ * What the page watches: the record, the ledger beside it, and the pictures
+ * shelf beside it.
  *
  * A run that parks a move writes nothing to the record by design, so a signature
  * over the record alone would leave an open page saying the move was still being
- * attempted. Both /state and the page this viewer serves use this, so they cannot
- * report different signatures for the same moment.
+ * attempted. A folder picture is the same kind of beside-the-record fact, so it
+ * is watched too. Both /state and the page this viewer serves use this, so they
+ * cannot report different signatures for the same moment.
  */
 async function watchSignature(store, env) {
-  return `${await signature(store.path)}|${await signature(ledgerPathFor(env))}`;
+  return `${await signature(store.path)}|${await signature(ledgerPathFor(env))}|${await signature(picturesPathFor(env, store.path))}`;
 }
 
 /**
@@ -94,12 +96,14 @@ export async function startLiveServer({
         // Read per request, like the record: a move that parked a minute ago is
         // parked on the next reload, without restarting the viewer.
         const parked = await parkedFor(entries, env);
+        const pictures = await picturesFor(env, store.path);
         const html = buildPage(entries, {
           source: store.path,
           generatedAt: now().toISOString(),
           env,
           live: { sig },
           parked,
+          pictures,
         });
         send(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': CSP }, html);
         return;

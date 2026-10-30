@@ -4,7 +4,7 @@
 // a second implementation of the record. So both call this: it decides what the
 // page is told (where it came from, when, which plugs exist) and nothing else.
 
-import { isAbsolute, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import { createLedger, resolveLedgerPath } from '../judge/attempts.js';
 import { storedGroupingProblems } from '../judge/consolidate.js';
@@ -12,6 +12,7 @@ import { parkedMoves } from '../judge/judge.js';
 import { readPanel } from '../judge/readout.js';
 import { resolveAll } from '../provider/index.js';
 import { renderPage } from '../record/html.js';
+import { readPictures, resolvePicturesPath } from '../record/pictures.js';
 
 /** The path as a reader of the page should see it: relative when it is inside the project. */
 export function showablePath(path) {
@@ -38,6 +39,23 @@ export function plugSummaries(env = process.env) {
 /** Where the parked counts live, beside the record unless the environment moves it. */
 export function ledgerPathFor(env = process.env) {
   return resolveLedgerPath(null, env);
+}
+
+/**
+ * Where folder pictures live: beside the record file that was actually read,
+ * unless the environment moves the shelf outright. Deriving it from the
+ * store's path, rather than from the environment alone, keeps a page built
+ * from a test record from picking up pictures shelved beside another record.
+ */
+export function picturesPathFor(env = process.env, recordsPath = null) {
+  if (env.OVERSEER_PICTURES) return resolvePicturesPath(null, env);
+  if (recordsPath) return join(dirname(resolve(recordsPath)), 'pictures.json');
+  return resolvePicturesPath(null, env);
+}
+
+/** The folder pictures, read from the shelf beside the record. A missing shelf reads as none. */
+export async function picturesFor(env = process.env, recordsPath = null) {
+  return readPictures(picturesPathFor(env, recordsPath));
 }
 
 /**
@@ -84,7 +102,7 @@ export function readoutFor(entries, groupingProblems = []) {
  */
 export function buildPage(
   entries,
-  { source, generatedAt, env = process.env, live = null, parked = [], groupingProblems = storedGroupingProblems(entries) } = {},
+  { source, generatedAt, env = process.env, live = null, parked = [], groupingProblems = storedGroupingProblems(entries), pictures = {} } = {},
 ) {
   return renderPage(entries, {
     source: showablePath(source),
@@ -94,5 +112,6 @@ export function buildPage(
     parked,
     readout: readoutFor(entries, groupingProblems),
     groupingProblems,
+    pictures,
   });
 }

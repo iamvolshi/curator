@@ -13,6 +13,8 @@ import { join } from 'node:path';
 
 import { callImage, readImageReply, resolvePlug } from '../provider/index.js';
 import { pictureCommand } from '../cli/picture.js';
+import { renderPage } from '../record/html.js';
+import { dataUriFor, mimeForBuffer, readPictures, resolvePicturesPath, savePicture } from '../record/pictures.js';
 
 const ENV = { MODEL_API_KEY: 'LLM_test_key' };
 
@@ -144,4 +146,58 @@ test('the picture command dry run sends nothing', async () => {
   });
   assert.equal(code, 0);
   assert.equal(called, false);
+});
+
+test('the pictures shelf holds one picture per subject, beside the record, and only safe images embed', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-shelf-'));
+  const shelf = join(dir, 'pictures.json');
+  try {
+    assert.deepEqual(await readPictures(shelf), {}, 'a missing shelf reads as no pictures');
+    assert.equal(resolvePicturesPath(null, { OVERSEER_PICTURES: shelf }), shelf);
+    await savePicture(shelf, 'Ada Okafor', { mime: 'image/png', data: PNG_B64, prompt: 'a red circle', model: 'muse-image-1.0', when: '2026-10-30' });
+    const back = await readPictures(shelf);
+    assert.equal(back['Ada Okafor'].prompt, 'a red circle');
+    assert.equal(dataUriFor(back['Ada Okafor']), `data:image/png;base64,${PNG_B64}`);
+    assert.deepEqual(mimeForBuffer(Buffer.from(PNG_B64, 'base64')), { mime: 'image/png', ext: 'png' });
+    assert.equal(dataUriFor({ mime: 'image/svg+xml', data: 'x' }), null, 'a foreign mime never embeds');
+    assert.equal(dataUriFor({ mime: 'image/png', data: 'not base64!' }), null);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a picture with --subject is shelved, and the page shows it in that folder only', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-folder-pic-'));
+  const shelf = join(dir, 'pictures.json');
+  const out = join(dir, 'folder-pic');
+  const store = {
+    readAll: async () => [
+      { seq: 1, label: 'fact', when: '2026-10-30', what: { kind: 'plug-prove', prompt: 'hello', subjects: ['Ada Okafor'], ok: true } },
+    ],
+  };
+  try {
+    const code = await pictureCommand({
+      args: ['--prompt', 'a red circle', '--out', out, '--subject', 'Ada Okafor'],
+      env: { ...ENV, OVERSEER_PICTURES: shelf },
+      fetchImpl: reply({ data: [{ b64_json: PNG_B64 }] }),
+      store,
+    });
+    assert.equal(code, 0);
+    const shelved = await readPictures(shelf);
+    assert.equal(shelved['Ada Okafor'].model, 'muse-image-1.0');
+
+    const entry = (seq, subjects) => ({ seq, label: 'fact', when: '2026-10-30', what: { kind: 'plug-prove', prompt: 'hello', subjects, ok: true } });
+    const html = renderPage([entry(1, ['Ada Okafor']), entry(2, ['Other Subject'])], { pictures: shelved });
+    assert.match(html, /Folders — with a picture/);
+    assert.match(html, new RegExp(`<img class="folder__image" src="data:image/png;base64,${PNG_B64}"`));
+    assert.match(html, /Picture for Ada Okafor/);
+    assert.match(html, /Other Subject/);
+    assert.match(html, /No picture yet\./, 'a folder without a picture says so');
+
+    const unpictured = renderPage([entry(1, ['Ada Okafor'])], { pictures: { 'Nobody Here': { mime: 'image/png', data: PNG_B64 } } });
+    assert.equal(unpictured.includes('<img class="folder__image"'), false, 'a picture for a subject no entry names shows nowhere');
+    assert.equal(renderPage([entry(1, ['Ada Okafor'])]).includes('Folders —'), false, 'a page with no pictures is unchanged');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

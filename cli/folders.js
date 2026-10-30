@@ -15,6 +15,7 @@
 import { createLedger } from '../judge/attempts.js';
 import { parkedMoves } from '../judge/judge.js';
 import { folderNamed, foldersFrom, unfiledQuestions } from '../record/folders.js';
+import { readPictures, resolvePicturesPath } from '../record/pictures.js';
 import { renderEntry } from '../record/render.js';
 import { MAX_SHADE, describeShade, shadeFor } from '../record/shades.js';
 import { createStore } from '../record/store.js';
@@ -70,6 +71,14 @@ export async function foldersCommand({ args = [], store = createStore(), ledger 
   const entries = await store.readAll();
   const wanted = readOption(args, '--subject');
   const parked = parkedMoves(entries, await ledger.readAll());
+  // A terminal cannot show a picture, but it can say one exists — otherwise
+  // a folder with a picture reads exactly like a folder without one.
+  let pictures = {};
+  try {
+    pictures = await readPictures(resolvePicturesPath(null, process.env));
+  } catch {
+    pictures = {};
+  }
 
   if (wanted !== undefined) {
     const folder = folderNamed(entries, wanted);
@@ -83,6 +92,9 @@ export async function foldersCommand({ args = [], store = createStore(), ledger 
     }
 
     line('entries:', String(folder.entries.length));
+    if (pictures[folder.name]) {
+      line('picture:', `${pictures[folder.name].prompt ?? 'a folder picture'} — open the record page in a browser to see it`);
+    }
     line('first seen:', `seq ${folder.firstSeq}`);
     // Counted from the whole record, so a folder view cannot overstate a shade by
     // holding only part of the subject's facts.
@@ -120,7 +132,8 @@ export async function foldersCommand({ args = [], store = createStore(), ledger 
         .join(' \u00b7 ');
       const shade = shadeFor(entries, folder.name);
       const band = shade.band === 'black' ? ', black band' : '';
-      line(clip(folder.name), `${said || 'empty'} \u00b7 shade ${shade.shade}/${MAX_SHADE}${band}`);
+      const pictured = pictures[folder.name] ? ' \u00b7 picture' : '';
+      line(clip(folder.name), `${said || 'empty'} \u00b7 shade ${shade.shade}/${MAX_SHADE}${band}${pictured}`);
     }
 
     note('');

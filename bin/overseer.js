@@ -81,8 +81,10 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       key. Reachability is only probed where a plug names a key-free health
       address; the rest say so rather than guessing at one.
 
-  node bin/overseer.js picture --prompt "..." [--out PATH] [--dry-run]
+  node bin/overseer.js picture --prompt "..." [--out PATH] [--subject "..."] [--dry-run]
       One picture from the picture kid (Muse Image), saved to a file.
+      With --subject it is also shelved as that subject's folder picture,
+      so the next page build shows it in that folder in a browser.
       This is the picture plug's live prove; it writes nothing to the
       K-record, because a picture is not a fact entry.
 

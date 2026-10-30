@@ -10,10 +10,12 @@ import { resolve } from 'node:path';
 import { describeGroupingProblem, storedGroupingProblems } from '../judge/consolidate.js';
 import { storedSchemaProblems } from '../judge/delivery.js';
 import { storedLinkProblems } from '../judge/readout.js';
+import { foldersFrom } from '../record/folders.js';
+import { dataUriFor } from '../record/pictures.js';
 import { createStore } from '../record/store.js';
 import { readOption } from './args.js';
 import { heading, line, note } from './output.js';
-import { buildPage, parkedFor } from './view.js';
+import { buildPage, parkedFor, picturesFor } from './view.js';
 
 /** Where the page goes unless `--out` says otherwise. */
 export const DEFAULT_PAGE_PATH = 'record.html';
@@ -41,12 +43,20 @@ export async function pageCommand({
   // else it holds — so it is named here rather than left for a reader to notice.
   const schemaProblems = storedSchemaProblems(entries);
 
-  const html = buildPage(entries, { source: store.path, generatedAt, env, parked, groupingProblems });
+  const pictures = await picturesFor(env, store.path);
+  const html = buildPage(entries, { source: store.path, generatedAt, env, parked, groupingProblems, pictures });
   await writeFile(outPath, html, 'utf8');
 
   heading('The record, as one page');
   line('read from:', store.path);
   line('entries:', String(entries.length));
+  const picturedFolders = foldersFrom(entries).filter((folder) => dataUriFor(pictures[folder.name]) !== null).length;
+  line(
+    'pictures:',
+    picturedFolders === 0
+      ? 'no folder picture on this page'
+      : `${picturedFolders} folder${picturedFolders === 1 ? '' : 's'} pictured`,
+  );
   line(
     'links:',
     linkProblems.length === 0
