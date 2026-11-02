@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Overseer — a K-record of 49 entries</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --ink: #1a1710;
+    --muted: #6b6154;
+    --rule: #d9d2c3;
+    --fact: #0f5e3f;
+    --judgment: #8a3b12;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3.5rem 1.5rem 4rem;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 47rem; margin: 0 auto; }
+  .eyebrow {
+    margin: 0 0 .6rem;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    margin: 0 0 .8rem;
+    font: 600 clamp(1.9rem, 5vw, 2.6rem)/1.12 "Iowan Old Style", Georgia, serif;
+    letter-spacing: -.015em;
+  }
+  .deck { margin: 0 0 1.8rem; font-size: 1.02rem; color: var(--muted); }
+  .deck strong { color: var(--ink); font-weight: 600; }
+  .rule { height: 1px; background: var(--rule); border: 0; margin: 0 0 1.6rem; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.4rem;
+    margin: 0 0 2.4rem; padding: 0; list-style: none;
+    font-size: .86rem; color: var(--muted);
+  }
+  .legend li { display: flex; align-items: baseline; gap: .45rem; }
+  .chip {
+    display: inline-block;
+    padding: .1rem .48rem;
+    border-radius: 2px;
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--paper);
+  }
+  .chip--fact { background: var(--fact); }
+  .chip--judgment { background: var(--judgment); }
+  .chip--question { background: none; color: var(--judgment); border: 1px dashed var(--judgment); }
+  .chip--delivery { background: none; color: var(--judgment); border: 1px solid var(--judgment); }
+  .chip--kind {
+    background: none; color: var(--muted);
+    border: 1px solid var(--rule); font-weight: 600; letter-spacing: .08em;
+  }
+  .live {
+    display: inline-flex; align-items: center; gap: .5rem;
+    margin: 0 0 1.3rem; padding: .26rem .62rem;
+    border: 1px solid var(--rule); border-radius: 999px;
+    font-size: .72rem; letter-spacing: .04em; color: var(--muted);
+  }
+  .live__dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--fact); }
+  .live--stopped .live__dot { background: var(--judgment); }
+  .index { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; margin: 0 0 1.9rem; }
+  .index__label {
+    margin-right: .3rem;
+    font-size: .64rem; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .index__link {
+    min-width: 1.65rem; padding: .05rem .4rem;
+    font: 600 .82rem/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink); text-align: center; text-decoration: none;
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
+  .index__link:hover, .index__link:focus-visible {
+    background: var(--ink); border-color: var(--ink); color: var(--paper);
+  }
+  .entry:target { background: rgba(26, 23, 16, .045); }
+  .socket { margin: 0 0 2.2rem; }
+  .socket h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .socket__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .socket__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .socket__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .5rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .socket__name { min-width: 9rem; font-weight: 600; }
+  .socket__role {
+    font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .socket__state { color: var(--muted); }
+  .socket__row--called .socket__state { color: var(--fact); font-weight: 600; }
+  .socket__last {
+    margin-left: auto;
+    font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .readout { margin: 0 0 2.2rem; }
+  .readout h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .readout__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .readout__move { margin: .9rem 0 .4rem; font-size: .86rem; color: var(--muted); }
+  .readout__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .readout__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .45rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .readout__kind {
+    min-width: 8.5rem;
+    font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .readout__kind--probable { color: var(--fact); font-weight: 700; }
+  .readout__text { flex: 1 1 18rem; }
+  .readout__count { margin-left: auto; font: .74rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .readout__aside { padding: .45rem 0; border-bottom: 1px solid var(--rule); font-size: .82rem; color: var(--muted); }
+  .readout__drift { margin: .1rem 0 .5rem; font-size: .82rem; font-weight: 600; color: var(--judgment); }
+  .folders { margin: 0 0 2.2rem; }
+  .folders h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .folders__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .folders__list {
+    margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule);
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 1rem;
+  }
+  .folder { padding: .8rem 0; border-bottom: 1px solid var(--rule); }
+  .folder__figure { margin: 0 0 .5rem; }
+  .folder__image { display: block; width: 100%; height: 11rem; object-fit: cover; border: 1px solid var(--rule); }
+  .folder__caption { margin-top: .4rem; font-size: .82rem; color: var(--muted); }
+  .folder__nopicture {
+    display: flex; align-items: center; justify-content: center;
+    height: 11rem; margin: 0 0 .5rem;
+    border: 1px dashed var(--rule); font-size: .82rem; color: var(--muted);
+  }
+  .folder__name { display: block; font-weight: 600; }
+  .folder__count { font-size: .82rem; color: var(--muted); }
+  .parked { margin: 0 0 2.2rem; }
+  .parked h2 {
+    margin: 0 0 .5rem;
+    font-size: .68rem; font-weight: 600; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .parked__note { margin: 0 0 .8rem; max-width: 40rem; font-size: .82rem; color: var(--muted); }
+  .parked__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .parked__row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem;
+    padding: .5rem 0; border-bottom: 1px solid var(--rule); font-size: .88rem;
+  }
+  .parked__seq {
+    min-width: 1.6rem;
+    font: 600 .95rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .parked__state { color: var(--judgment); font-weight: 600; }
+  .parked__about { color: var(--muted); }
+  .parked__subject { margin-left: auto; font-size: .78rem; color: var(--muted); }
+  .entry {
+    padding: 1.35rem 0 1.5rem;
+    border-top: 1px solid var(--rule);
+    break-inside: avoid;
+  }
+  .entry:first-of-type { border-top: 0; padding-top: 0; }
+  .entry__head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem;
+    margin-bottom: .9rem;
+  }
+  .entry__seq {
+    font: 600 1.35rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    min-width: 1.6rem;
+  }
+  .entry__when {
+    font: .8rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .entry__facts {
+    margin-left: auto;
+    font: .8rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+  }
+  .entry__body { margin: 0; padding-left: 2.2rem; }
+  .entry__body dt {
+    float: left; clear: left; width: 5.4rem;
+    font-size: .72rem; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+    padding-top: .18rem;
+  }
+  .entry__body dd {
+    margin: 0 0 .55rem 5.4rem;
+    font-size: .97rem;
+    overflow-wrap: anywhere;
+  }
+  .entry__body dd:last-child { margin-bottom: 0; }
+  .entry__drift { margin: .7rem 0 0 2.2rem; font-size: .82rem; font-weight: 600; color: var(--judgment); }
+  .foot {
+    margin-top: 3rem; padding-top: 1.2rem;
+    border-top: 1px solid var(--rule);
+    font-size: .82rem; line-height: 1.6; color: var(--muted);
+  }
+  .foot code { font: .95em ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); }
+  .empty { padding: 2rem 0; color: var(--muted); }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { max-width: none; }
+    .chip { border: 1px solid currentColor; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <p class="eyebrow">The Overseer</p>
+  <h1>A record of what actually happened</h1>
+  <p class="deck"><strong>49 entries · 18 facts · 23 judgments · 7 questions</strong> — muse-spark-1.3, nvidia/nemotron-3.5-lightning:free, nvidia/nemotron-3-ultra-550b-a55b, openai/gpt-oss-20b, mercury-3</p>
+  <hr class="rule">
+  <nav class="index" aria-label="Entries">
+    <span class="index__label">Entries</span>
+    <a class="index__link" href="#entry-1" title="entry 1 — fact, worked: Reply with the single word: ready">1</a>
+    <a class="index__link" href="#entry-2" title="entry 2 — fact, worked: Explain in three short sentences why an append-only record of what an agent actually did …">2</a>
+    <a class="index__link" href="#entry-3" title="entry 3 — fact, worked: In one sentence, name one thing an append-only record makes possible that a summary writt…">3</a>
+    <a class="index__link" href="#entry-4" title="entry 4 — fact, worked: Reply as JSON with exactly three keys, name, role and city, for this line: Ada Okafor is …">4</a>
+    <a class="index__link" href="#entry-5" title="entry 5 — fact, worked: Rewrite this as a headline of at most eight words: A company logged what its AI agent did…">5</a>
+    <a class="index__link" href="#entry-6" title="entry 6 — fact, worked: Two sentences follow. Say which one makes a checkable claim and why, in one sentence. (1)…">6</a>
+    <a class="index__link" href="#entry-7" title="entry 7 — fact, worked: In one short sentence, say what it means for a record to be append-only.">7</a>
+    <a class="index__link" href="#entry-8" title="entry 8 — fact, worked: Reply with the single word: ready">8</a>
+    <a class="index__link" href="#entry-9" title="entry 9 — fact, worked: In one sentence, say what a reader should check first when auditing an append-only call r…">9</a>
+    <a class="index__link" href="#entry-10" title="entry 10 — fact, worked: Reply as JSON with exactly three keys, name, role and city, for this line: Ada Okafor is …">10</a>
+    <a class="index__link" href="#entry-11" title="entry 11 — fact, worked: Rewrite this as a headline of at most eight words: A company logged what its AI agent did…">11</a>
+    <a class="index__link" href="#entry-12" title="entry 12 — fact, worked: Two sentences follow. Say which one makes a checkable claim and why, in one sentence. (1)…">12</a>
+    <a class="index__link" href="#entry-13" title="entry 13 — judgment: judgment">13</a>
+    <a class="index__link" href="#entry-14" title="entry 14 — judgment: judgment">14</a>
+    <a class="index__link" href="#entry-15" title="entry 15 — judgment: judgment">15</a>
+    <a class="index__link" href="#entry-16" title="entry 16 — judgment: judgment">16</a>
+    <a class="index__link" href="#entry-17" title="entry 17 — judgment: judgment">17</a>
+    <a class="index__link" href="#entry-18" title="entry 18 — judgment: judgment">18</a>
+    <a class="index__link" href="#entry-19" title="entry 19 — judgment: judgment">19</a>
+    <a class="index__link" href="#entry-20" title="entry 20 — judgment: judgment">20</a>
+    <a class="index__link" href="#entry-21" title="entry 21 — judgment: judgment">21</a>
+    <a class="index__link" href="#entry-22" title="entry 22 — judgment: judgment">22</a>
+    <a class="index__link" href="#entry-23" title="entry 23 — judgment: judgment">23</a>
+    <a class="index__link" href="#entry-24" title="entry 24 — question: question">24</a>
+    <a class="index__link" href="#entry-25" title="entry 25 — fact, worked: Name the capital of France. Reply with the city name and nothing else.">25</a>
+    <a class="index__link" href="#entry-26" title="entry 26 — judgment: judgment">26</a>
+    <a class="index__link" href="#entry-27" title="entry 27 — question: question">27</a>
+    <a class="index__link" href="#entry-28" title="entry 28 — judgment: judgment">28</a>
+    <a class="index__link" href="#entry-29" title="entry 29 — fact, worked: In one sentence, name the capital of Australia.">29</a>
+    <a class="index__link" href="#entry-30" title="entry 30 — question: question">30</a>
+    <a class="index__link" href="#entry-31" title="entry 31 — question: question">31</a>
+    <a class="index__link" href="#entry-32" title="entry 32 — judgment: judgment">32</a>
+    <a class="index__link" href="#entry-33" title="entry 33 — fact, worked: In one short sentence, name the largest planet in the solar system.">33</a>
+    <a class="index__link" href="#entry-34" title="entry 34 — question: question">34</a>
+    <a class="index__link" href="#entry-35" title="entry 35 — question: question">35</a>
+    <a class="index__link" href="#entry-36" title="entry 36 — judgment: judgment">36</a>
+    <a class="index__link" href="#entry-37" title="entry 37 — fact, worked: Summarise the claim that temperature 0 removes variability but not error, in two sentence…">37</a>
+    <a class="index__link" href="#entry-38" title="entry 38 — fact, worked: Source [1]: Water boils at 100 degrees Celsius at sea level. Using only source [1], state…">38</a>
+    <a class="index__link" href="#entry-39" title="entry 39 — judgment: judgment">39</a>
+    <a class="index__link" href="#entry-40" title="entry 40 — judgment: judgment">40</a>
+    <a class="index__link" href="#entry-41" title="entry 41 — judgment: judgment">41</a>
+    <a class="index__link" href="#entry-42" title="entry 42 — judgment: judgment">42</a>
+    <a class="index__link" href="#entry-43" title="entry 43 — judgment: judgment">43</a>
+    <a class="index__link" href="#entry-44" title="entry 44 — judgment: judgment">44</a>
+    <a class="index__link" href="#entry-45" title="entry 45 — fact, worked: Name the three primary colours of light, in one short sentence.">45</a>
+    <a class="index__link" href="#entry-46" title="entry 46 — question: question">46</a>
+    <a class="index__link" href="#entry-47" title="entry 47 — judgment: judgment">47</a>
+    <a class="index__link" href="#entry-48" title="entry 48 — judgment: judgment">48</a>
+    <a class="index__link" href="#entry-49" title="entry 49 — delivery: delivery">49</a>
+  </nav>
+  <section class="readout">
+    <h2>The readout — highest probable, and the edge greys</h2>
+    <p class="readout__note">Counted from this record: the seats are the ones each move
+    shows, and a majority is more than half of them. Nothing here is merged: a minority reading is shown
+    beside the probable one, never averaged into it and never dropped.</p>
+    <p class="readout__move">seq 25 — none declared: no opinion reached 2 independent judges, the majority of the 3 seats this move shows</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">Sequence number 25 contradicts the description as the panel&#39;s first live move.</span>
+        <span class="readout__count">1 seat · 1 independent judge (muse-spark-1.3)</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The recorded reply satisfies the prompt&#39;s requirement.</span>
+        <span class="readout__count">1 seat · 1 independent judge (nvidia/nemotron-3.5-lightning:free)</span>
+      </li>
+      <li class="readout__aside">seat 2 asked what shows the basis, so it took no position</li>
+    </ul>
+    <p class="readout__move">seq 29 — none declared: no opinion reached 2 independent judges, the majority of the 3 seats this move shows</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The reply correctly states Canberra as the capital of Australia.</span>
+        <span class="readout__count">1 seat · 1 independent judge (openai/gpt-oss-20b)</span>
+      </li>
+      <li class="readout__aside">seat 1 asked what shows the basis, so it took no position</li>
+      <li class="readout__aside">seat 2 asked what shows the basis, so it took no position</li>
+    </ul>
+    <p class="readout__move">seq 33 — none declared: no opinion reached 2 independent judges, the majority of the 3 seats this move shows</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The reply identifies Jupiter as the largest planet in the solar system, which directly and correctly answers the prompt.</span>
+        <span class="readout__count">1 seat · 1 independent judge (mercury-3)</span>
+      </li>
+      <li class="readout__aside">seat 1 asked what shows the basis, so it took no position</li>
+      <li class="readout__aside">seat 2 asked what shows the basis, so it took no position</li>
+    </ul>
+    <p class="readout__move">seq 38 — none declared: no opinion reached 2 independent judges, the majority of the 3 seats this move shows</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The worker sent a chat completion affirming the boiling point with citation.</span>
+        <span class="readout__count">1 seat · 1 independent judge (muse-spark-1.3)</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The worker replied &quot;Yes, water boils at 100 degrees Celsius at sea level [1].&quot; to the prompt asking for a statement using only source [1] with a citation.</span>
+        <span class="readout__count">1 seat · 1 independent judge (nvidia/nemotron-3-ultra-550b-a55b)</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The worker replied that water boils at 100 degrees Celsius at sea level, citing source [1].</span>
+        <span class="readout__count">1 seat · 1 independent judge (mercury-3)</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 37 — none declared: no opinion reached 2 independent judges, the majority of the 3 seats this move shows</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The worker sent a chat completion request stating source [1] text was absent and asking for that source.</span>
+        <span class="readout__count">1 seat · 1 independent judge (muse-spark-1.3)</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The worker replied that source [1] was not present in the message and requested it be provided.</span>
+        <span class="readout__count">1 seat · 1 independent judge (nvidia/nemotron-3-ultra-550b-a55b)</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind ">edge grey</span>
+        <span class="readout__text">The worker declined to summarize the claim because source [1] was absent from the message, and requested that the source be provided.</span>
+        <span class="readout__count">1 seat · 1 independent judge (mercury-3)</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 45 — none declared: no opinion reached 2 independent judges, the majority of the 3 seats this move shows</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind ">gray box</span>
+        <span class="readout__text">The worker answered the prompt by stating the three primary colours of light in a sentence.</span>
+        <span class="readout__count">1 seat · 1 independent judge (nvidia/nemotron-3-ultra-550b-a55b)</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind ">gray box</span>
+        <span class="readout__text">The worker sent a POST request to the Meta AI chat completions API with a prompt and received a reply listing red, green and blue.</span>
+        <span class="readout__count">1 seat · 1 independent judge (mercury-3)</span>
+      </li>
+      <li class="readout__aside">seat 1 asked what shows the basis, so it took no position</li>
+    </ul>
+  </section>
+  <section class="readout">
+    <h2>The graph — each seat's numbered answers</h2>
+    <p class="readout__note">Drawn from the numbered answers the seats wrote: the move and its basis, the topics it
+    touches, and the question it asks when the basis is not shown. Each edge is a seat's
+    answer, not a fact the record holds on its own.</p>
+    <p class="readout__move">seq 38 — seat 1: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">Source [1] states the boiling point fact. → The worker sent a chat completion affirming the boiling point with citation.</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 38 — seat 2: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">Source [1] in the prompt states &quot;Water boils at 100 degrees Celsius at sea level.&quot; → The worker replied &quot;Yes, water boils at 100 degrees Celsius at sea level [1].&quot; to the prompt asking for a statement using only source [1] with a citation.</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 38 — seat 3: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">Entry [1], the source stating water boils at 100 degrees Celsius at sea level. → The worker replied that water boils at 100 degrees Celsius at sea level, citing source [1].</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 37 — seat 1: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">Entry 1, prompt lacks source [1] text. → The worker sent a chat completion request stating source [1] text was absent and asking for that source.</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 37 — seat 2: 4 nodes · 3 edges</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">The prompt text references &quot;the provided source [1]&quot; but the record contains no source [1] content. → The worker replied that source [1] was not present in the message and requested it be provided.</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind">touches</span>
+        <span class="readout__text">The worker replied that source [1] was not present in the message and requested it be provided. → source citation</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind">touches</span>
+        <span class="readout__text">The worker replied that source [1] was not present in the message and requested it be provided. → missing reference</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 37 — seat 3: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">The prompt and the reply are the basis. → The worker declined to summarize the claim because source [1] was absent from the message, and requested that the source be provided.</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 45 — seat 1: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">asks</span>
+        <span class="readout__text">The worker sent a chat completion request to POST https://api.meta.ai/v1/chat/completions using muse-spark-1.3. → What evidence links the colour naming request to this action?</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 45 — seat 2: 2 nodes · 1 edge</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">Entry 1 (the prompt) → The worker answered the prompt by stating the three primary colours of light in a sentence.</span>
+      </li>
+    </ul>
+    <p class="readout__move">seq 45 — seat 3: 4 nodes · 3 edges</p>
+    <ul class="readout__list">
+      <li class="readout__row">
+        <span class="readout__kind">justifies</span>
+        <span class="readout__text">Entries 1, 2, 3, 4, and 5 → The worker sent a POST request to the Meta AI chat completions API with a prompt and received a reply listing red, green and blue.</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind">touches</span>
+        <span class="readout__text">The worker sent a POST request to the Meta AI chat completions API with a prompt and received a reply listing red, green and blue. → primary colours of light</span>
+      </li>
+      <li class="readout__row">
+        <span class="readout__kind">touches</span>
+        <span class="readout__text">The worker sent a POST request to the Meta AI chat completions API with a prompt and received a reply listing red, green and blue. → API endpoint and model</span>
+      </li>
+    </ul>
+  </section>
+  <section class="socket">
+    <h2>Who has actually answered</h2>
+    <p class="socket__note">Counted from this record, not from configuration. A plug with no
+    entries here has not been called — which is not the same as having failed.</p>
+    <ul class="socket__list">
+      <li class="socket__row socket__row--called">
+        <span class="socket__name">Meta Model API</span>
+        <span class="socket__role">worker</span>
+        <span class="socket__state">16 entries · 16 worked</span>
+        <span class="socket__last">last 2026-10-28T16:04:13.162Z</span>
+      </li>
+      <li class="socket__row socket__row--called">
+        <span class="socket__name">OpenRouter</span>
+        <span class="socket__role">development</span>
+        <span class="socket__state">2 entries · 2 worked</span>
+        <span class="socket__last">last 2026-10-27T01:47:07.530Z</span>
+      </li>
+      <li class="socket__row ">
+        <span class="socket__name">Baseten</span>
+        <span class="socket__role">overseer</span>
+        <span class="socket__state">not called — not configured yet</span>
+        
+      </li>
+      <li class="socket__row ">
+        <span class="socket__name">NVIDIA Build</span>
+        <span class="socket__role">judge</span>
+        <span class="socket__state">not called — not configured yet</span>
+        
+      </li>
+      <li class="socket__row ">
+        <span class="socket__name">Inception Labs</span>
+        <span class="socket__role">judge</span>
+        <span class="socket__state">not called — not configured yet</span>
+        
+      </li>
+      <li class="socket__row ">
+        <span class="socket__name">picture kid</span>
+        <span class="socket__role">picture</span>
+        <span class="socket__state">ready, not called yet</span>
+        
+      </li>
+    </ul>
+  </section>
+  <ul class="legend">
+    <li><span class="chip chip--fact">fact</span> something observed: a call went out, and this is what came back</li>
+    <li><span class="chip chip--judgment">judgment</span> the Overseer's assessment of an observed move, labelled as one</li>
+    <li><span class="chip chip--question">question</span> an open question on a subject, sitting in its thread until the record answers it</li>
+    <li><span class="chip chip--delivery">delivery</span> the MMRC consolidation of one move's three seat reports, derived from them and checked unchanged</li>
+  </ul>
+
+    <article class="entry " id="entry-1">
+      <div class="entry__head">
+        <span class="entry__seq">1</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-26T23:12:32.281Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 186 tokens · 1443 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Reply with the single word: ready</dd>
+        <dt>Answered</dt><dd>ready</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-2">
+      <div class="entry__head">
+        <span class="entry__seq">2</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T00:09:20.190Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 647 tokens · 4322 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Explain in three short sentences why an append-only record of what an agent actually did is more trustworthy than a summary the agent writes about itself.</dd>
+        <dt>Answered</dt><dd>An append-only log can&#39;t be edited after the fact. It shows what the agent actually did, not what it claims. A self-summary can hide mistakes, but raw history cannot.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-3">
+      <div class="entry__head">
+        <span class="entry__seq">3</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T00:12:01.047Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 744 tokens · 4756 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>In one sentence, name one thing an append-only record makes possible that a summary written by the agent itself cannot.</dd>
+        <dt>Answered</dt><dd>An append-only record makes possible independent, tamper-evident verification of what actually happened.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-4">
+      <div class="entry__head">
+        <span class="entry__seq">4</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T00:16:52.058Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 570 tokens · 3700 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Reply as JSON with exactly three keys, name, role and city, for this line: Ada Okafor is the records lead in Lagos.</dd>
+        <dt>Answered</dt><dd>{&quot;name&quot;: &quot;Ada Okafor&quot;, &quot;role&quot;: &quot;records lead&quot;, &quot;city&quot;: &quot;Lagos&quot;}</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-5">
+      <div class="entry__head">
+        <span class="entry__seq">5</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T00:16:56.401Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 831 tokens · 4680 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Rewrite this as a headline of at most eight words: A company logged what its AI agent did on every call, and the log could not be edited afterwards.</dd>
+        <dt>Answered</dt><dd>Company Logs Every AI Agent Call Permanently</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-6">
+      <div class="entry__head">
+        <span class="entry__seq">6</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T00:17:01.751Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 1257 tokens · 7326 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Two sentences follow. Say which one makes a checkable claim and why, in one sentence. (1) The agent answered in 1.4 seconds. (2) The agent was fast and helpful.</dd>
+        <dt>Answered</dt><dd>Sentence 1 makes a checkable claim because it states a precise measurable time that can be verified</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-7">
+      <div class="entry__head">
+        <span class="entry__seq">7</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T00:27:14.577Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 530 tokens · 4463 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>In one short sentence, say what it means for a record to be append-only.</dd>
+        <dt>Answered</dt><dd>It means data can only be added, never edited or deleted.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-8">
+      <div class="entry__head">
+        <span class="entry__seq">8</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">prove · openrouter</span>
+        <span class="entry__when">2026-10-27T01:46:59.617Z</span>
+        <span class="entry__facts">nvidia/nemotron-3.5-lightning:free · 156 tokens · 376 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Reply with the single word: ready</dd>
+        <dt>Answered</dt><dd>ready</dd>
+        <dt>Sent to</dt><dd>POST https://openrouter.ai/api/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-9">
+      <div class="entry__head">
+        <span class="entry__seq">9</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">task · openrouter</span>
+        <span class="entry__when">2026-10-27T01:47:07.530Z</span>
+        <span class="entry__facts">nvidia/nemotron-3.5-lightning:free · 754 tokens · 170 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>In one sentence, say what a reader should check first when auditing an append-only call record.</dd>
+        <dt>Answered</dt><dd>Verify the append-only record’s integrity via a tamper-evident hash chain or digital signatures to confirm no entries have been altered, deleted, or reordered.</dd>
+        <dt>Sent to</dt><dd>POST https://openrouter.ai/api/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-10">
+      <div class="entry__head">
+        <span class="entry__seq">10</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T01:51:17.480Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 468 tokens · 2663 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Reply as JSON with exactly three keys, name, role and city, for this line: Ada Okafor is the records lead in Lagos.</dd>
+        <dt>Answered</dt><dd>{&quot;name&quot;: &quot;Ada Okafor&quot;, &quot;role&quot;: &quot;records lead&quot;, &quot;city&quot;: &quot;Lagos&quot;}</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-11">
+      <div class="entry__head">
+        <span class="entry__seq">11</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T01:51:20.450Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 928 tokens · 4638 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Rewrite this as a headline of at most eight words: A company logged what its AI agent did on every call, and the log could not be edited afterwards.</dd>
+        <dt>Answered</dt><dd>Company Logs AI Agent Calls in Immutable Record</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-12">
+      <div class="entry__head">
+        <span class="entry__seq">12</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T01:51:25.342Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 989 tokens · 3250 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Two sentences follow. Say which one makes a checkable claim and why, in one sentence. (1) The agent answered in 1.4 seconds. (2) The agent was fast and helpful.</dd>
+        <dt>Answered</dt><dd>The first sentence makes a checkable claim because its timing assertion can be objectively verified, unlike the second sentence&#39;s subjective evaluation.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-13">
+      <div class="entry__head">
+        <span class="entry__seq">13</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:05:29.724Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 5</dd>
+        <dt>Observed</dt><dd>The reply bears on the prompt by delivering a seven-word headline that preserves the immutable per-call logging assertion.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-14">
+      <div class="entry__head">
+        <span class="entry__seq">14</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:05:54.895Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 1</dd>
+        <dt>Observed</dt><dd>The recorded reply matches the prompt and bears on the claim that the API call succeeded.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-15">
+      <div class="entry__head">
+        <span class="entry__seq">15</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:06:07.731Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 2</dd>
+        <dt>Observed</dt><dd>The record bears on trustworthiness by preserving prompt, outcome, destination, and model details that remain absent from the agent-authored summary.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-16">
+      <div class="entry__head">
+        <span class="entry__seq">16</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:06:22.201Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 3</dd>
+        <dt>Observed</dt><dd>The preserved prompt, destination, model, and outcome demonstrate externally verifiable information that exists independently of the agent&#39;s own summary text.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-17">
+      <div class="entry__head">
+        <span class="entry__seq">17</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:06:26.816Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 4</dd>
+        <dt>Observed</dt><dd>The reply accurately reflects the name, role, and city explicitly stated in the prompt line.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-18">
+      <div class="entry__head">
+        <span class="entry__seq">18</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:06:32.049Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 6</dd>
+        <dt>Observed</dt><dd>The reply supports identification of sentence 1 as the checkable claim by citing precise measurable timing that allows verification.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-19">
+      <div class="entry__head">
+        <span class="entry__seq">19</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:06:40.667Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 7</dd>
+        <dt>Observed</dt><dd>The recorded reply accurately defines append-only as permitting only addition without editing or deletion, bearing directly on the prompt request.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-20">
+      <div class="entry__head">
+        <span class="entry__seq">20</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:06:47.372Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 8</dd>
+        <dt>Observed</dt><dd>The record bears on prompt compliance and supports the outcome that the call returned exactly the requested single word.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-21">
+      <div class="entry__head">
+        <span class="entry__seq">21</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:07:03.443Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 10</dd>
+        <dt>Observed</dt><dd>The recorded output supports fulfillment of the formatting instruction and bears on successful completion of the API call.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-22">
+      <div class="entry__head">
+        <span class="entry__seq">22</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:07:12.635Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 11</dd>
+        <dt>Observed</dt><dd>The headline accurately condenses the prompt&#39;s description of comprehensive, uneditable logging of AI agent calls into eight words.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-23">
+      <div class="entry__head">
+        <span class="entry__seq">23</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T08:07:15.521Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 12</dd>
+        <dt>Observed</dt><dd>The reply bears on the prompt by distinguishing the objectively verifiable timing claim in sentence 1 from the subjective evaluation in sentence 2.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-24">
+      <div class="entry__head">
+        <span class="entry__seq">24</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-27T08:45:41.608Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 9</dd>
+        <dt>Asks</dt><dd>What tamper-evident hash chain or digital signature anchors this entry and proves the record remains unaltered and correctly ordered?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-25">
+      <div class="entry__head">
+        <span class="entry__seq">25</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T13:32:25.373Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 685 tokens · 3288 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Name the capital of France. Reply with the city name and nothing else.</dd>
+        <dt>Answered</dt><dd>Paris</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-26">
+      <div class="entry__head">
+        <span class="entry__seq">26</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T13:35:26.280Z</span>
+        <span class="entry__facts">muse-spark-1.3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 25</dd>
+        <dt>Observed</dt><dd>Sequence number 25 contradicts the description as the panel&#39;s first live move.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-27">
+      <div class="entry__head">
+        <span class="entry__seq">27</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-27T13:35:26.283Z</span>
+        <span class="entry__facts">nvidia/nemotron-3-ultra-550b-a55b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 25</dd>
+        <dt>Asks</dt><dd>What in the record shows that Paris is the capital of France?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-28">
+      <div class="entry__head">
+        <span class="entry__seq">28</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T13:35:26.285Z</span>
+        <span class="entry__facts">nvidia/nemotron-3.5-lightning:free</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 25</dd>
+        <dt>Observed</dt><dd>The recorded reply satisfies the prompt&#39;s requirement.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-29">
+      <div class="entry__head">
+        <span class="entry__seq">29</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T15:23:02.178Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 467 tokens · 1869 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>In one sentence, name the capital of Australia.</dd>
+        <dt>Answered</dt><dd>The capital of Australia is Canberra.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-30">
+      <div class="entry__head">
+        <span class="entry__seq">30</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-27T15:23:31.385Z</span>
+        <span class="entry__facts">muse-spark-1.3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 29</dd>
+        <dt>Asks</dt><dd>What in the record shows that Canberra is the capital of Australia?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-31">
+      <div class="entry__head">
+        <span class="entry__seq">31</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-27T15:23:31.388Z</span>
+        <span class="entry__facts">nvidia/nemotron-3-ultra-550b-a55b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 29</dd>
+        <dt>Asks</dt><dd>What in the record shows that Canberra is the capital of Australia?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-32">
+      <div class="entry__head">
+        <span class="entry__seq">32</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T15:23:31.389Z</span>
+        <span class="entry__facts">openai/gpt-oss-20b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 29</dd>
+        <dt>Observed</dt><dd>The reply correctly states Canberra as the capital of Australia.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-33">
+      <div class="entry__head">
+        <span class="entry__seq">33</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T15:30:48.364Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 474 tokens · 2321 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>In one short sentence, name the largest planet in the solar system.</dd>
+        <dt>Answered</dt><dd>Jupiter is the largest planet in the solar system.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-34">
+      <div class="entry__head">
+        <span class="entry__seq">34</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-27T15:31:23.294Z</span>
+        <span class="entry__facts">muse-spark-1.3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 33</dd>
+        <dt>Asks</dt><dd>What in the record shows that Jupiter is the largest planet in the solar system?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-35">
+      <div class="entry__head">
+        <span class="entry__seq">35</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-27T15:31:23.297Z</span>
+        <span class="entry__facts">nvidia/nemotron-3-ultra-550b-a55b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 33</dd>
+        <dt>Asks</dt><dd>What in the record shows the basis for the claim that Jupiter is the largest planet in the solar system?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-36">
+      <div class="entry__head">
+        <span class="entry__seq">36</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T15:31:23.298Z</span>
+        <span class="entry__facts">mercury-3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 33</dd>
+        <dt>Observed</dt><dd>The reply identifies Jupiter as the largest planet in the solar system, which directly and correctly answers the prompt.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-37">
+      <div class="entry__head">
+        <span class="entry__seq">37</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T16:04:44.910Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 1670 tokens · 7672 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Summarise the claim that temperature 0 removes variability but not error, in two sentences, citing only the provided source [1].</dd>
+        <dt>Answered</dt><dd>I don&#39;t see any text for source [1] in your message, so I can&#39;t summarize its claim yet. Please provide source [1] and I&#39;ll summarize it in two sentences citing only that source.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-38">
+      <div class="entry__head">
+        <span class="entry__seq">38</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-27T16:08:54.811Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 540 tokens · 1945 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Source [1]: Water boils at 100 degrees Celsius at sea level. Using only source [1], state whether water boils at 100 degrees Celsius at sea level, and cite the source number.</dd>
+        <dt>Answered</dt><dd>Yes, water boils at 100 degrees Celsius at sea level [1].</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-39">
+      <div class="entry__head">
+        <span class="entry__seq">39</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T16:51:24.341Z</span>
+        <span class="entry__facts">muse-spark-1.3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 38</dd>
+        <dt>Observed</dt><dd>The worker sent a chat completion affirming the boiling point with citation.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-40">
+      <div class="entry__head">
+        <span class="entry__seq">40</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T16:51:24.344Z</span>
+        <span class="entry__facts">nvidia/nemotron-3-ultra-550b-a55b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 38</dd>
+        <dt>Observed</dt><dd>The worker replied &quot;Yes, water boils at 100 degrees Celsius at sea level [1].&quot; to the prompt asking for a statement using only source [1] with a citation.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-41">
+      <div class="entry__head">
+        <span class="entry__seq">41</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T16:51:24.345Z</span>
+        <span class="entry__facts">mercury-3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 38</dd>
+        <dt>Observed</dt><dd>The worker replied that water boils at 100 degrees Celsius at sea level, citing source [1].</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-42">
+      <div class="entry__head">
+        <span class="entry__seq">42</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T21:46:29.948Z</span>
+        <span class="entry__facts">muse-spark-1.3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 37</dd>
+        <dt>Observed</dt><dd>The worker sent a chat completion request stating source [1] text was absent and asking for that source.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-43">
+      <div class="entry__head">
+        <span class="entry__seq">43</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T21:46:29.951Z</span>
+        <span class="entry__facts">nvidia/nemotron-3-ultra-550b-a55b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 37</dd>
+        <dt>Observed</dt><dd>The worker replied that source [1] was not present in the message and requested it be provided.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-44">
+      <div class="entry__head">
+        <span class="entry__seq">44</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-27T21:46:29.952Z</span>
+        <span class="entry__facts">mercury-3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 37</dd>
+        <dt>Observed</dt><dd>The worker declined to summarize the claim because source [1] was absent from the message, and requested that the source be provided.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-45">
+      <div class="entry__head">
+        <span class="entry__seq">45</span>
+        <span class="chip chip--fact">fact</span>
+        <span class="chip chip--kind">worker call</span>
+        <span class="entry__when">2026-10-28T16:04:13.162Z</span>
+        <span class="entry__facts">muse-spark-1.3 · 339 tokens · 2316 ms</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Asked</dt><dd>Name the three primary colours of light, in one short sentence.</dd>
+        <dt>Answered</dt><dd>The three primary colours of light are red, green and blue.</dd>
+        <dt>Sent to</dt><dd>POST https://api.meta.ai/v1/chat/completions</dd>
+        <dt>Body</dt><dd><em>kept exactly as sent</em></dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-46">
+      <div class="entry__head">
+        <span class="entry__seq">46</span>
+        <span class="chip chip--question">question</span>
+        <span class="entry__when">2026-10-28T16:05:50.437Z</span>
+        <span class="entry__facts">muse-spark-1.3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>About</dt><dd>the move at seq 45</dd>
+        <dt>Asks</dt><dd>What evidence links the colour naming request to this action?</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-47">
+      <div class="entry__head">
+        <span class="entry__seq">47</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-28T16:05:50.439Z</span>
+        <span class="entry__facts">nvidia/nemotron-3-ultra-550b-a55b</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 45</dd>
+        <dt>Observed</dt><dd>The worker answered the prompt by stating the three primary colours of light in a sentence.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-48">
+      <div class="entry__head">
+        <span class="entry__seq">48</span>
+        <span class="chip chip--judgment">judgment</span>
+        <span class="entry__when">2026-10-28T16:05:50.441Z</span>
+        <span class="entry__facts">mercury-3</span>
+      </div>
+      <dl class="entry__body">
+        <dt>Judges</dt><dd>the move at seq 45</dd>
+        <dt>Observed</dt><dd>The worker sent a POST request to the Meta AI chat completions API with a prompt and received a reply listing red, green and blue.</dd>
+      </dl>
+    </article>
+
+    <article class="entry " id="entry-49">
+      <div class="entry__head">
+        <span class="entry__seq">49</span>
+        <span class="chip chip--delivery">delivery</span>
+        <span class="entry__when">2026-10-28T16:05:54.428Z</span>
+        
+      </div>
+      <dl class="entry__body">
+        <dt>Consolidates</dt><dd>the move at seq 45</dd>
+        <dt>Consolidated by</dt><dd>muse-spark-1.3</dd>
+        <dt>Opinions</dt><dd>2</dd>
+      </dl>
+    </article>
+  <p class="foot">
+    Generated from <code>records/k-record.jsonl</code> on 2026-10-30T16:22:35.136Z.
+    Every number and every line above was read from that file at that moment;
+    nothing here was typed in by hand.<br>
+    18 calls worked · 0 calls never sent ·
+    16 entries kept the request body ·
+    12235 tokens in total.
+    
+    This page is a view of the record, not a copy of it — regenerate it after every call.
+  </p>
+</div>
+</body>
+</html>
