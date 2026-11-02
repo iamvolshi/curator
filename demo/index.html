@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overseer — A life CRM, chapter by chapter</title>
+<style>
+  :root{--ink:#14181f;--muted:#5b6472;--line:#e3e7ee;--bg:#f7f8fa;--card:#fff;--accent:#0b5e4b;--accent2:#e8f2ee;--warn:#8a5a00;--warnbg:#fdf3e0}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px}
+  header{padding:12px 0 4px}
+  .kicker{letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--accent);font-weight:700}
+  h1{font-size:36px;line-height:1.15;margin:8px 0 8px;letter-spacing:-.02em}
+  .lede{font-size:18px;color:var(--muted);max-width:860px;margin:0}
+  .claim{font-size:19px;font-weight:650;margin:18px 0;padding:16px 18px;background:var(--accent2);border-left:5px solid var(--accent);border-radius:0 10px 10px 0}
+  .disclosure{font-size:13.5px;color:var(--muted);border:1px solid var(--line);background:#fff;border-radius:10px;padding:12px 16px}
+  .layout{display:grid;grid-template-columns:1.7fr 1fr;gap:18px;margin-top:18px}
+  @media(max-width:820px){.layout{grid-template-columns:1fr}h1{font-size:30px}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px}
+  .panel h2{margin:0 0 4px;font-size:20px}
+  .panel .sub{color:var(--muted);margin:0 0 14px;font-size:14.5px}
+  textarea{width:100%;min-height:260px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font-size:15.5px;font-family:inherit;line-height:1.6;resize:vertical}
+  button{cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent);padding:11px 20px;border-radius:999px;font-size:15px;font-weight:600}
+  button.secondary{background:#fff;color:var(--accent)}
+  button:disabled{opacity:.5;cursor:default}
+  .topic{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .topic h3{margin:0 0 2px;font-size:16px}
+  .topic p{margin:0;color:var(--muted);font-size:14.5px}
+  details.topic summary{cursor:pointer;list-style:none}
+  details.topic summary::-webkit-details-marker{display:none}
+  .topic-title{display:block;font-weight:700;font-size:16px;margin-bottom:2px}
+  .topic-body{margin-top:8px}
+  #storyPanel.collapsed textarea,#storyPanel.collapsed .story-actions{display:none}
+  .grey-note{font-size:14px;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:0 0 12px}
+  details.past summary{cursor:pointer;font-weight:600}
+  .tile{background:linear-gradient(135deg,#0b5e4b,#148a6b);color:#fff;font-weight:800;font-size:28px;text-align:center;padding:18px 0;border-radius:10px;margin-bottom:12px;letter-spacing:.05em}
+  .shade{height:10px;background:#e9edf2;border-radius:6px;overflow:hidden;margin:10px 0 4px}
+  .shade i{display:block;height:100%;background:#14181f}
+  .shade-note{font-size:13px;color:var(--muted)}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle}
+  .tag.black{background:#14181f;color:#fff}
+  .tag.grey{background:var(--warnbg);color:var(--warn)}
+  .tag.open{background:#fdecea;color:#8a1f1f}
+  #chat{height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:14px;background:#fbfcfe}
+  .msg{max-width:88%;padding:10px 13px;border-radius:14px;margin:0 0 10px;font-size:15.5px}
+  .msg.user{margin-left:auto;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+  .msg.agent{background:#eef1f5;border-bottom-left-radius:4px}
+  .msg .who{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.75;display:block;margin-bottom:3px}
+  .suggest{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .suggest button{background:#fff;color:var(--accent);padding:8px 14px;font-size:14px}
+  .composer{display:flex;gap:8px;margin-top:10px}
+  .composer input{flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:999px;font-size:15px}
+  .folder{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;animation:pop .35s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .folder h3{margin:10px 0 2px}
+  .folder p{margin:0;color:var(--muted);font-size:14.5px}
+  .folder .past{margin-top:10px;font-size:14px;border-top:1px solid var(--line);padding-top:10px}
+  .folder .past s{color:var(--muted)}
+  .empty{border:1px dashed #b9c2cf;border-radius:12px;padding:22px;text-align:center;color:var(--muted);font-size:15px}
+  .audit{font-size:17px;background:#14181f;color:#f2f4f7;border-radius:12px;padding:18px 20px;margin-top:18px}
+  .audit span{color:#8fd8c2}
+  footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);margin-top:28px;padding-top:16px}
+  footer a{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="kicker">Overseer &middot; Meta Global AI Developer Hackathon</div>
+  <h1>A life, kept chapter by chapter.</h1>
+  <p class="lede">A normal CRM overwrites you. You change jobs, it changes the job field, and the old you is gone. A life CRM keeps every chapter — what changed, when it changed, and why — so you can ask about a life at any point in time, not just its latest version.</p>
+  <div class="claim">&ldquo;I don&rsquo;t sell a memory that remembers better. I sell the record that can&rsquo;t be rewritten, so when an agent acts you can prove what it believed, when, and why.&rdquo;</div>
+  <p class="disclosure"><strong>How to read this demo.</strong> This is a scripted demo, primed for presentation — that priming is disclosed, not hidden. Ada Okafor here is a demo persona, not a real customer. The story below is seeded. The chapter pull-apart is a small demo parser: it counts independent supporting sentences in the story, it does not pretend to be the full Overseer engine. The record it illustrates is append-only: entries are added, never edited. The full real record is linked at the bottom.</p>
+</header>
+
+<div class="panel" id="storyPanel">
+  <h2>Step 1 &mdash; Seed the story</h2>
+  <p class="sub">Edit this story if you like — remove a sentence and its topic loses support. Then pull it apart.</p>
+  <div style="margin-bottom:10px"><button class="secondary" id="storyToggleBtn" onclick="toggleStory()">Hide story</button></div>
+  <textarea id="story">Ada Okafor grew up in Ibadan, the eldest of three children, and learned bookkeeping from her mother, who ran a market stall. In 2019 she joined the Lagos records office as a junior clerk, filing paper invoices by hand. By 2022 she was records lead in Lagos, after her predecessor retired, and she moved the office from Ikeja to Victoria Island. In 2024 she earned a records management certificate, paid for by the office, and began training two junior clerks. On Monday, Ada, records lead in Lagos, approved a $12,000 invoice for office supplies. On Tuesday, her manager Priya Nair said Ada had moved to head of records, and that invoice approvals over $10,000 now need Priya's sign-off. On Wednesday, Ada approved a second invoice for $11,500, and the supplier, Delta Office, delivered the goods the same day. On Thursday, the finance team asked: was Ada authorized on Wednesday, and what did the agent believe at the time? Her brother Tunde, who works at Delta Office, had recommended Delta to Ada in 2023, which the finance team noted as a conflict to check. Ada's certificate course in 2024 had covered exactly this case: approvals after a rule change need the new sign-off, not the old one. On Friday, Priya signed off the Wednesday invoice herself, and the audit closed with a note: the record, not Ada's memory, settled what was believed on each day.</textarea>
+  <div class="story-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <button onclick="pullApart()">Pull it apart into chapters</button>
+    <button class="secondary" onclick="resetStory()">Reset the story</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+    <div class="panel">
+      <h2>Step 2 &mdash; Chapters pulled from the story</h2>
+      <p class="sub">One tangled life, eleven threads. Support is counted, not judged: one independent supporting sentence moves a chapter one shade darker, on a 0&ndash;9 greyscale. Shades 8&ndash;9 are the black band — a chapter gets filed. Below that, it stays grey.</p>
+      <div id="topics"><p style="color:var(--muted)">Press &ldquo;Pull it apart&rdquo; to see the chapters.</p></div>
+      <div style="margin-top:12px"><button id="makeFilesBtn" onclick="makeCaseFiles()" disabled>File the certain chapters</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Step 3 &mdash; Ask about a life, at a point in time</h2>
+      <p class="sub">Now chat. Ask what Ada&rsquo;s life looked like on Monday, or every job she has ever had and why each one changed — the record answers from the chapters, not just the latest version.</p>
+      <div id="chat"></div>
+      <div class="suggest">
+        <button onclick="askSuggested('Show me every job Ada has ever had, and why each one changed')">Show me every job Ada has ever had, and why each one changed</button>
+        <button onclick="askSuggested('Was Ada authorized on Wednesday?')">Was Ada authorized on Wednesday?</button>
+        <button onclick="askSuggested('What did the agent believe on Monday?')">What did the agent believe on Monday?</button>
+      </div>
+      <div class="composer">
+        <input id="box" placeholder="Ask about the story…" onkeydown="if(event.key==='Enter')askFree()">
+        <button onclick="askFree()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Life chapters</h2>
+      <p class="sub">A chapter is filed here only when it reaches the black band. Grey chapters and open questions do not get filed as certain.</p>
+      <div class="empty" id="emptyFiles">No chapters filed yet.<br>Pull the story apart, then file the certain chapters.</div>
+      <div id="fileList"></div>
+      <div class="audit" id="auditBox" style="display:none">Auditor&rsquo;s sentence: <span id="auditText"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Ready prompt — update something from the record</h2>
+  <p class="sub">This prompt is ready to go, sitting at the bottom. Send it and watch what happens to the grey Wednesday chapter: a new entry is appended, the old uncertainty stays underneath it, and nothing gets edited.</p>
+  <p style="background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:15.5px"><em>&ldquo;Update: Priya confirms the Wednesday invoice was covered by the old rule on Thursday, before the new sign-off rule took effect.&rdquo;</em></p>
+  <button id="updatePromptBtn" onclick="applyUpdatePrompt()">Send this prompt — update the record</button>
+</div>
+
+<footer>
+  <p>Built during the hackathon: the Overseer code. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in the Overseer repo.</p>
+  <p>See the evidence underneath this demo: <a href="record.html">the full record — 49 entries</a>. Worker calls in that record ran through the Meta Model API (muse-spark-1.3).</p>
+</footer>
+</div>
+<script>
+const DEFAULT_STORY = document.getElementById('story').value;
+const chat = document.getElementById('chat');
+const box = document.getElementById('box');
+let parsed = null, filesMade = false;
+
+function sentences(text){
+  return text.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(Boolean);
+}
+function countSupport(sents, tests){
+  return sents.filter(s => tests.some(t => t.test(s))).length;
+}
+function shadeFor(supports){
+  if(supports >= 3) return 9;
+  if(supports === 2) return 8;
+  if(supports === 1) return 4;
+  return 0;
+}
+function toggleStory(){
+  const panel = document.getElementById('storyPanel');
+  const collapsed = panel.classList.toggle('collapsed');
+  document.getElementById('storyToggleBtn').textContent = collapsed ? 'Show story' : 'Hide story';
+}
+function resetStory(){
+  document.getElementById('storyPanel').classList.remove('collapsed');
+  document.getElementById('storyToggleBtn').textContent = 'Hide story';
+  document.getElementById('story').value = DEFAULT_STORY;
+  document.getElementById('topics').innerHTML = '<p style="color:var(--muted)">Press &ldquo;Pull it apart&rdquo; to see the topics.</p>';
+  document.getElementById('fileList').innerHTML = '';
+  document.getElementById('emptyFiles').style.display = 'block';
+  document.getElementById('auditBox').style.display = 'none';
+  document.getElementById('makeFilesBtn').disabled = true;
+  parsed = null; filesMade = false;
+}
+function pullApart(){
+  const text = document.getElementById('story').value;
+  const sents = sentences(text);
+  const defs = [
+    { id:'origin', title:'Chapter 1 — Where she comes from', tile:'IB',
+      desc:'Ibadan, eldest of three, bookkeeping learned from her mother\u2019s market stall.',
+      current:'Grew up in Ibadan, eldest of three children; learned bookkeeping from her mother, who ran a market stall.',
+      tests:[/ibadan/i, /mother/i, /brother/i, /tunde/i, /children/i] },
+    { id:'career', title:'Chapter 2 — The career', tile:'AO',
+      desc:'Junior clerk in 2019, records lead by 2022, head of records from Tuesday.',
+      current:'Head of records, Lagos.',
+      past:'<strong>Past, still in the record:</strong><br><s>Records lead, Lagos — authority 0.9 on Monday</s><br>Authority now 0.4. Not edited, not deleted — the fall is recorded.<br><s>Junior clerk, 2019</s> — promoted as the record shows, chapter by chapter.',
+      tests:[/records lead/i, /head of records/i, /junior clerk/i] },
+    { id:'office', title:'Chapter 3 — The office moves', tile:'LG',
+      desc:'Lagos records office, moved from Ikeja to Victoria Island in 2022.',
+      current:'Lagos records office, Victoria Island (moved from Ikeja in 2022).',
+      tests:[/lagos/i, /ikeja/i, /victoria island/i, /office/i] },
+    { id:'training', title:'Chapter 4 — The certificate', tile:'CT',
+      desc:'Records management certificate in 2024, then training two junior clerks.',
+      current:'Certificate earned 2024, office-paid; now training two junior clerks.',
+      tests:[/certificate/i, /training/i, /course/i] },
+    { id:'authority', title:'Chapter 5 — The new rule', tile:'$T',
+      desc:'Approvals over $10,000 need Priya Nair\u2019s sign-off.',
+      current:'Approvals over $10,000 need Priya Nair\u2019s sign-off.',
+      tests:[/10,000/i, /priya/i, /sign-off/i, /authorized/i, /signed off/i] },
+    { id:'invoices', title:'Chapter 6 — The invoices', tile:'$I',
+      desc:'$12,000 on Monday, $11,500 on Wednesday, paper invoices by hand in 2019.',
+      current:'Monday $12,000 approved; Wednesday $11,500 approved and later signed off by Priya on Friday.',
+      tests:[/invoice/i] },
+    { id:'supplier', title:'Chapter 7 — The supplier', tile:'DO',
+      desc:'Delta Office delivered Wednesday\u2019s goods; Ada\u2019s brother Tunde works there.',
+      current:'Supplier: Delta Office. Conflict noted: Ada\u2019s brother Tunde works there and recommended Delta in 2023.',
+      tests:[/delta/i, /supplier/i] },
+    { id:'audit', title:'Chapter 8 — The audit', tile:'AU',
+      desc:'Finance asked the question Thursday; Priya signed Friday; the record settled it.',
+      current:'Audit closed Friday: the record, not Ada\u2019s memory, settled what was believed on each day.',
+      tests:[/finance team/i, /audit/i] },
+    { id:'wednesday', title:'Chapter 9 — The Wednesday question',
+      desc:'Was Ada authorized when she approved the second invoice?',
+      current:'Wednesday $11,500 approval — authorization shown only after Priya\u2019s Friday sign-off.',
+      tests:[/11,500/i, /second invoice/i] },
+    { id:'conflict', title:'Chapter 10 — The conflict, unresolved',
+      desc:'Did Tunde\u2019s recommendation influence Ada\u2019s choice of Delta? Noted to check, never resolved in the story.',
+      current:'Conflict noted, never resolved in the story.',
+      tests:[/conflict/i] },
+    { id:'predecessor', title:'Chapter 11 — The predecessor',
+      desc:'Why did Ada\u2019s predecessor retire? Mentioned once, never explained.',
+      current:'Predecessor retired before 2022 — reason never given in the story.',
+      tests:[/predecessor/i] },
+  ];
+  parsed = defs.map(d => {
+    const supports = countSupport(sents, d.tests);
+    const shade = shadeFor(supports);
+    return Object.assign({}, d, { supports, shade, certain: shade >= 8 });
+  });
+  const el = document.getElementById('topics');
+  el.innerHTML = parsed.map(t =>
+    '<details class="topic"><summary><span class="topic-title">' + t.title +
+    (t.certain ? '<span class="tag black">Chapter filed — black band</span>' : '<span class="tag grey">Grey — not certain yet</span>') +
+    (t.id === 'wednesday' ? '<span class="tag open">Open question sitting</span>' : '') +
+    '</span></summary><div class="topic-body"><p>' + t.desc + '</p>' +
+    '<div class="shade"><i style="width:' + (t.shade * 11) + '%"></i></div>' +
+    '<div class="shade-note">Greyscale ' + t.shade + ' of 9 &middot; ' + t.supports + ' independent supporting sentence' + (t.supports === 1 ? '' : 's') + ' in the story.</div></div></details>'
+  ).join('');
+  document.getElementById('storyPanel').classList.add('collapsed');
+  document.getElementById('storyToggleBtn').textContent = 'Show story';
+  document.getElementById('makeFilesBtn').disabled = !parsed.some(t => t.certain);
+  filesMade = false;
+}
+function makeCaseFiles(){
+  if(!parsed) return;
+  const certain = parsed.filter(t => t.certain && t.id !== 'wednesday');
+  if(!certain.length) return;
+  document.getElementById('emptyFiles').style.display = 'none';
+  const list = document.getElementById('fileList');
+  list.innerHTML = certain.map(t =>
+    '<div class="folder">' + (t.tile ? '<div class="tile">' + t.tile + '</div>' : '') + '<h3>' + t.title + '</h3>'
+      + '<p><strong>Current:</strong> ' + t.current + '</p>'
+      + '<div class="shade"><i style="width:' + (t.shade * 11) + '%"></i></div><div class="shade-note">Greyscale ' + t.shade + ' of 9 — black band &middot; ' + t.supports + ' supporting sentences.</div>'
+      + (t.past ? '<details class="past"><summary>Past, still in the record</summary>' + t.past.replace('<strong>Past, still in the record:</strong><br>', '') + '</details>' : '')
+      + '</div>'
+  ).join('');
+  const grey = parsed.filter(t => !t.certain);
+  if(grey.length) list.innerHTML += '<p class="grey-note">Grey chapters stay open in their thread until the record answers them. They do not get promoted to filed chapters by being asked about loudly.</p>';
+  grey.forEach(t => {
+    list.innerHTML += '<div class="topic" id="grey-' + t.id + '"><h3>' + t.title + ' — not filed as certain <span class="tag open">Open question</span></h3><p>' + t.desc + '</p></div>';
+  });
+  filesMade = true;
+}
+function applyUpdatePrompt(){
+  if(!parsed) pullApart();
+  if(!filesMade) makeCaseFiles();
+  const prompt = 'Update: Priya confirms the Wednesday invoice was covered by the old rule on Thursday, before the new sign-off rule took effect.';
+  addMsg('user', 'You', prompt);
+  setTimeout(function(){
+    addMsg('agent', 'Agent', 'Update recorded as a NEW entry — the old Wednesday entry was not edited. Wednesday $11,500: now shown as covered by the old rule on Thursday, confirmed by Priya. The Wednesday chapter moves from grey to filed, with the old uncertainty still visible underneath it.');
+    const list = document.getElementById('fileList');
+    const greyEl = document.getElementById('grey-wednesday');
+    if(greyEl) greyEl.remove();
+    list.innerHTML += '<div class="folder"><h3>Chapter 9 — The Wednesday question — UPDATED</h3>'
+      + '<p><strong>Current:</strong> Wednesday $11,500 covered by the old rule on Thursday, confirmed by Priya.</p>'
+      + '<div class="shade"><i style="width:100%"></i></div><div class="shade-note">Greyscale 9 of 9 — black band, after this update.</div>'
+      + '<details class="past"><summary>Before this update, still in the record</summary><s>Wednesday authorization unknown — 1 supporting sentence, grey, open question</s><br>That uncertainty was not deleted. This new entry sits on top of it.</details></div>';
+    document.getElementById('auditBox').style.display = 'block';
+    document.getElementById('auditText').textContent = 'Wednesday $11,500: originally grey and open (1 supporting sentence). Updated by prompt: Priya confirms old-rule cover on Thursday. New entry appended; old uncertainty kept in the record.';
+    document.getElementById('updatePromptBtn').disabled = true;
+    document.getElementById('updatePromptBtn').textContent = 'Update applied — old entry untouched';
+  }, 400);
+}
+function addMsg(cls, who, text){
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  d.innerHTML = '<span class="who">' + who + '</span>' + text;
+  chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+}
+function answer(q){
+  addMsg('user', 'You', q);
+  setTimeout(function(){
+    if(/every job|ever had/i.test(q)){
+      addMsg('agent', 'Agent', 'Every job Ada has ever had, in chapter order: 1) Records lead, Lagos — until Tuesday. Why it changed: she moved to head of records, recorded by her manager Priya Nair. 2) Head of records, Lagos — from Tuesday to now. That is the whole list, with the reason for each change, because a life CRM never overwrites a chapter — it files the next one.');
+    } else if(/wednesday|authorized/i.test(q)){
+      addMsg('agent', 'Agent', 'On Monday, Ada was authorized: she was records lead, and the $12,000 approval was recorded at authority 0.9. On Tuesday the rule changed — over $10,000 needs Priya\u2019s sign-off — and Ada moved to head of records. On Wednesday she approved $11,500, so under Tuesday\u2019s rule that approval needed Priya\u2019s sign-off, which the story does not show. Past and current, from the case files: Monday authorized, Wednesday not shown as authorized.');
+      document.getElementById('auditBox').style.display = 'block';
+      document.getElementById('auditText').textContent = 'Monday: Ada approved $12,000 as records lead (authority 0.9). Tuesday: threshold set at $10,000 with Priya\u2019s sign-off. Wednesday: Ada approved $11,500 with no Priya sign-off in the record. The question stays open until the record answers it.';
+    } else if(/monday|believe/i.test(q)){
+      addMsg('agent', 'Agent', 'On Monday the agent believed Ada Okafor was the records lead in Lagos, at authority 0.9, and recorded her $12,000 approval on that basis. That belief is still in the record, now at authority 0.4 after Tuesday\u2019s move — it was not rewritten when the role changed.');
+    } else {
+      addMsg('agent', 'Agent', 'From the filed chapters: Ibadan childhood, bookkeeping from her mother\u2019s stall; junior clerk 2019, records lead by 2022, head of records from Tuesday; office moved Ikeja to Victoria Island; certificate 2024; approvals over $10,000 need Priya\u2019s sign-off; Delta Office supplied Wednesday\u2019s goods, with her brother Tunde there — a conflict the audit noted; audit closed Friday, settled by the record, not by memory.');
+    }
+  }, 400);
+}
+function askSuggested(q){ answer(q); }
+function askFree(){
+  const v = box.value.trim(); if(!v) return; box.value = ''; answer(v);
+}
+addMsg('agent', 'Overseer', 'Hello. Seed the story above, pull it apart into chapters, file the certain ones — then ask me for every job Ada has ever had, and why each one changed.');
+</script>
+</body>
+</html>
