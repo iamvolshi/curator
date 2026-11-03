@@ -557,3 +557,9 @@ Read on 26 October 2026, so the next person does not have to re-derive them:
 - Chat Completions request and parameters — <https://dev.meta.ai/docs/protocols/chat-completions>
 - Models and the `muse-spark-1.3` default — <https://dev.meta.ai/docs/models>
 - Error types, status codes and retry guidance — <https://dev.meta.ai/docs/error-handling>
+
+## License
+
+Copyright (C) 2026 Darren Hall.
+
+This repository is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) — see `LICENSE`. That means anyone may use, copy, modify, and distribute it, including running it as a network service, provided their version is shared under the same license.
