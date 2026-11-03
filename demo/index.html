@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overseer — A life CRM, chapter by chapter</title>
+<title>Curator — A life CRM, chapter by chapter</title>
 <style>
   :root{--ink:#14181f;--muted:#5b6472;--line:#e3e7ee;--bg:#f7f8fa;--card:#fff;--accent:#0b5e4b;--accent2:#e8f2ee;--warn:#8a5a00;--warnbg:#fdf3e0}
   *{box-sizing:border-box}
@@ -67,11 +67,11 @@
 <body>
 <div class="wrap">
 <header>
-  <div class="kicker">Overseer &middot; Meta Global AI Developer Hackathon</div>
+  <div class="kicker">Curator &middot; Meta Global AI Developer Hackathon</div>
   <h1>A life, kept chapter by chapter.</h1>
   <p class="lede">A normal CRM overwrites you. You change jobs, it changes the job field, and the old you is gone. A life CRM keeps every chapter — what changed, when it changed, and why — so you can ask about a life at any point in time, not just its latest version.</p>
   <div class="claim">&ldquo;I don&rsquo;t sell a memory that remembers better. I sell the record that can&rsquo;t be rewritten, so when an agent acts you can prove what it believed, when, and why.&rdquo;</div>
-  <p class="disclosure"><strong>How to read this demo.</strong> This is a scripted demo, primed for presentation — that priming is disclosed, not hidden. Ada Okafor here is a demo persona, not a real customer. The story below is seeded. The chapter pull-apart is a small demo parser: it counts independent supporting sentences in the story, it does not pretend to be the full Overseer engine. The record it illustrates is append-only: entries are added, never edited. The full real record is linked at the bottom.</p>
+  <p class="disclosure"><strong>How to read this demo.</strong> This is a scripted demo, primed for presentation — that priming is disclosed, not hidden. Ada Okafor here is a demo persona, not a real customer. The story below is seeded. The chapter pull-apart is a small demo parser: it counts independent supporting sentences in the story, it does not pretend to be the full Curator engine. The record it illustrates is append-only: entries are added, never edited. The full real record is linked at the bottom.</p>
 </header>
 
 <div class="panel" id="storyPanel">
@@ -129,7 +129,7 @@
 </div>
 
 <footer>
-  <p>Built during the hackathon: the Overseer code. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in the Overseer repo.</p>
+  <p>Built during the hackathon: the Curator code. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in the Curator repo.</p>
   <p>See the evidence underneath this demo: <a href="record.html">the full record — 49 entries</a>. Worker calls in that record ran through the Meta Model API (muse-spark-1.3).</p>
 </footer>
 </div>
@@ -302,7 +302,7 @@ function askSuggested(q){ answer(q); }
 function askFree(){
   const v = box.value.trim(); if(!v) return; box.value = ''; answer(v);
 }
-addMsg('agent', 'Overseer', 'Hello. Seed the story above, pull it apart into chapters, file the certain ones — then ask me for every job Ada has ever had, and why each one changed.');
+addMsg('agent', 'Curator', 'Hello. Seed the story above, pull it apart into chapters, file the certain ones — then ask me for every job Ada has ever had, and why each one changed.');
 </script>
 </body>
 </html>

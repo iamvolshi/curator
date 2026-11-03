@@ -1,4 +1,6 @@
-# Overseer demo — source of truth
+# Curator demo — source of truth
+
+Renamed from Overseer to Curator on 3 November 2026. The live Firebase site URL is unchanged: https://volshi-overseer.web.app
 
 This folder is the demo website source, committed 2026-11-02 after it was
 found that the live Firebase site (https://volshi-overseer.web.app) had been

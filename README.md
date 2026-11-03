@@ -12,9 +12,9 @@ The K-record accountability idea — an append-only record of what an agent beli
 
 The older work stays separate: the VOLSHi engines, including the KATIE kernel, live in their own private repositories. They are named here for context only, with no code, history, or setup from them copied in.
 
-**Submission wrap, 29 October 2026: Baseten is skipped for this submission.** The Baseten plug is wired, but its key was not available for a live prove, so the single-seat Overseer judge (`npm run judge`, Baseten) is not claimed as proven here. The submission core is what is proven: Worker via `meta`, the three-seat panel, MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page. Baseten's mandated model is `meta-models/muse-spark-open-1026`; the plug is blocked on the key only, not on a model pick.
+**Submission wrap, 29 October 2026: Baseten is skipped for this submission.** The Baseten plug is wired, but its key was not available for a live prove, so the single-seat Curator judge (`npm run judge`, Baseten) is not claimed as proven here. The submission core is what is proven: Worker via `meta`, the three-seat panel, MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page. Baseten's mandated model is `meta-models/muse-spark-open-1026`; the plug is blocked on the key only, not on a model pick.
 
-**Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Overseer code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
+**Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Curator code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
 
 ## Setup
 
@@ -30,10 +30,10 @@ npm run page           # write the record out as one readable page
 
 Full running instructions, plug table, and proven/blocked status are in the sections below, unchanged.
 
-# Overseer
+# Curator
 
 The K-record accountability layer for agent calls. This repository is the floor
-for the Overseer: the piece that sits between an agent and a model, sees every
+for the Curator: the piece that sits between an agent and a model, sees every
 call, and writes down what happened.
 
 This is **Outcome 1** of the build plan. It delivers four things and no more:
