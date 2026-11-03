@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curator — A life CRM, chapter by chapter</title>
+<title>Curator — A Life Content Manager, chapter by chapter</title>
 <style>
   :root{--ink:#14181f;--muted:#5b6472;--line:#e3e7ee;--bg:#f7f8fa;--card:#fff;--accent:#0b5e4b;--accent2:#e8f2ee;--warn:#8a5a00;--warnbg:#fdf3e0}
   *{box-sizing:border-box}
@@ -69,7 +69,7 @@
 <header>
   <div class="kicker">Curator &middot; Meta Global AI Developer Hackathon</div>
   <h1>A life, kept chapter by chapter.</h1>
-  <p class="lede">A normal CRM overwrites you. You change jobs, it changes the job field, and the old you is gone. A life CRM keeps every chapter — what changed, when it changed, and why — so you can ask about a life at any point in time, not just its latest version.</p>
+  <p class="lede">A normal CRM overwrites you. You change jobs, it changes the job field, and the old you is gone. A Life Content Manager (LCM) keeps every chapter — what changed, when it changed, and why — so you can ask about a life at any point in time, not just its latest version.</p>
   <div class="claim">&ldquo;I don&rsquo;t sell a memory that remembers better. I sell the record that can&rsquo;t be rewritten, so when an agent acts you can prove what it believed, when, and why.&rdquo;</div>
   <p class="disclosure"><strong>How to read this demo.</strong> This is a scripted demo, primed for presentation — that priming is disclosed, not hidden. Ada Okafor here is a demo persona, not a real customer. The story below is seeded. The chapter pull-apart is a small demo parser: it counts independent supporting sentences in the story, it does not pretend to be the full Curator engine. The record it illustrates is append-only: entries are added, never edited. The full real record is linked at the bottom.</p>
 </header>
@@ -286,7 +286,7 @@ function answer(q){
   addMsg('user', 'You', q);
   setTimeout(function(){
     if(/every job|ever had/i.test(q)){
-      addMsg('agent', 'Agent', 'Every job Ada has ever had, in chapter order: 1) Records lead, Lagos — until Tuesday. Why it changed: she moved to head of records, recorded by her manager Priya Nair. 2) Head of records, Lagos — from Tuesday to now. That is the whole list, with the reason for each change, because a life CRM never overwrites a chapter — it files the next one.');
+      addMsg('agent', 'Agent', 'Every job Ada has ever had, in chapter order: 1) Records lead, Lagos — until Tuesday. Why it changed: she moved to head of records, recorded by her manager Priya Nair. 2) Head of records, Lagos — from Tuesday to now. That is the whole list, with the reason for each change, because a Life Content Manager never overwrites a chapter — it files the next one.');
     } else if(/wednesday|authorized/i.test(q)){
       addMsg('agent', 'Agent', 'On Monday, Ada was authorized: she was records lead, and the $12,000 approval was recorded at authority 0.9. On Tuesday the rule changed — over $10,000 needs Priya\u2019s sign-off — and Ada moved to head of records. On Wednesday she approved $11,500, so under Tuesday\u2019s rule that approval needed Priya\u2019s sign-off, which the story does not show. Past and current, from the case files: Monday authorized, Wednesday not shown as authorized.');
       document.getElementById('auditBox').style.display = 'block';
