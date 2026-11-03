@@ -83,12 +83,17 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
 
   node bin/overseer.js picture --prompt "..." [--out PATH] [--subject "..."] [--age N|adult] [--skill beginner|learning|confident|skilled|master] [--dry-run]
       One picture from the picture kid (Muse Image), saved to a file.
-      With --subject it is also shelved as that subject's folder picture,
-      so the next page build shows it in that folder in a browser.
+      With --subject it is also shelved as that subject's folder picture —
+      use a subject the record already names, or the picture is held, not
+      shown. With a subject and no --out there is no separate file: the
+      shelf and the subject's real folder already hold the bytes. Shelving
+      over an existing picture says so first, because the old one is gone.
       --age/--skill pick the maker's hand: a 5-year-old crayons, a
-      12-year-old shades, an adult draws, each at the skill picked.
-      This is the picture plug's live prove; it writes nothing to the
-      K-record, because a picture is not a fact entry.
+      12-year-old shades, an adult draws, each at the skill picked. The shelf
+      keeps the exact sentence the model saw, beside your own prompt.
+      Every call is written to the K-record as one small fact entry — model,
+      prompt, byte count, never the image bytes — because a paid call with
+      no entry is the hole the record exists to close.
 
   node bin/overseer.js help
       This text.

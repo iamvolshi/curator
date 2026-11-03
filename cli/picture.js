@@ -1,10 +1,12 @@
 // One picture from the picture kid, saved to a file — and, with --subject,
 // shelved as that subject's folder picture.
 //
-// This is the picture kid's live prove, not a record entry: it proves the
-// plug answers with a real image, and it saves that image where a folder
-// can use it. It writes nothing to the K-record, because a picture is not
-// a fact entry and the record schema has no image entry to hold one. With
+// This is the picture kid's live prove: it proves the plug answers with a
+// real image, and it saves that image where a folder can use it. The call
+// itself is written to the K-record as a small fact entry — model, prompt,
+// byte count, no image bytes — because a paid call with no entry is exactly
+// the hole the record exists to close. The picture's bytes stay out of the
+// entry: they live on the shelf beside the record, never in it. With
 // --subject the picture also goes on the shelf beside the record, so the
 // next page build shows it on that subject's folder — in a browser, where
 // a picture can actually be seen — and into a real folder of that subject's
@@ -24,9 +26,33 @@ import { dirname, join } from 'node:path';
 
 import { makerLabel, parseMaker, shapePrompt } from './maker-style.js';
 import { callImage, preflight, resolvePlug } from '../provider/index.js';
+import { makeEntry } from '../record/entry.js';
 import { subjectsOf } from '../record/folders.js';
-import { folderNameForSubject, mimeForBuffer, resolvePicturesPath, savePicture } from '../record/pictures.js';
+import { folderNameForSubject, mimeForBuffer, readPictures, resolvePicturesPath, savePicture } from '../record/pictures.js';
 import { createStore } from '../record/store.js';
+
+// The record kind a picture call writes. It carries no `subjects`: a picture
+// call observes no subject, so it must not name a folder into existence —
+// folders come from observed moves. The subject rides along as `subject`
+// (singular), which the folder logic never reads, so held-not-shown keeps
+// holding.
+export const PICTURE_KIND = 'picture-call';
+
+/**
+ * Write the call to the record as one small fact entry: model, prompt, byte
+ * count — never image bytes. A paid call with no entry is the hole the
+ * record exists to close. A store that cannot be written is reported, not
+ * thrown: the picture already exists, and losing it as well would double
+ * the failure.
+ */
+async function recordCall(store, what) {
+  try {
+    const stored = await store.append(makeEntry({ when: new Date().toISOString(), label: 'fact', what }));
+    console.log(`Recorded as entry seq ${stored.seq}.`);
+  } catch (err) {
+    console.error(`The record entry was not written: ${err?.message ?? err}`);
+  }
+}
 
 /** The default prompt when none is given: this command never invents work. */
 export const DEFAULT_PICTURE_PROMPT = 'a simple flat folder icon, plain background';
@@ -113,6 +139,21 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
     console.error('The picture call did not work.');
     console.error(result.error?.message ?? 'unknown error');
     if (result.noCallMade) console.error('Nothing was sent.');
+    // A failed call is recorded too, because it also happened — with the
+    // error, and without image bytes that never arrived.
+    await recordCall(store, {
+      kind: PICTURE_KIND,
+      plug: 'picture',
+      model: result.model ?? null,
+      prompt: text,
+      sentPrompt: sent,
+      durationMs: result.durationMs ?? 0,
+      ok: false,
+      error: result.error ?? null,
+      ...(result.noCallMade ? { noCallMade: true } : {}),
+      ...(maker.age !== null ? { makerAge: maker.age } : {}),
+      ...(maker.skill !== null ? { makerSkill: maker.skill } : {}),
+    });
     return result.noCallMade ? 3 : 4;
   }
 
@@ -121,6 +162,19 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
     console.log(result.image.data);
     if (subject) console.log(`No picture was shelved for "${subject}": the shelf holds bytes, not URLs.`);
     if (result.image.revisedPrompt) console.log(`Revised prompt: ${result.image.revisedPrompt}`);
+    await recordCall(store, {
+      kind: PICTURE_KIND,
+      plug: 'picture',
+      model: result.model,
+      prompt: text,
+      sentPrompt: sent,
+      source: 'url',
+      durationMs: result.durationMs ?? 0,
+      ok: true,
+      ...(subject ? { subject } : {}),
+      ...(maker.age !== null ? { makerAge: maker.age } : {}),
+      ...(maker.skill !== null ? { makerSkill: maker.skill } : {}),
+    });
     return 0;
   }
 
@@ -129,21 +183,39 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
   // A caller-named path keeps its name, but the bytes decide the format:
   // a path with no image extension gets the detected one appended, so a
   // WebP saved as .png (or the other way round) cannot happen by accident.
+  // With a subject and no --out there is no separate file at all: the bytes
+  // already land on the shelf and in the subject's real folder below, and a
+  // third copy in the repo root is clutter, not proof.
   const path = out
     ? /\.(png|jpg|jpeg|webp)$/i.test(out)
       ? out
       : `${out}.${ext}`
+    : subject
+      ? null
     : `picture.${ext}`;
-  await writeFile(path, buffer);
-  console.log(`Saved ${buffer.length} bytes to ${path} (${ext}, ${result.durationMs} ms)`);
+  if (path) {
+    await writeFile(path, buffer);
+    console.log(`Saved ${buffer.length} bytes to ${path} (${ext}, ${result.durationMs} ms)`);
+  } else {
+    console.log(`Kept ${buffer.length} bytes (${ext}, ${result.durationMs} ms), no --out so no separate file: the shelf and the folder below hold them.`);
+  }
   if (result.image.revisedPrompt) console.log(`Revised prompt: ${result.image.revisedPrompt}`);
 
   if (subject) {
     const shelfPath = resolvePicturesPath(null, env);
+    // Say before replacing, not after: the old picture is gone the moment
+    // the next line runs, and a warning after the fact is no warning.
+    const previous = (await readPictures(shelfPath))[subject];
+    if (previous) {
+      console.log(`Replaces the folder picture shelved ${previous.when ?? 'earlier'} (${previous.model ?? 'an unknown model'}): the old picture is gone, the record is untouched.`);
+    }
     await savePicture(shelfPath, subject, {
       mime,
       data: result.image.data,
       prompt: text,
+      // The exact sentence the model saw, beside the user prompt above:
+      // nobody has to take the age-and-skill shaping on trust.
+      sentPrompt: sent,
       model: result.model,
       when: new Date().toISOString(),
       ...(maker.age !== null ? { makerAge: maker.age } : {}),
@@ -177,6 +249,23 @@ export async function pictureCommand({ args = [], env = process.env, fetchImpl =
       console.log('The record could not be read to check whether that folder exists yet.');
     }
   }
+
+  // The call happened, so the record hears about it: model, prompt, byte
+  // count — never the image bytes, which already live on the shelf.
+  await recordCall(store, {
+    kind: PICTURE_KIND,
+    plug: 'picture',
+    model: result.model,
+    prompt: text,
+    sentPrompt: sent,
+    bytes: buffer.length,
+    mime,
+    durationMs: result.durationMs ?? 0,
+    ok: true,
+    ...(subject ? { subject } : {}),
+    ...(maker.age !== null ? { makerAge: maker.age } : {}),
+    ...(maker.skill !== null ? { makerSkill: maker.skill } : {}),
+  });
 
   return 0;
 }

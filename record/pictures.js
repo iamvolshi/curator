@@ -14,7 +14,11 @@
 // it earlier would be a folder nobody observed, which is priming, not a view.
 //
 // The shelf file is JSON, one key per subject, exactly as declared:
-//   { "Ada Okafor": { "mime": "image/webp", "data": "<base64>", "prompt": "...", "model": "muse-image-1.0", "when": "..." } }
+//   { "Ada Okafor": { "mime": "image/webp", "data": "<base64>", "prompt": "...", "sentPrompt": "Draw it like ...: ...", "model": "muse-image-1.0", "when": "...", "makerAge": 7, "makerSkill": "beginner" } }
+// `prompt` is the user's own prompt, untouched. `sentPrompt` is the exact
+// sentence the model saw — with no age or skill picked the two are identical,
+// and the shaping is never silently different from what is kept. `makerAge`
+// and `makerSkill` ride along only when they were picked.
 // Only the three image types below are ever embedded. Anything else is
 // ignored when the page is built, so a damaged or foreign shelf entry can
 // hide a picture but can never put an arbitrary data URI on the page.

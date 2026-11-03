@@ -20,6 +20,7 @@ const CALL_KINDS = {
   'worker-call': 'worker call',
   'plug-prove': 'prove',
   'plug-task': 'task',
+  'picture-call': 'picture',
 };
 
 function kindChip(what) {

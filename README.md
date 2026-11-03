@@ -282,7 +282,7 @@ written down is exactly the hole this layer exists to close.
 
 A prove call through any other plug writes the same entry with
 `kind: "plug-prove"`, plus `plug` and `role` naming which plug was called. Real
-work through any other plug writes it with `kind: "plug-task"`. The kind is read
+work through any other plug writes it with `kind: "plug-task"`. A picture call writes it with `kind: "picture-call"`, carrying the byte count instead of a reply, and no `subjects`. The kind is read
 from the result rather than assumed, so the entry says what happened and not what
 the caller intended.
 
@@ -366,8 +366,8 @@ npm run records         # read the record file back
 npm run page            # write the record out as one readable page (record.html)
 npm run live            # serve that page on 127.0.0.1 and keep it up to date
 npm run status          # every plug: wiring, and whether its address answers; no key needed
-npm run picture -- --prompt "..."   # one picture from the picture kid (Muse Image), saved to a file; writes nothing to the record
-npm run picture -- --prompt "..." --subject "Ada Okafor"   # ...and shelved as that subject's folder picture, on the folder on the next page build, and in a real folder under records/folders/ for Windows Explorer
+npm run picture -- --prompt "..."   # one picture from the picture kid (Muse Image), saved to a file; the call itself is recorded as one small fact entry (model, prompt, byte count — never the image bytes)
+npm run picture -- --prompt "..." --subject "Ada Okafor"   # ...and shelved as that subject's folder picture — use a subject the record already names, or the picture is held, not shown — on the folder on the next page build, and in a real folder under records/folders/ for Windows Explorer; with a subject and no --out there is no separate file
 npm run picture -- --prompt "..." --subject "Ada Okafor" --age 7 --skill beginner   # ...drawn like a 7-year-old beginner; --age 5|12|adult, --skill beginner|learning|confident|skilled|master
 ```
 
@@ -384,7 +384,7 @@ plug with what the record shows for it: its entries and how many worked, counted
 from the file, with an entry that recorded no call counted as never sent rather
 than folded in with the ones that went out and failed — and the plugs that have
 never been called, reported as silence, which is not the same as failure. Each entry also says what kind of call it was — a
-worker call, a prove, or a task — so a check that a plug answers is not mistaken
+worker call, a prove, a task, or a picture — so a check that a plug answers is not mistaken
 for a piece of real work through the same plug. A move the judge has parked gets
 a section of its own there, saying it is still unjudged and giving the count and
 the last failure, so the page does not read as a subject fully accounted for.

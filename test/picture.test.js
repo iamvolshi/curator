@@ -7,12 +7,15 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { callImage, readImageReply, resolvePlug } from '../provider/index.js';
 import { pictureCommand } from '../cli/picture.js';
+import { renderEntry } from '../record/render.js';
+import { createStore } from '../record/store.js';
+import { makeEntry } from '../record/entry.js';
 import { renderPage } from '../record/html.js';
 import { dataUriFor, folderNameForSubject, mimeForBuffer, readPictures, resolvePicturesPath, savePicture } from '../record/pictures.js';
 
@@ -107,17 +110,33 @@ test('callImage fails honestly when the reply has no image', async () => {
 test('the picture command saves base64 bytes with the format from the bytes', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'overseer-picture-'));
   const out = join(dir, 'folder-pic');
+  const store = createStore(join(dir, 'k-record.jsonl'));
   try {
     const code = await pictureCommand({
       args: ['--prompt', 'a red circle', '--out', out],
       env: ENV,
       fetchImpl: reply({ data: [{ b64_json: PNG_B64 }] }),
+      store,
     });
     assert.equal(code, 0);
     // The saver does not trust the caller's filename: the PNG header wins.
     const saved = await readFile(`${out}.png`);
     assert.equal(saved[0], 0x89);
     assert.equal(saved[1], 0x50);
+    // And the paid call is recorded: one small fact entry, the byte count
+    // instead of the bytes, and no subjects — a picture call observes no
+    // subject, so it must not name a folder into existence.
+    const entries = await store.readAll();
+    assert.equal(entries.length, 1);
+    const what = entries[0].what;
+    assert.equal(what.kind, 'picture-call');
+    assert.equal(what.plug, 'picture');
+    assert.equal(what.prompt, 'a red circle');
+    assert.equal(what.sentPrompt, what.prompt);
+    assert.ok(what.bytes > 0);
+    assert.equal(what.ok, true);
+    assert.ok(!('subjects' in what));
+    assert.ok(!('subject' in what), 'no subject was named, so none rides along');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -187,11 +206,8 @@ test('a picture with --subject is shelved, put in a real folder for Explorer, an
   const dir = await mkdtemp(join(tmpdir(), 'overseer-folder-pic-'));
   const shelf = join(dir, 'pictures.json');
   const out = join(dir, 'folder-pic');
-  const store = {
-    readAll: async () => [
-      { seq: 1, label: 'fact', when: '2026-10-30', what: { kind: 'plug-prove', prompt: 'hello', subjects: ['Ada Okafor'], ok: true } },
-    ],
-  };
+  const store = createStore(join(dir, 'k-record.jsonl'));
+  await store.append(makeEntry({ when: '2026-10-30', label: 'fact', what: { kind: 'plug-prove', prompt: 'hello', subjects: ['Ada Okafor'], ok: true } }));
   try {
     let sentBody;
     const code = await pictureCommand({
@@ -213,10 +229,23 @@ test('a picture with --subject is shelved, put in a real folder for Explorer, an
     assert.equal(shelved['Ada Okafor'].prompt, 'a red circle');
     assert.equal(shelved['Ada Okafor'].makerAge, 7);
     assert.equal(shelved['Ada Okafor'].makerSkill, 'beginner');
+    assert.equal(shelved['Ada Okafor'].sentPrompt, sentBody.prompt, 'the shelf keeps the exact sentence the model saw');
     // The same bytes in a real folder, so Explorer has a folder with an
     // image in it to put on the folder itself.
     const explorerFile = await readFile(join(dir, 'folders', 'Ada Okafor', 'picture.png'));
     assert.equal(explorerFile[0], 0x89);
+    // The call itself is in the record: the subject rides along as a
+    // singular, which the folder logic never reads, so the held-not-shown
+    // invariant keeps holding.
+    const recorded = await store.readAll();
+    assert.equal(recorded.length, 2);
+    const callEntry = recorded[1];
+    assert.equal(callEntry.what.kind, 'picture-call');
+    assert.equal(callEntry.what.subject, 'Ada Okafor');
+    assert.ok(!('subjects' in callEntry.what));
+    assert.equal(callEntry.what.sentPrompt, sentBody.prompt);
+    assert.equal(callEntry.what.makerAge, 7);
+    assert.ok(callEntry.what.bytes > 0);
 
     const entry = (seq, subjects) => ({ seq, label: 'fact', when: '2026-10-30', what: { kind: 'plug-prove', prompt: 'hello', subjects, ok: true } });
     const html = renderPage([entry(1, ['Ada Okafor']), entry(2, ['Other Subject'])], { pictures: shelved });
@@ -237,4 +266,107 @@ test('a picture with --subject is shelved, put in a real folder for Explorer, an
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('a failed picture call is recorded too, with the error and no bytes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-picture-fail-'));
+  const store = createStore(join(dir, 'k-record.jsonl'));
+  try {
+    const code = await pictureCommand({
+      args: ['--prompt', 'a red circle', '--out', join(dir, 'nope')],
+      env: ENV,
+      fetchImpl: reply({ data: [{}] }),
+      store,
+    });
+    assert.equal(code, 4);
+    const entries = await store.readAll();
+    assert.equal(entries.length, 1);
+    const what = entries[0].what;
+    assert.equal(what.kind, 'picture-call');
+    assert.equal(what.ok, false);
+    assert.equal(what.error.kind, 'bad-response');
+    assert.ok(!('bytes' in what), 'bytes that never arrived are not recorded');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a subject with no --out writes no stray file in the working folder', async () => {
+  const work = await mkdtemp(join(tmpdir(), 'overseer-picture-cwd-'));
+  const rec = await mkdtemp(join(tmpdir(), 'overseer-picture-rec-'));
+  const store = createStore(join(rec, 'k-record.jsonl'));
+  const shelf = join(rec, 'pictures.json');
+  const here = process.cwd();
+  try {
+    process.chdir(work);
+    const code = await pictureCommand({
+      args: ['--prompt', 'a red circle', '--subject', 'Ada Okafor'],
+      env: { ...ENV, OVERSEER_PICTURES: shelf },
+      fetchImpl: reply({ data: [{ b64_json: PNG_B64 }] }),
+      store,
+    });
+    assert.equal(code, 0);
+    // The shelf and the subject's real folder already hold the bytes; a
+    // third copy in the working folder would be clutter, not proof.
+    assert.deepEqual(await readdir(work), []);
+    const shelved = await readPictures(shelf);
+    assert.equal(shelved['Ada Okafor'].prompt, 'a red circle');
+  } finally {
+    process.chdir(here);
+    await rm(work, { recursive: true, force: true });
+    await rm(rec, { recursive: true, force: true });
+  }
+});
+
+test('shelving over an existing picture says so before replacing it', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'overseer-picture-replace-'));
+  const store = createStore(join(dir, 'k-record.jsonl'));
+  const shelfEnv = { ...ENV, OVERSEER_PICTURES: join(dir, 'pictures.json') };
+  const run = () => pictureCommand({
+    args: ['--prompt', 'a red circle', '--out', join(dir, 'pic'), '--subject', 'Ada Okafor'],
+    env: shelfEnv,
+    fetchImpl: reply({ data: [{ b64_json: PNG_B64 }] }),
+    store,
+  });
+  const said = [];
+  const realLog = console.log;
+  console.log = (...parts) => { said.push(parts.join(' ')); };
+  try {
+    assert.equal(await run(), 0);
+    assert.equal(said.some((line) => /Replaces the folder picture/.test(line)), false,
+      'the first picture for a subject replaces nothing');
+    said.length = 0;
+    assert.equal(await run(), 0);
+    assert.ok(said.some((line) => /Replaces the folder picture shelved/.test(line)),
+      'the second run warns before the old picture is gone, naming when it was shelved');
+  } finally {
+    console.log = realLog;
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a picture-call entry reads as bytes and a shelf reference, never a reply', () => {
+  const worked = renderEntry({
+    seq: 3, when: '2026-11-02', label: 'fact',
+    what: { kind: 'picture-call', plug: 'picture', model: 'muse-image-1.0', prompt: 'a red circle', sentPrompt: 'a red circle', bytes: 616732, mime: 'image/webp', subject: 'Ada Okafor', durationMs: 11300, ok: true },
+  });
+  assert.match(worked, /a picture made through the picture plug using muse-image-1\.0/);
+  assert.match(worked, /prompt: a red circle/);
+  assert.match(worked, /image:  616732 bytes \(image\/webp\)/);
+  assert.match(worked, /shelved for: Ada Okafor/);
+  assert.match(worked, /took:   11300 ms/);
+  assert.equal(worked.includes('reply:'), false, 'there is no reply to quote');
+
+  const shaped = renderEntry({
+    seq: 4, when: '2026-11-02', label: 'fact',
+    what: { kind: 'picture-call', plug: 'picture', model: 'muse-image-1.0', prompt: 'a red circle', sentPrompt: 'Draw it like a 7-year-old: a red circle', bytes: 100, mime: 'image/png', durationMs: 5, ok: true },
+  });
+  assert.match(shaped, /sent:   Draw it like a 7-year-old: a red circle/);
+
+  const failed = renderEntry({
+    seq: 5, when: '2026-11-02', label: 'fact',
+    what: { kind: 'picture-call', plug: 'picture', model: null, prompt: 'a red circle', sentPrompt: 'a red circle', durationMs: 0, ok: false, error: { kind: 'bad-response', message: 'no image', fix: 'retry' } },
+  });
+  assert.match(failed, /the call did not work/);
+  assert.match(failed, /problem: no image/);
 });

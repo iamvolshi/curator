@@ -10,10 +10,34 @@ export function renderEntry(entry) {
   ];
 
   const what = entry.what ?? {};
-  // Three kinds of observed call so far: the Worker agent doing a task, a plug
+  // Four kinds of observed call so far: the Worker agent doing a task, a plug
+  // doing real work, a plug being checked, and a picture being made. The first
+  // three read the same way apart from the line that says which — a proof and
+  // a task must not read alike. A picture call reads its own way, because its
+  // reply is image bytes, not words: the entry says how many bytes and where
+  // they went, and the bytes themselves stay on the shelf, never in this line.
   // doing real work, and a plug being checked. They read the same way apart from
   // the line that says which — a proof and a task must not read alike.
-  if (what.kind === 'worker-call' || what.kind === 'plug-prove' || what.kind === 'plug-task') {
+  if (what.kind === 'picture-call') {
+    lines.push(`what:   a picture made through the picture plug using ${what.model ?? 'an unnamed model'}`);
+    lines.push(`prompt: ${oneLine(what.prompt)}`);
+    if (what.sentPrompt && what.sentPrompt !== what.prompt) lines.push(`sent:   ${oneLine(what.sentPrompt)}`);
+    if (what.ok) {
+      lines.push(`result: the call worked`);
+      if (what.source === 'url') {
+        lines.push(`image:  answered with a URL, nothing saved`);
+      } else if (typeof what.bytes === 'number') {
+        lines.push(`image:  ${what.bytes} bytes (${what.mime ?? 'unknown type'})`);
+      }
+      if (what.subject) lines.push(`shelved for: ${what.subject}`);
+    } else {
+      lines.push(`result: the call did not work`);
+      lines.push(`problem: ${oneLine(what.error?.message)}`);
+      lines.push(`kind:   ${what.error?.kind ?? 'unknown'}`);
+      lines.push(`fix:    ${what.error?.fix ?? 'read the message'}`);
+    }
+    if (typeof what.durationMs === 'number') lines.push(`took:   ${what.durationMs} ms`);
+  } else if (what.kind === 'worker-call' || what.kind === 'plug-prove' || what.kind === 'plug-task') {
     lines.push(describeCall(what));
     if (what.endpoint) lines.push(`sent to: ${what.endpoint}`);
     // Entries written before the body was kept do not have one; saying nothing is
