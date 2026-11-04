@@ -1,3 +1,18 @@
+# Curator
+
+**Live demo: https://volshi-curator.web.app** · **Muse Spark 1.3 terminal: https://volshi-curator.web.app/terminal.html** · **Technical report: https://volshi-curator.web.app/record-engine.html**
+
+## Quickstart
+
+```bash
+cp .env.example .env   # then fill in MODEL_API_KEY, and the plug keys you use
+npm test               # offline checks, no key and no network needed — 295 pass, 0 fail
+npm run prove          # one real call on the Worker's plug (meta), recorded, read back
+```
+
+Docker: `docker build -t curator . && docker run --rm curator` — runs the offline test suite, no key needed.
+Evaluation and benchmarks (measured, not claimed): [docs/eval.md](docs/eval.md). Architecture: [docs/architecture.md](docs/architecture.md). Continuous integration runs `npm test` on every push and pull request: [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
 ## For the hackathon submission — what is pre-existing, and what was built here
 
 **Built during the hackathon, and only here:** everything in this repository.
@@ -14,7 +29,7 @@ The older work stays separate: the VOLSHi engines, including the KATIE kernel, l
 
 **Submission wrap, 29 October 2026: Baseten is skipped for this submission.** The Baseten plug is wired, but its key was not available for a live prove, so the single-seat Curator judge (`npm run judge`, Baseten) is not claimed as proven here. The submission core is what is proven: Worker via `meta`, the three-seat panel, MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page. Baseten's mandated model is `meta-models/muse-spark-open-1026`; the plug is blocked on the key only, not on a model pick.
 
-**Submitted 3 November 2026:** Team Volshi, Indie Developer Track, Build for Your World. Public repo: https://github.com/iamvolshi/curator — Demo video: https://www.youtube.com/watch?v=dAWQTCOYPG4 — Live demo: https://volshi-curator.web.app
+**Submitted 3 November 2026:** Team Volshi, Indie Developer Track, Build for Your World. Public repo: https://github.com/iamvolshi/curator — Demo video: https://www.youtube.com/watch?v=YC4BOTF0ERU — Live demo: https://volshi-curator.web.app
 
 **Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Curator code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
 
