@@ -14,6 +14,8 @@ The older work stays separate: the VOLSHi engines, including the KATIE kernel, l
 
 **Submission wrap, 29 October 2026: Baseten is skipped for this submission.** The Baseten plug is wired, but its key was not available for a live prove, so the single-seat Curator judge (`npm run judge`, Baseten) is not claimed as proven here. The submission core is what is proven: Worker via `meta`, the three-seat panel, MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page. Baseten's mandated model is `meta-models/muse-spark-open-1026`; the plug is blocked on the key only, not on a model pick.
 
+**Submitted 3 November 2026:** Team Volshi, Indie Developer Track, Build for Your World. Public repo: https://github.com/iamvolshi/curator — Demo video: https://www.youtube.com/watch?v=dAWQTCOYPG4 — Live demo: https://volshi-curator.web.app
+
 **Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Curator code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
 
 ## Setup
@@ -71,7 +73,7 @@ Every entry is labelled, so a reader always knows what kind of statement they
 are looking at:
 
 - **`fact`** — something observed. A call went out and this is what came back.
-- **`judgment`** — the Overseer's assessment of an observed move. Labelled, in
+- **`judgment`** — the Curator's assessment of an observed move. Labelled, in
 the entry itself, so no reader can mistake it for an observed fact.
 - **`question`** — an open follow-up question on a subject, sitting in that
 subject's thread. It is not a fact and not a judgment, and it darkens nothing.
@@ -119,7 +121,7 @@ question, or that already has one naming it is refused with exit 2, before any
 call. The two options are alternatives, so giving both is also refused.
 
 The **judge** reads the observed moves (facts) and appends what it observes. For
-each move it asks the Overseer's model one question — does the record show the
+each move it asks the Curator's model one question — does the record show the
 basis? If it does, a `judgment` is written naming that move by sequence. If it
 does not, no judgment is written and a `question` is written instead, because a
 judgment needing something the record does not show is not one this record can
@@ -309,13 +311,13 @@ a plain statement of where each of those values came from.
 | Plug | Serves | Address | Key variable | Model |
 | --- | --- | --- | --- | --- |
 | `meta` | the Worker agent | `https://api.meta.ai/v1` | `MODEL_API_KEY` | `muse-spark-1.3`, Meta's documented default |
-| `baseten` | the Overseer agent | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` | `meta-models/muse-spark-open-1026` (Baseten's mandated hackathon model; skipped for this submission, blocked on the key only) |
+| `baseten` | the Curator agent | `https://inference.baseten.co/v1` | `BASETEN_API_KEY` | `meta-models/muse-spark-open-1026` (Baseten's mandated hackathon model; skipped for this submission, blocked on the key only) |
 | `openrouter` | interim development path, in no routing slot | `OPENROUTER_BASE_URL` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL`, none assumed |
 | `nvidia` | the panel's free seats and bank | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` | `NVIDIA_MODEL`, none assumed |
 | `inception` | seat 3 (via `PANEL_SEAT3_PLUG`) | `https://api.inceptionlabs.ai/v1` | `INCEPTION_API_KEY` | `INCEPTION_MODEL`, none assumed |
 | `picture` | the picture kid | `https://api.meta.ai/v1` | `MODEL_API_KEY` (the Worker's key) | `muse-image-1.0`, Meta's image model |
 
-Routing is fixed in `provider/routing.js`: Worker → `meta`, Overseer → `baseten`,
+Routing is fixed in `provider/routing.js`: Worker → `meta`, Curator → `baseten`,
 picture kid → `picture`. A slot names a plug, never a URL or a model, so nothing
 routes around the seam. `openrouter` is wired as a plug but sits in no slot.
 
@@ -351,11 +353,11 @@ Needs Node 22.9 or newer. There are no dependencies to install.
 npm test                # the offline checks, no key and no network needed
 npm run prove:dry       # show the exact request that would be sent; sends nothing
 npm run prove           # one real call on the Worker's plug (meta), recorded, read back
-npm run prove:baseten   # the same, on the Overseer's plug
+npm run prove:baseten   # the same, on the Curator's plug
 npm run prove:openrouter
 npm run task -- --prompt "..."   # one real piece of work, recorded
 npm run folders         # one folder per subject, plus any unfiled questions
-npm run judge           # the Overseer observes the moves (needs Baseten)
+npm run judge           # the Curator observes the moves (needs Baseten)
 npm run judge -- --limit 1   # ...and a first run can cost one call, not one per move
 npm run judge -- --move 5    # ...or judge the one move with seq 5, whichever it is
 npm run judge -- --retry-parked  # offer every move that kept failing again

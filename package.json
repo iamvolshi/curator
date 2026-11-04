@@ -1,8 +1,8 @@
 {
-  "name": "overseer",
+  "name": "curator",
   "version": "0.1.0",
   "private": true,
-  "description": "The Overseer — the K-record accountability layer for agent calls. Outcome 1: wrapper, record store, Muse Spark call path.",
+  "description": "Curator — the K-record accountability layer for agent calls. Outcome 1: wrapper, record store, Muse Spark call path.",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
