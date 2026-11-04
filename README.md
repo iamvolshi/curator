@@ -1,5 +1,7 @@
 # Curator
 
+Curator keeps your whole life, chapter by chapter. Nothing overwritten, nothing deleted. When an agent acts, you can prove what it believed, when, and why.
+
 **Live demo: https://volshi-curator.web.app** · **Muse Spark 1.3 terminal: https://volshi-curator.web.app/terminal.html** · **Technical report: https://volshi-curator.web.app/record-engine.html**
 
 ## Quickstart
