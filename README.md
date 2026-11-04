@@ -35,6 +35,20 @@ The older work stays separate: the VOLSHi engines, including the KATIE kernel, l
 
 **Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Curator code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
 
+## Live demo, 4 November 2026 — the three judges, and how the demo answers
+
+This section describes the live demo at https://volshi-curator.web.app as it stands on 4 November 2026. It supersedes, for the live demo only, the panel seat names in the body below (NVIDIA / Inception / Baseten), which describe the repo's configurable panel as built 26–29 October. The repo code is unchanged by this section; the live demo seats its panel differently, in the browser.
+
+**The three judges — a panel of opinions, not one merged answer.** Judge 1 is Meta Muse 1.3, via the Meta Model API. Judge 2 is Meta Muse 1.1, via the Meta Model API. Judge 3 is OpenRouter Glimmer (`meta/muse-glimmer-30b`), via OpenRouter. Each seat answers on its own and cannot see the others. The synthesis is an MMRC Meta call that consolidates the three replies into one readout: the majority opinion is the highest probable, and dissent is kept, never dropped — a 2–1 readout says so, with the minority reading still on screen.
+
+**Judges only for grading.** Judges are called only for confused, ambiguous, or reasoning questions — authorised, believed, justified, conflict, explain, should. Deterministic work is done deterministically: a question with an answer straight from the record is answered straight from the record, labelled "Agent — deterministic, no judges called", with no pills and no model call. A question with no deterministic hit falls through to the judges, never to a guess. Not-knowing is a first-class answer: when the record does not say, the demo says "I do not know it."
+
+**The demo record.** Ada Okafor is a demo persona; scripted updates are disclosed. The record is 13 entries: 12 facts, 1 question. Chapters over the seeded 49-sentence story, one supporting sentence = +1 shade, cap 9: 8 filed (Origin, Career, Office, Certificate, New rule, Invoices, Supplier, Audit) and 3 grey (Wednesday question, Conflict, Predecessor). A chapter files only at the black band; grey stays open, not filed as certain.
+
+**The Wednesday update.** The update is appended as a new entry; the old Wednesday entry is not edited. Wednesday is then covered by the old rule, confirmed by Priya, and the Wednesday chapter stays grey at 5/9 — the old uncertainty stays visible underneath. Any appended update must be addressed explicitly by every judge and by the synthesis — stated, whether it changes the conclusion, and why not if it does not — never silently dropped.
+
+**Soundtrack.** The demo soundtrack is "Chapter by Chapter" (2:55): the song is the demo narration, one section per chapter, closing each section with the hook "chapter by chapter". Scene timing for the video redo is in [docs/demo-scene-timing.md](docs/demo-scene-timing.md). Full panel detail is in [docs/demo-panel.md](docs/demo-panel.md).
+
 ## Setup
 
 Needs Node 22.9 or newer. There are no dependencies to install.
