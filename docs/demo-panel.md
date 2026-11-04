@@ -8,13 +8,14 @@ Live demo: https://volshi-curator.web.app
 | --- | --- | --- |
 | Judge 1 | Meta Muse 1.3 | Meta Model API, no max_tokens cap |
 | Judge 2 | Meta Muse 1.1 | Meta Model API |
-| Judge 3 | OpenRouter Glimmer (`meta/muse-glimmer-30b`) | OpenRouter, max_tokens 4000 |
+| Judge 3 | OpenRouter Glimmer (`meta/muse-glimmer-30b`), Meta's open-weights 30B model | OpenRouter, max_tokens 4000 |
 
 Earlier seats are superseded in the live demo: NVIDIA Glimmer was swapped out because NVIDIA blocks browser-origin calls, and OpenRouter Spark Open was swapped out because it burned its token cap on reasoning and returned nulls/errors. The repo's configurable panel (NVIDIA / Inception seats, Baseten single judge) is described in the README body and is not the live demo's seating.
 
 ## How it answers
 
 - **Panel of opinions.** Each seat is one voice of three and cannot see the others. Three separate opinions, never one merged opinion.
+- **Open-weights leg.** Judge 3 is Meta's open-weights 30B model, Glimmer. Judges 1 and 2 (Muse 1.3, Muse 1.1) and the picture kid (Muse Image) are hosted Meta Model API models, not open-weights — the open-weights claim rests on Judge 3 alone, and it is made as such.
 - **Synthesis (MMRC).** A Meta call consolidates the three replies. Judge 1's reply shows immediately; the synthesis replaces it in the same place. If synthesis fails within 30 seconds, Judge 1's reply stands.
 - **Majority, dissent kept.** The majority opinion is the highest probable. A 2–1 readout is probable NOT JUSTIFIED (or whatever the majority says), with the dissent — including CANNOT TELL — kept on screen, never dropped. With no majority, no probable is declared and every reading is surfaced.
 - **Judges only for grading.** Judges are called only for confused, ambiguous, or reasoning questions: authorised, believed, justified, conflict, explain, reasoning, should.
