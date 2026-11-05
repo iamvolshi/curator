@@ -12,6 +12,8 @@
 // Each command returns an exit code; 0 means it held.
 
 import { foldersCommand } from '../cli/folders.js';
+import { dueCommand } from '../cli/due.js';
+import { importCommand } from '../cli/import.js';
 import { judgeCommand } from '../cli/judge.js';
 import { liveCommand } from '../cli/live.js';
 import { pageCommand } from '../cli/page.js';
@@ -95,6 +97,23 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       prompt, byte count, never the image bytes — because a paid call with
       no entry is the hole the record exists to close.
 
+  node bin/overseer.js import --whatsapp <chat.txt> [--record PATH] [--chat NAME] [--date-order dmy|mdy] [--subject NAME]
+  node bin/overseer.js import --linkedin <export.zip|folder> [--record PATH]
+      Import a WhatsApp chat export or a LinkedIn data archive into the
+      record: one fact entry per message, classified deterministically
+      (appointment / invitation / contact-request / commitment / other) and
+      deduped by content hash, so re-importing the same file appends
+      nothing. No model call is made. --record points at a scratch record;
+      without it the default record is used. --date-order says how the
+      export writes its dates: dmy (Android, day first) or mdy (iOS, month
+      first). There is no live route: WhatsApp and LinkedIn offer none a
+      personal account can use — see docs/import-live-routes.md.
+
+  node bin/overseer.js due [--record PATH]
+      What is scheduled, what is done, what is still pending — read from the
+      imported entries in the record, grouped by source and by chapter. A
+      view only: it writes nothing.
+
   node bin/overseer.js help
       This text.
 
@@ -128,6 +147,8 @@ const commands = {
   live: () => liveCommand({ args }),
   picture: () => pictureCommand({ args }),
   status: () => statusCommand({ args }),
+  import: () => importCommand({ args }),
+  due: () => dueCommand({ args }),
   help: async () => {
     console.log(USAGE);
     return 0;

@@ -22,6 +22,9 @@
     "live": "node --env-file-if-exists=.env bin/overseer.js live",
     "picture": "node --env-file-if-exists=.env bin/overseer.js picture",
     "status": "node --env-file-if-exists=.env bin/overseer.js status",
+    "import": "node --env-file-if-exists=.env bin/overseer.js import",
+    "due": "node --env-file-if-exists=.env bin/overseer.js due",
+    "demo:import": "node demo-import.mjs",
     "test": "node --test"
   }
 }

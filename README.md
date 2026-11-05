@@ -575,6 +575,26 @@ The mapping follows Meta's published error reference, listed below.
 - The consolidation groups by position and cited basis, and by nothing else. It
   cannot tell whether two seats cite the same entries for different reasons, and
   it cannot catch a wrong citation: a basis is taken as the seat's report gave it.
+
+## Importing WhatsApp and LinkedIn (feature branch)
+
+On the `import/whatsapp-linkedin` branch: import a WhatsApp chat export
+(`.txt`) or a LinkedIn data archive (ZIP or extracted folder) into the
+record — one fact entry per message, classified deterministically
+(appointment / invitation / contact-request / commitment / other, done /
+scheduled / pending), deduped by content hash so a re-import appends
+nothing. No model call is made in the import path, and there is no live
+route: WhatsApp and LinkedIn offer none a personal account can use (see
+`docs/import-live-routes.md`).
+
+```sh
+npm run demo:import   # fictional samples into a scratch record, plus the due view
+node bin/overseer.js import --whatsapp ./chat.txt --record /tmp/my-record.jsonl
+node bin/overseer.js import --linkedin ./export.zip --record /tmp/my-record.jsonl
+node bin/overseer.js due --record /tmp/my-record.jsonl
+```
+
+Full detail: `docs/import.md`.
   Every number in Q2 is read as an entry, so digits inside prose (a model name, a
   date) count as citations; only a cited span is expanded, and never past 64
   entries.
