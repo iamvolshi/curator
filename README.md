@@ -31,7 +31,7 @@ The older work stays separate: the VOLSHi engines, including the KATIE kernel, l
 
 **Submission wrap, 29 October 2026: Baseten is skipped for this submission.** The Baseten plug is wired, but its key was not available for a live prove, so the single-seat Curator judge (`npm run judge`, Baseten) is not claimed as proven here. The submission core is what is proven: Worker via `meta`, the three-seat panel, MMRC consolidation, folders as a view of the record, the 0–9 greyscale, and the readable record page. Baseten's mandated model is `meta-models/muse-spark-open-1026`; the plug is blocked on the key only, not on a model pick.
 
-**Submitted 3 November 2026:** Team Volshi, Indie Developer Track, Build for Your World. Public repo: https://github.com/iamvolshi/curator — Demo video: https://www.youtube.com/watch?v=YC4BOTF0ERU — Live demo: https://volshi-curator.web.app
+**Submitted 3 November 2026:** Team Volshi, Indie Developer Track, Build for Your World. Public repo: https://github.com/iamvolshi/curator — Demo video: https://youtu.be/PPC_hRAgWcg — Live demo: https://volshi-curator.web.app
 
 **Video line:** use this one line to open the 3-minute demo video — "Built during the hackathon: the Curator code in this repo. Pre-existing: the K-record accountability idea, published before the event. No pre-hackathon code is in this repo."
 

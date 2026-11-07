@@ -42,7 +42,7 @@ https://volshi-curator.web.app/record-engine.html
 - Terminal transcript (Muse Spark 1.3 through the wrapper):
   https://volshi-curator.web.app/terminal.html
 - Demo video: 2 minutes 59 seconds, under the 3-minute cutoff.
-  Submitted video: https://www.youtube.com/watch?v=YC4BOTF0ERU
+  Submitted video: https://youtu.be/PPC_hRAgWcg
 
 ## What is NOT claimed
 
