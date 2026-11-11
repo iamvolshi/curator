@@ -14,6 +14,7 @@
 import { foldersCommand } from '../cli/folders.js';
 import { judgeCommand } from '../cli/judge.js';
 import { liveCommand } from '../cli/live.js';
+import { recordServerCommand } from '../cli/record-server.js';
 import { pageCommand } from '../cli/page.js';
 import { panelCommand } from '../cli/panel.js';
 import { proveCommand, DEFAULT_PROMPT } from '../cli/prove.js';
@@ -76,6 +77,12 @@ const USAGE = `Overseer — the K-record accountability layer (Outcome 1 scaffol
       rebuilt from the record, and the page reloads itself when the record grows.
       Ctrl+C stops it.
 
+  node bin/overseer.js record-server [--port 4781]
+      The record sidecar: serve POST /v1/record on 127.0.0.1 for the Rust
+      entity. One POST per ARCHE call, one fact entry per POST, validated
+      and appended in order, answered with the stored entry and its seq.
+      The record file is the one OVERSEER_RECORDS names. Ctrl+C stops it.
+
   node bin/overseer.js status
       Every plug: how it is wired, and whether its address answers. Needs no
       key. Reachability is only probed where a plug names a key-free health
@@ -126,6 +133,7 @@ const commands = {
   records: () => recordsCommand({ args }),
   page: () => pageCommand({ args }),
   live: () => liveCommand({ args }),
+  'record-server': () => recordServerCommand({ args }),
   picture: () => pictureCommand({ args }),
   status: () => statusCommand({ args }),
   help: async () => {
